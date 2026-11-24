@@ -93,6 +93,15 @@ final class Focus {
         flush.run();
     }
 
+    /** The camera failed and is released without close(): the user's focus area stays saved for the next open(). */
+    void drop() {
+        ui.removeCallbacks(refreshLater);
+        if (cam == null) return;
+        cam = null;
+        view.clear();
+        flush.run();
+    }
+
     private CameraEx.ParametersModifier read() {
         return cam.createParametersModifier(cam.getNormalCamera().getParameters());
     }

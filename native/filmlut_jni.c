@@ -46,6 +46,7 @@ static jstring j_apply(JNIEnv *env, jclass cls, jstring jin, jstring jout, jbyte
 
 static jint j_progress(JNIEnv *env, jclass cls) { (void)env; (void)cls; return filmlut_progress(); }
 static jstring j_stats(JNIEnv *env, jclass cls) { (void)cls; return (*env)->NewStringUTF(env, filmlut_stats()); }
+static void j_preview_abort(JNIEnv *env, jclass cls) { (void)env; (void)cls; filmlut_preview_abort(); }
 static void j_cancel(JNIEnv *env, jclass cls) { (void)env; (void)cls; filmlut_cancel(); }
 static void j_set_grain(JNIEnv *env, jclass cls, jint g) { (void)env; (void)cls; filmlut_set_grain(g); }
 static void j_set_halation(JNIEnv *env, jclass cls, jint h) { (void)env; (void)cls; filmlut_set_halation(h); }
@@ -55,7 +56,7 @@ static jintArray j_preview(JNIEnv *env, jclass cls, jstring jpath, jint max_w, j
     char msg[256];
     const char *path = (*env)->GetStringUTFChars(env, jpath, NULL);
     int w = 0, h = 0;
-    int *px = filmlut_preview(path, max_w, max_h, &w, &h, msg, sizeof msg);
+    int *px = filmlut_preview_abortable(path, max_w, max_h, &w, &h, msg, sizeof msg);
     jintArray res = NULL;
     (void)cls;
     (*env)->ReleaseStringUTFChars(env, jpath, path);
@@ -147,6 +148,7 @@ static const JNINativeMethod methods[] = {
     { "setGrain", "(I)V",                                                        (void *)j_set_grain },
     { "setHalation", "(I)V",                                                     (void *)j_set_halation },
     { "preview",  "(Ljava/lang/String;II)[I",                                    (void *)j_preview },
+    { "previewAbort", "()V",                                                     (void *)j_preview_abort },
     { "previewHalation", "(Ljava/lang/String;[IIIII)Z",                          (void *)j_preview_halation },
     { "lutArgb",  "([I[III[B)Z",                                                 (void *)j_lut_argb },
 };

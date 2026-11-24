@@ -214,3 +214,13 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
   that would also leave the camera's image database out of step.
 - Photos' delete guard was tested on the PC against a fake card (originals, RAWs, logs, other files and folders refused).
   Installed and checked on the a7R II.
+
+## 0.46
+- a7 tester (0.45): leaving the photos with a half-press, `startPreview` blocked about 4 s and threw "startPreview
+  failed"; the app did not try again. Cause not known (a 24 MP decode was running until just before; S1 was pressed).
+  Now: the preview decode is stopped when leaving the photos (`filmlut_preview_abort`), the live view is tried again
+  (startPreview, then once with the camera released and opened, then only on half-press), and each failure and
+  recovery is in HANG.TXT. A camera that failed while opening is released. The reopen does not restore the user's
+  settings through the failed camera (openCamera does, as after an abrupt exit) and is split over several messages, so
+  keys never wait 5 s (ANR). Not tried on a camera: nothing here runs unless the live view fails.
+- Shooting help is a line shorter on the a7.

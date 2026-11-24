@@ -66,9 +66,10 @@ $srcs = @(Get-ChildItem -Recurse "$Proj\src", "$Out\gen" -Filter *.java | ForEac
 Run "$Jdk\javac.exe" -source 8 -target 8 -bootclasspath $Jar @cp -encoding UTF-8 "-Xlint:-options" -d "$Out\classes" @srcs
 
 # 3. classes -> classes.dex for Dalvik on Android 2.3
-$classes = @(Get-ChildItem -Recurse "$Out\classes" -Filter *.class | ForEach-Object { $_.FullName })
+# (as one jar: the class list had grown past the command line's length limit)
+Run "$Jdk\jar.exe" cf "$Out\classes.jar" -C "$Out\classes" .
 $d8cp = @(); if (Test-Path "$Out\stubs.jar") { $d8cp = @("--classpath", "$Out\stubs.jar") }
-Run "$Bt\d8.bat" --release --min-api 10 --lib $Jar @d8cp --output "$Out\dex" @classes
+Run "$Bt\d8.bat" --release --min-api 10 --lib $Jar @d8cp --output "$Out\dex" "$Out\classes.jar"
 
 # 4. Add the dex (+ lib/<abi>/*.so), align, sign (v1 JAR signature: the only scheme Android 2.3 checks)
 $addPy = @'

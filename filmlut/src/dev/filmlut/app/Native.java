@@ -34,6 +34,9 @@ public final class Native {
     /** Asks the running conversion to stop (it then deletes its temp file). */
     public static native void cancel();
 
+    /** Stops the preview() decodes running now (they return null). */
+    public static native void previewAbort();
+
     /** Small decode that fits maxW x maxH: [w, h, argb...], or null. */
     public static native int[] preview(String path, int maxW, int maxH);
 

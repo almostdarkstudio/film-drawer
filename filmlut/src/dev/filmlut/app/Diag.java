@@ -52,6 +52,9 @@ public final class Diag {
         }
     }
 
+    /** A problem worth reporting, with the recent events, always written: FILMDRAW/HANG.TXT. */
+    static void report(String what) { write("HANG.TXT", what + "\n" + traceText()); }
+
     private static Boolean verbose;
 
     /**

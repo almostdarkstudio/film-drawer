@@ -216,6 +216,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     protected void onPause() {
         super.onPause();
         ui.removeCallbacks(modeDialSettled);
+        s1Down = false;
         Diag.trace("pause");
         if (deleteFile != null) closeDelete();
         Diag.dumpTrace("left the app (pause)");
@@ -454,7 +455,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             text = helpVisible
                     ? "Film Drawer " + appVersion + "  (free, MIT licence)\n"
                       + (wheelIsIso() ? "Up/Down: look   Wheel: ISO" : "Wheel/Up/Down: look") + "   Left/Right: group   Fn: base   C1: size   C2: grain\n"
-                      + (dialIndex == 1 ? "Front: shutter/EV   Rear: aperture" : "Front: aperture   Rear: shutter/EV") + "   Trash: controls   PLAY: converted photos   MENU: menu"
+                      + (dialIndex == 1 ? "Front: shutter/EV   Rear: aperture" : "Front: aperture   Rear: shutter/EV") + "   Trash: controls   PLAY: photos   MENU"
                     : null;
         } else if (photos == null || photos.isEmpty()) {
             text = (showConverted ? "No converted photos yet    Fn: all photos" : "No JPEGs on the card    Fn: converted")
@@ -513,7 +514,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void enterShoot() {
         Diag.trace("enter shoot");
         synchronized (previewLock) { convCache.clear(); prefetchTask = null; previewRequest = null; previewGen++; }   // free ~4 MB of browse cache
+        Native.previewAbort();         // a 24 MP decode takes seconds on an a7, just as the live view starts
         hideLoading();                 // left before the photo appeared: it never will now
+        clearLiveFailure();
         boolean wasBrowsing = browsing;
         browsing = false;
         showOriginal = false;
@@ -544,13 +547,16 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             applyModeDial(false);                          // turned while browsing, say
             readImageSizes();
             applyBase();
-            startLiveView();
+            if (liveTries == 0) startLiveView(); else ui.post(startLiveLater);
             focus.open(camera);
             Controls.dump(camera);
             applyEvDial(false);                            // match the EV dial's position
         } catch (Throwable t) {
+            CameraEx c = camera;
             camera = null;
-            flash("Camera unavailable:\n" + t + "\nPLAY: browse photos", 0);
+            focus.drop();
+            if (c != null) try { c.release(); } catch (Throwable ignored) {}      // else it cannot be opened again
+            liveFailed("Camera unavailable", t);
         } finally {
             opening = null;
         }
@@ -561,9 +567,81 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         try {
             camera.getNormalCamera().setPreviewDisplay(live.getHolder());
             camera.getNormalCamera().startPreview();
+            if (liveTries > 0) {
+                Diag.report("Live view started on try " + (liveTries + 1));
+                hideCentre.run();
+                ui.removeCallbacks(hideCentre);
+                setNote("Live view is back");
+            }
+            liveTries = 0;
         } catch (Throwable t) {
-            flash("Live view failed: " + t, 4000);
+            liveFailed("Live view failed", t);
         }
+    }
+
+    // On a tester's a7 (0.45) startPreview sometimes gave up after 4 s when leaving the photos. Tried again: first
+    // startPreview alone, then once with the camera released and opened; after that only when the user asks (half-press).
+    private static final int LIVE_RETRIES = 2;
+    private int liveTries;                        // failed tries in a row; 0 = live view is fine
+    private long liveWaitUntil;                   // how long a retry waits for the shutter button
+
+    private void liveFailed(String what, Throwable t) {
+        liveTries++;
+        Diag.report(what + " (try " + liveTries + (s1Down ? ", half-pressed" : "") + (jobs != null && jobs.pending() > 0 ? ", converting" : "") + "): " + t);
+        if (liveTries <= LIVE_RETRIES) retryLiveSoon();
+        else {
+            ui.removeCallbacks(retryLive);
+            flash(what + "\n" + t + "\nHalf-press: try again     PLAY: photos", 0);
+        }
+    }
+
+    private void retryLiveSoon() {
+        flash("Starting the live view again...", 0);
+        liveWaitUntil = System.currentTimeMillis() + 3000;
+        ui.removeCallbacks(retryLive);
+        ui.removeCallbacks(reopenLive);
+        ui.postDelayed(retryLive, 700);
+    }
+
+    // In steps (release, then open, then start: posted), so keys are handled in between: startPreview alone can block
+    // for 4 s, and Android closes an app that leaves a key waiting for 5.
+    private final Runnable retryLive = new Runnable() {
+        public void run() {
+            if (browsing) return;
+            if (!surfaceReady || s1Down && System.currentTimeMillis() < liveWaitUntil) { ui.postDelayed(this, 300); return; }
+            Diag.trace("live view: trying again");
+            if (camera != null && liveTries == 1) { startLiveView(); return; }
+            // Not closeCamera(): the user's settings are not put back through a camera that does not answer properly.
+            // They stay saved, and opening it puts them back first, as after an abrupt exit.
+            if (camera != null) {
+                aeLocked = false;
+                endMoveSpot();
+                focus.drop();
+                try { camera.release(); } catch (Throwable ignored) {}
+                camera = null;
+            }
+            ui.postDelayed(reopenLive, 300);
+        }
+    };
+
+    private final Runnable reopenLive = new Runnable() {
+        public void run() {
+            if (browsing || camera != null) return;
+            openCamera();                         // posts the start, see there
+            updateTexts();
+        }
+    };
+
+    private final Runnable startLiveLater = new Runnable() {
+        public void run() { startLiveView(); }
+    };
+
+    /** The "starting again" / "failed" message goes when the user moves on. */
+    private void clearLiveFailure() {
+        if (liveTries == 0) return;
+        liveTries = 0;
+        ui.removeCallbacks(hideCentre);
+        hideCentre.run();
     }
 
     // ---- focus mode (menu): AF / MF / DMF via Camera.Parameters "focus-mode" (manual, auto, dmf).
@@ -703,6 +781,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     }
 
     private void closeCamera() {
+        ui.removeCallbacks(retryLive);
+        ui.removeCallbacks(reopenLive);
+        ui.removeCallbacks(startLiveLater);
         if (camera == null) return;
         if (aeLocked) setAeLock(false);                    // never leave exposure locked
         endMoveSpot();
@@ -1186,7 +1267,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     }
 
     private void shutterPressed() {
-        if (camera == null) return;
+        if (camera == null || liveTries > 0) return;
         if (sharpPending) { ui.removeCallbacks(applySharpnessLater); applySharpnessLater.run(); }   // look just changed
         try {
             if (rawOnly) {                                  // no JPEG will come: never queue a look for it
@@ -1259,6 +1340,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     private void enterBrowse() {
         Diag.trace("enter browse");
+        clearLiveFailure();
         closeCamera();
         boolean wasShooting = !browsing;
         browsing = true;
@@ -1475,8 +1557,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (!original && out.exists()) {
             // Already converted with this look: show the real result rather than a preview of it.
             int[] px = Native.preview(out.getAbsolutePath(), PREVIEW_MAX_W, PREVIEW_MAX_H);
-            if (px == null) { postFlash("Cannot read " + out.getName()); return; }
             if (stale(gen)) return;
+            if (px == null) { postFlash("Cannot read " + out.getName()); return; }
             bmp = toBitmap(px, out);
         } else {
             int[] src;
@@ -1485,7 +1567,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             }
             if (src == null) {
                 src = Native.preview(photo.getAbsolutePath(), PREVIEW_MAX_W, PREVIEW_MAX_H);
-                if (src == null) { postFlash("Cannot read " + photo.getName()); return; }
+                if (src == null) { if (!stale(gen)) postFlash("Cannot read " + photo.getName()); return; }
                 synchronized (previewLock) {
                     previewPath = photo.getAbsolutePath();
                     previewPixels = src;
@@ -2204,6 +2286,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case K_S1:
                 s1Down = true;
                 if (browsing) { enterShoot(); return true; }
+                if (liveTries > 0) {                               // no live view: try again once released
+                    if (liveTries > LIVE_RETRIES && event.getRepeatCount() == 0) {
+                        liveTries = LIVE_RETRIES;          // one more: released and opened
+                        retryLiveSoon();
+                    }
+                    return true;
+                }
                 // Half-press autofocuses, except in MF (DMF: AF first, then the ring, as on the camera).
                 if (camera != null && event.getRepeatCount() == 0 && !"manual".equals(currentFocusMode())) {
                     try { camera.getNormalCamera().autoFocus(null); } catch (Throwable ignored) {}
@@ -2243,6 +2332,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
         if (looks == null || jobs == null) return super.onKeyUp(keyCode, event);
+        if (event.getScanCode() == K_S1) s1Down = false;           // also when the release is swallowed below
         if (swallowUp != 0 && event.getScanCode() == swallowUp) { swallowUp = 0; return true; }   // it ended a review
         switch (event.getScanCode()) {
             case K_S1:

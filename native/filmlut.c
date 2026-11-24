@@ -1650,8 +1650,12 @@ int filmlut_bench(const char *in_path, const lut3d *l, const char *out_path, cha
 
 /* ---- public: small preview ------------------------------------------- */
 
-int *filmlut_preview(const char *path, int max_w, int max_h, int *out_w, int *out_h, char *msg, size_t msglen)
+static volatile int g_pv_abort;                /* counts requests: a decode started later is not affected */
+void filmlut_preview_abort(void) { g_pv_abort++; }
+
+static int *preview_decode(const char *path, int max_w, int max_h, int *out_w, int *out_h, char *msg, size_t msglen, int abortable)
 {
+    const int abort0 = g_pv_abort;
     struct jpeg_decompress_struct d;
     err_mgr e;
     FILE *f;
@@ -1712,6 +1716,7 @@ int *filmlut_preview(const char *path, int max_w, int max_h, int *out_w, int *ou
     if (!img) { snprintf(e.msg, sizeof e.msg, "out of memory"); longjmp(e.jump, 1); }
     row = (*d.mem->alloc_sarray)((j_common_ptr)&d, JPOOL_IMAGE, w * 3, 1);
     for (y = 0; d.output_scanline < h; y++) {
+        if (abortable && g_pv_abort != abort0) { snprintf(e.msg, sizeof e.msg, "stopped"); longjmp(e.jump, 1); }
         jpeg_read_scanlines(&d, row, 1);
         memcpy(img + (size_t)y * w * 3, row[0], (size_t)w * 3);
     }
@@ -1745,6 +1750,16 @@ int *filmlut_preview(const char *path, int max_w, int max_h, int *out_w, int *ou
     *out_w = (int)ow;
     *out_h = (int)oh;
     return out;
+}
+
+int *filmlut_preview(const char *path, int max_w, int max_h, int *out_w, int *out_h, char *msg, size_t msglen)
+{
+    return preview_decode(path, max_w, max_h, out_w, out_h, msg, msglen, 0);
+}
+
+int *filmlut_preview_abortable(const char *path, int max_w, int max_h, int *out_w, int *out_h, char *msg, size_t msglen)
+{
+    return preview_decode(path, max_w, max_h, out_w, out_h, msg, msglen, 1);
 }
 
 /* ---- public: halation on a preview ----------------------------------- */

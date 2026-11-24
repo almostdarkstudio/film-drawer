@@ -38,6 +38,9 @@ void filmlut_cancel(void);
 
 /* Fast small decode (DCT-scaled, box-filtered) into a malloc'd ARGB array that
  * fits max_w x max_h. Caller frees. NULL on error (reason in msg). */
+/* Screen previews only (not the one made during a conversion): stop the decodes running now; they return NULL. */
+void filmlut_preview_abort(void);
+int *filmlut_preview_abortable(const char *path, int max_w, int max_h, int *out_w, int *out_h, char *msg, size_t msglen);
 int *filmlut_preview(const char *path, int max_w, int max_h, int *out_w, int *out_h, char *msg, size_t msglen);
 
 /* Decoder speed options for the full-size path: ifast = JDCT_IFAST IDCT, plain = no fancy
