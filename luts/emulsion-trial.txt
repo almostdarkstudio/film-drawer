@@ -1,0 +1,21 @@
+# Trial: EmulsionPresets (MIT, github.com/peva3/EmulsionPresets @ 4312c97), baked by xmp2lut.py.
+# <id> | <TAG> | <menu name> | <path under Presets/>
+gold200    | G20 | Gold 200        | Color-Negative/Kodak Gold 200.xmp
+ultramax   | UMX | UltraMax 400    | Color-Negative/Kodak Ultramax 400.xmp
+colorplus  | CP2 | ColorPlus 200   | Color-Negative/Kodak ColorPlus 200.xmp
+cs800t     | C8T | CineStill 800T  | Creative/Cinestill 800T.xmp
+cs50d      | C5D | CineStill 50D   | Color-Negative/CineStill-50D.xmp
+vision250d | V25 | Vision3 250D    | Color-Negative/Kodak Vision3 250D.xmp
+vision500t | V5T | Vision3 500T    | Color-Negative/Kodak Vision3 500T.xmp
+fujic200   | C20 | Fujicolor C200  | Color-Negative/Fujicolor C200.xmp
+# Batch 2 (look review 2026-11-23)
+k2383         | K23 | Kodak 2383 Print   | Creative/Kodak-2383-Print-Film.xmp
+pro160ns      | 16N | Fuji Pro 160NS     | Color-Negative/Fuji Pro 160NS.xmp
+sx70          | SX7 | Polaroid SX-70     | Creative/Polaroid SX-70.xmp
+classicchrome | CCH | Classic Chrome     | Color-Negative/Fujifilm Classic Chrome.xmp
+classicneg    | CNG | Classic Negative   | Color-Negative/Fujifilm Classic Negative.xmp
+# Batch 3 (premium stocks, 2026-11-23). The preset's Aerochrome was replaced by our own (aerochrome.py):
+# Lightroom HSL cannot turn foliage red.
+e100          | E10 | Ektachrome E100    | Slide/Kodak Ektachrome E100.xmp
+eterna        | ETR | Fujifilm Eterna    | Color-Negative/Fujifilm-Eterna.xmp
+metropolis    | MTR | Lomo Metropolis    | Creative/Lomography-Metropolis.xmp

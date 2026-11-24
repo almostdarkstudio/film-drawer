@@ -1,0 +1,68 @@
+Film LUT - third-party notices
+==============================
+
+Film LUT is free software (MIT licence, see LICENSE). It contains the following
+third-party material, each under its own licence.
+
+
+1. libjpeg-turbo 2.1.5.1  (JPEG decoding and encoding, linked into libfilmlut.so)
+-------------------------------------------------------------------------------
+
+This software is based in part on the work of the Independent JPEG Group.
+
+libjpeg-turbo is covered by the IJG License, the Modified (3-clause) BSD
+License and the zlib License. https://libjpeg-turbo.org/
+
+The Modified (3-clause) BSD License:
+
+Copyright (C)2009-2023 D. R. Commander.  All Rights Reserved.
+Copyright (C)2015 Viktor Szathmáry.  All Rights Reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+- Redistributions of source code must retain the above copyright notice,
+  this list of conditions and the following disclaimer.
+- Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+- Neither the name of the libjpeg-turbo Project nor the names of its
+  contributors may be used to endorse or promote products derived from this
+  software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS",
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+
+2. Film looks  (assets/luts/*.lut)
+---------------------------------
+
+The full attribution and licence texts are in assets/luts/LICENSE.txt
+(also in the download as LOOKS-LICENSE.txt). In short:
+
+- Aerochrome: made for Film LUT (luts/aerochrome.py), MIT like the app.
+- Looks derived from the RawTherapee Film Simulation Collection (2015-09-20)
+  by Pat David, Pavlov Dmitry and Michael Ezra: CC BY-SA 4.0
+  (https://creativecommons.org/licenses/by-sa/4.0/). The derived .lut files
+  are shared under the same licence.
+- Looks baked from EmulsionPresets by peva3
+  (https://github.com/peva3/EmulsionPresets): MIT License.
+
+
+3. Names and trademarks
+-----------------------
+
+Film stock and product names (Kodak, Portra, Ektar, Fujifilm, Classic Chrome,
+CineStill, Polaroid, Ilford and others) are trademarks of their owners and are
+used only to describe the look each LUT approximates. Film LUT is not
+affiliated with or endorsed by any of them, nor by Sony. "Sony", "a7R II" and
+"PlayMemories" are trademarks of Sony Group Corporation.

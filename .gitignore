@@ -1,0 +1,13 @@
+build/
+release/
+samples/
+keys/
+vendor/
+.venv-tools/
+luts/out*/
+luts/report/
+*.jks
+pass.txt
+*.ARW
+*.JPG
+*.jpg

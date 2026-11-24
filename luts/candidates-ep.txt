@@ -1,0 +1,3 @@
+# Candidate CineStill 800T versions (EmulsionPresets), evaluated against the current one.
+cs800tpush  | C8P | CineStill 800T Pushed | Creative/Pushed-CineStill-800T.xmp
+cs800tvid   | C8V | CineStill 800T Video  | Video/Cinestill 800T Video.xmp

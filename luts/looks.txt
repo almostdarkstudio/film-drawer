@@ -1,0 +1,24 @@
+# Curated looks for the camera app: <id> | <3-char file tag> | <menu name> | <path inside HaldCLUT.zip>
+# Tags prefix output names, which must be 8.3 on the camera card (e.g. P4002097.JPG).
+# Source: RawTherapee Film Simulation Collection 2015-09-20, CC BY-SA 4.0
+# (Pat David, Pavlov Dmitry, Michael Ezra). Film names are for identification only.
+portra160  | P16 | Portra 160        | HaldCLUT/Color/Kodak/Kodak Portra 160 2.png
+portra400  | P40 | Portra 400        | HaldCLUT/Color/Kodak/Kodak Portra 400 2.png
+portra800  | P80 | Portra 800        | HaldCLUT/Color/Kodak/Kodak Portra 800 2.png
+ektar100   | EKT | Ektar 100         | HaldCLUT/Color/Kodak/Kodak Ektar 100.png
+kchrome64  | K64 | Kodachrome 64     | HaldCLUT/Color/Kodak/Kodak Kodachrome 64.png
+ekta100vs  | EVS | Ektachrome 100VS  | HaldCLUT/Color/Kodak/Kodak Ektachrome 100 VS.png
+fuji400h   | F4H | Fuji 400H         | HaldCLUT/Color/Fuji/Fuji 400H 2.png
+superia400 | S40 | Superia 400       | HaldCLUT/Color/Fuji/Fuji Superia 400 2.png
+velvia50   | V50 | Velvia 50         | HaldCLUT/Color/Fuji/Fuji Velvia 50.png
+provia100f | PRV | Provia 100F       | HaldCLUT/Color/Fuji/Fuji Provia 100F.png
+astia100f  | AST | Astia 100F        | HaldCLUT/Color/Fuji/Fuji Astia 100F.png
+vista200   | AGV | Agfa Vista 200    | HaldCLUT/Color/Agfa/Agfa Vista 200.png
+pola669    | 669 | Polaroid 669      | HaldCLUT/Color/Polaroid/Polaroid 669 3.png
+superiaxp  | SXP | Superia 200 X-Pro | HaldCLUT/Color/Fuji/Fuji Superia 200 XPRO.png
+lomoxpro   | LXP | Lomo X-Pro 200    | HaldCLUT/Color/Lomography/Lomography X-Pro Slide 200.png
+trix400    | TRX | Tri-X 400         | HaldCLUT/Black-and-White/Kodak/Kodak TRI-X 400 2.png
+hp5plus    | HP5 | HP5 Plus 400      | HaldCLUT/Black-and-White/Ilford/Ilford HP5 Plus 400.png
+acros100   | ACR | Acros 100         | HaldCLUT/Black-and-White/Fuji/Fuji Neopan Acros 100.png
+delta100   | D10 | Delta 100         | HaldCLUT/Black-and-White/Ilford/Ilford Delta 100.png
+tmax400    | TMX | T-Max 400         | HaldCLUT/Black-and-White/Kodak/Kodak T-Max 400.png

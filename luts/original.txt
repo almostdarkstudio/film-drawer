@@ -1,0 +1,2 @@
+# Looks made for Film LUT itself (MIT licence, like the app), built by their own scripts into out-original/.
+aerochrome    | AER | Aerochrome         | aerochrome.py

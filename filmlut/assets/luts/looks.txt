@@ -1,0 +1,39 @@
+gold200|G20|Gold 200|35|0|Kodak negative;Kodak|0
+ultramax|UMX|UltraMax 400|45|0|Kodak negative;Kodak|0
+colorplus|CP2|ColorPlus 200|40|0|Kodak negative;Kodak|0
+portra160|P16|Portra 160|20|0|Kodak negative;Kodak|0
+portra400|P40|Portra 400|35|0|Kodak negative;Kodak|0
+portra800|P80|Portra 800|50|0|Kodak negative;Kodak|0
+ektar100|EKT|Ektar 100|15|0|Kodak negative;Kodak|0
+vision250d|V25|Vision3 250D|30|0|Cinema;Cine|0
+vision500t|V5T|Vision3 500T|45|0|Cinema;Cine|0
+cs50d|C5D|CineStill 50D|20|30|Cinema;Cine|-2
+cs800t|C8T|CineStill 800T|75|80|Cinema;Cine|-3
+k2383|K23|Kodak 2383 Print|30|0|Cinema;Cine|0
+eterna|ETR|Fujifilm Eterna|30|0|Cinema;Cine|0
+fujic200|C20|Fujicolor C200|35|0|Fuji & Agfa negative;Fuji|0
+superia400|S40|Superia 400|40|0|Fuji & Agfa negative;Fuji|0
+superia1600|S16|Superia 1600|70|0|Fuji & Agfa negative;Fuji|0
+reala100|R10|Reala 100|25|0|Fuji & Agfa negative;Fuji|0
+fuji400h|F4H|Fuji 400H|35|0|Fuji & Agfa negative;Fuji|0
+vista200|AGV|Agfa Vista 200|35|0|Fuji & Agfa negative;Fuji|0
+pro160ns|16N|Fuji Pro 160NS|25|0|Fuji & Agfa negative;Fuji|0
+classicchrome|CCH|Classic Chrome|20|0|Fuji simulations;Sims|0
+classicneg|CNG|Classic Negative|30|0|Fuji simulations;Sims|0
+kchrome64|K64|Kodachrome 64|20|0|Slide;Slide|0
+ekta100vs|EVS|Ektachrome 100VS|20|0|Slide;Slide|0
+e100|E10|Ektachrome E100|15|0|Slide;Slide|0
+velvia50|V50|Velvia 50|15|0|Slide;Slide|0
+provia100f|PRV|Provia 100F|20|0|Slide;Slide|0
+astia100f|AST|Astia 100F|20|0|Slide;Slide|0
+pola669|669|Polaroid 669|35|0|Instant;Instant|0
+sx70|SX7|Polaroid SX-70|35|0|Instant;Instant|0
+fp100c|FPC|Fuji FP-100C|30|0|Instant;Instant|0
+metropolis|MTR|Lomo Metropolis|45|0|Specialty;Special|0
+aerochrome|AER|Aerochrome|35|0|Specialty;Special|0
+trix400|TRX|Tri-X 400|55|0|Black & white;B&W|0
+hp5std|HPS|HP5 (standard)|55|0|Black & white;B&W|0
+tmax400|TMX|T-Max 400|40|0|Black & white;B&W|0
+acros100|ACR|Acros 100|25|0|Black & white;B&W|0
+delta3200|D32|Delta 3200|80|0|Black & white;B&W|0
+panf50|PF5|Pan F Plus 50|10|0|Black & white;B&W|0

@@ -1,0 +1,60 @@
+# Looks shipped in the Film LUT app, in menu order:
+#   <id>  [default grain 0-100 for "Grain: Auto"]  [strength % - blend toward the original, default 100]
+#         [halation 0-100]  [camera sharpness -3..3 while shooting this look, default 0 = unchanged]
+#         [halation 0-100: red-orange glow around light sources; CineStill stocks only (no remjet)]
+# "## Name | Short" lines start a menu group (left/right jump between groups; the short name is used
+# in the group strip on the look card).
+# (ids from looks.txt, emulsion-trial.txt or candidates-rt.txt). Grain: fine stocks low, 400 medium, 800+ high.
+# Batch 2 (2026-11-23): Superia 1600, Pro 160NS, Classic Chrome/Negative, Kodak 2383 (80%: heavy on
+# skin), Polaroid SX-70, Delta 3200.
+# Batch 3 (2026-11-23): Ektachrome E100 (55%: the preset is overdone), Eterna, Reala 100, FP-100C,
+# Metropolis (85%), Aerochrome (our own, aerochrome.py), Pan F Plus 50.
+# Strengths from the look review on skin/sky/sunset/night test photos (2026-11-23): Portra, Superia,
+# the Kodak slide films, Astia and Polaroid were the right character but overdone.
+## Kodak negative | Kodak
+gold200     35
+ultramax    45
+colorplus   40
+portra160   20   60
+portra400   35   65
+portra800   50   60
+ektar100    15
+## Cinema | Cine
+vision250d  30
+vision500t  45
+cs50d       20   100  30   -2
+cs800t      75   100  80   -3
+k2383       30   80
+eterna      30
+## Fuji & Agfa negative | Fuji
+fujic200    35
+superia400  40   70
+superia1600 70
+reala100    25
+fuji400h    35
+vista200    35
+pro160ns    25
+## Fuji simulations | Sims
+classicchrome 20
+classicneg  30
+## Slide | Slide
+kchrome64   20   75
+ekta100vs   20   80
+e100        15   55
+velvia50    15
+provia100f  20
+astia100f   20   70
+## Instant | Instant
+pola669     35   75
+sx70        35
+fp100c      30
+## Specialty | Special
+metropolis  45   85
+aerochrome  35
+## Black & white | B&W
+trix400     55
+hp5std      55
+tmax400     40
+acros100    25
+delta3200   80
+panf50      10

@@ -1,0 +1,6 @@
+# Per-look colour tweaks baked into the LUT by assemble.py (after the strength blend).
+#   <id>  yellow=<sat factor>  green=<sat factor>
+# Hue-selective saturation: yellow ~35-75 deg, green ~75-160 deg (smooth edges), 1 = unchanged.
+# CineStill 800T (2026-11-23 review of night shots): real 800T keeps yellows and greens muted and a
+# little sickly under mixed light; the EmulsionPresets bake left them clean and punchy.
+cs800t   yellow=0.48  green=0.62
