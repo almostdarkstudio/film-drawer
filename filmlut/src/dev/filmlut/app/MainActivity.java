@@ -156,6 +156,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("filmlut", MODE_PRIVATE);
+        user = new UserSettings(prefs);
         try { appVersion = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception ignored) {}
         Diag.install(appVersion);
         buildViews();
@@ -539,9 +540,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         try {
             camera = CameraEx.open(0, null);
             if (Diag.verbose()) dumpCameraParameters();   // FILMDRAW/DEBUG.TXT on the card turns it on
-            restoreUserFocus();                            // left over from an abrupt exit
-            restoreUserSharpness();
-            if (prefs.getBoolean("userSaved", false)) restoreUserStyle();
+            restoreUser("open", UserSettings.G_FOCUS, UserSettings.G_SHARPNESS, UserSettings.G_STYLE, UserSettings.G_SIZE, UserSettings.G_DRO);   // left over from an abrupt exit
             opening = camera.getNormalCamera().getParameters();
             applyStorageFormat();                          // before the size: there must be a JPEG
             applyModeDial(false);                          // turned while browsing, say
@@ -767,17 +766,58 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         }
     }
 
-    private void restoreUserFocus() {
-        String m = prefs.getString("userFocusMode", null);
-        if (camera == null || m == null) return;
-        try {
-            android.hardware.Camera.Parameters p = camera.createEmptyParameters();
-            p.setFocusMode(m);
-            camera.getNormalCamera().setParameters(p);
-            prefs.edit().remove("userFocusMode").commit();
-        } catch (Throwable t) {
-            flash("Could not restore your focus mode (" + m + "): " + t, 4000);
+    // ---- the user's own settings (UserSettings): the camera side
+
+    private UserSettings user;
+
+    private final UserSettings.Cam userCam = new UserSettings.Cam() {
+        public Map<String, String> read() {
+            return settings(camera.getNormalCamera().getParameters());
         }
+
+        public void set(Map<String, String> v) {
+            android.hardware.Camera.Parameters p = camera.createEmptyParameters();
+            CameraEx.ParametersModifier m = camera.createParametersModifier(p);
+            for (Map.Entry<String, String> e : v.entrySet()) {
+                String k = e.getKey(), s = e.getValue();
+                if (k.equals(UserSettings.FOCUS)) p.setFocusMode(s);
+                else if (k.equals(UserSettings.SHARPNESS)) m.setSharpness(Integer.parseInt(s));
+                else if (k.equals(UserSettings.MODE)) m.setColorMode(s);
+                else if (k.equals(UserSettings.CONTRAST)) m.setContrast(Integer.parseInt(s));
+                else if (k.equals(UserSettings.SATURATION)) m.setSaturation(Integer.parseInt(s));
+                else if (k.equals(UserSettings.SIZE)) m.setImageSize(s);
+                else if (k.equals(UserSettings.DRO)) m.setDROMode(s);
+                else if (k.equals(UserSettings.DRO_LEVEL)) m.setDROLevel(Integer.parseInt(s));
+                else if (k.equals(UserSettings.FORMAT)) m.setPictureStorageFormat(s);
+            }
+            camera.getNormalCamera().setParameters(p);
+        }
+    };
+
+    /** The settings the app touches, as this camera reports them (null = it does not). */
+    private Map<String, String> settings(android.hardware.Camera.Parameters p) {
+        CameraEx.ParametersModifier m = camera.createParametersModifier(p);
+        Map<String, String> v = new HashMap<String, String>();
+        try { v.put(UserSettings.FOCUS, p.getFocusMode()); } catch (Throwable ignored) {}
+        try { v.put(UserSettings.SHARPNESS, "" + m.getSharpness()); } catch (Throwable ignored) {}
+        try { v.put(UserSettings.MODE, m.getColorMode()); } catch (Throwable ignored) {}
+        try { v.put(UserSettings.CONTRAST, "" + m.getContrast()); } catch (Throwable ignored) {}
+        try { v.put(UserSettings.SATURATION, "" + m.getSaturation()); } catch (Throwable ignored) {}
+        try { v.put(UserSettings.SIZE, m.getImageSize()); } catch (Throwable ignored) {}
+        try { v.put(UserSettings.DRO, m.getDROMode()); } catch (Throwable ignored) {}
+        try { v.put(UserSettings.DRO_LEVEL, "" + m.getDROLevel()); } catch (Throwable ignored) {}
+        try { v.put(UserSettings.FORMAT, m.getPictureStorageFormat()); } catch (Throwable ignored) {}
+        return v;
+    }
+
+    /** Puts the user's own settings back; what the camera does not take stays saved, for the next time. */
+    private void restoreUser(String when, int... groups) {
+        if (camera == null) return;
+        String left = user.restore(userCam, groups);
+        if (left == null) return;
+        Diag.report("Settings not put back (" + when + (user.gaveUp() ? ", given up" : "") + "): " + left);
+        if (user.gaveUp()) flash("Please check your camera settings.\nNot put back: " + left, 8000);
+        else setNote("Some camera settings not back yet");
     }
 
     private void closeCamera() {
@@ -788,10 +828,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (aeLocked) setAeLock(false);                    // never leave exposure locked
         endMoveSpot();
         focus.close();
-        restoreUserFocus();
-        restoreUserSharpness();
-        restoreUserStyle();
-        restoreUserStorageFormat();                        // last: the JPEG size above needs a JPEG
+        // The quality on its own, last: with RAW the camera may not report a JPEG size to check.
+        restoreUser("close", UserSettings.G_FOCUS, UserSettings.G_SHARPNESS, UserSettings.G_STYLE, UserSettings.G_SIZE, UserSettings.G_DRO);
+        restoreUser("close", UserSettings.G_FORMAT);
         try {
             camera.release();
         } catch (Throwable ignored) {
@@ -804,19 +843,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     /**
      * Applies the in-app shooting settings: base Creative Style (+ contrast/saturation 0, unless
      * "camera") and the JPEG size. The user's own values are saved to prefs FIRST and put back by
-     * restoreUserStyle(); if a session ends abruptly, they stay in prefs and are restored the next
-     * time the camera opens.
+     * restoreUser(); if a session ends abruptly, they stay in prefs and are restored the next
+     * time the camera opens. Values still waiting to be put back are never overwritten (saveBase).
      */
     private void applyBase() {
         if (camera == null) return;
-        if (prefs.getBoolean("userSaved", false)) restoreUserStyle();   // left over from an abrupt exit
-        // Never overwrite saved originals with our own settings: if they could not be restored, stop here.
-        if (prefs.getBoolean("userSaved", false)) return;
         String base = BASES[baseIndex];
         String size = SIZES[sizeIndex];
         boolean style = !"camera".equals(base);
         try {
-            CameraEx.ParametersModifier cur = camera.createParametersModifier(params());
+            android.hardware.Camera.Parameters now = params();
+            CameraEx.ParametersModifier cur = camera.createParametersModifier(now);
             List modes = cur.getSupportedColorModes();
             if (style && modes != null && !modes.contains(base)) {
                 flash("Base '" + base + "' not supported here", 3000);
@@ -829,14 +866,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             // look would come out differently shot to shot.
             List dros = style ? cur.getSupportedDROModes() : null;
             boolean dro = style && (dros == null || dros.contains("off"));
-            if (!style && !sized) return;
-            prefs.edit().putBoolean("userSaved", true)
-                    .putBoolean("userStyleSaved", style).putString("userMode", cur.getColorMode())
-                    .putInt("userContrast", cur.getContrast()).putInt("userSaturation", cur.getSaturation())
-                    .putBoolean("userSizeSaved", sized).putString("userImageSize", cur.getImageSize())
-                    .putBoolean("userDroSaved", dro).putString("userDroMode", dro ? cur.getDROMode() : null)
-                    .putInt("userDroLevel", dro ? cur.getDROLevel() : 0)
-                    .commit();
+            // Never change what cannot be saved first.
+            Map<String, String> mine = settings(now);
+            if (mine.get(UserSettings.MODE) == null || mine.get(UserSettings.CONTRAST) == null || mine.get(UserSettings.SATURATION) == null) style = false;
+            if (mine.get(UserSettings.SIZE) == null) sized = false;
+            if (mine.get(UserSettings.DRO) == null) dro = false;
+            if (!style && !sized && !dro) return;
+            user.saveBase(mine, style, sized, dro);
             android.hardware.Camera.Parameters p = camera.createEmptyParameters();
             CameraEx.ParametersModifier m = camera.createParametersModifier(p);
             if (style) {
@@ -857,7 +893,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
      * Camera sharpness for the current look (looks.txt; e.g. CineStill 800T -3: film is softer than
      * digital, and less sharpening beats blurring afterwards). Separate from applyBase so a failure
      * here never affects the base style. The user's own sharpness is saved first (once per session)
-     * and put back by restoreUserSharpness(). Only with a base style (not "Camera settings").
+     * and put back by restoreUser(). Only with a base style (not "Camera settings").
      */
     private void applyLookSharpness() {
         if (camera == null || "camera".equals(BASES[baseIndex]) || looks == null) return;
@@ -878,47 +914,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private final Runnable applySharpnessLater = new Runnable() {
         public void run() { sharpPending = false; if (!browsing) applyLookSharpness(); }
     };
-
-    private void restoreUserSharpness() {
-        if (camera == null || !prefs.contains("userSharpness")) return;
-        try {
-            android.hardware.Camera.Parameters p = camera.createEmptyParameters();
-            camera.createParametersModifier(p).setSharpness(prefs.getInt("userSharpness", 0));
-            camera.getNormalCamera().setParameters(p);
-            prefs.edit().remove("userSharpness").commit();
-        } catch (Throwable t) {
-            flash("Could not restore your sharpness (" + prefs.getInt("userSharpness", 0) + "): " + t, 4000);
-        }
-    }
-
-    private void restoreUserStyle() {
-        if (camera == null || !prefs.getBoolean("userSaved", false)) return;
-        try {
-            android.hardware.Camera.Parameters p = camera.createEmptyParameters();
-            CameraEx.ParametersModifier m = camera.createParametersModifier(p);
-            // Older saves (0.6/0.7) have no flags: they only ever saved the style.
-            if (prefs.getBoolean("userStyleSaved", true)) {
-                String mode = prefs.getString("userMode", null);
-                if (mode != null) m.setColorMode(mode);
-                m.setContrast(prefs.getInt("userContrast", 0));
-                m.setSaturation(prefs.getInt("userSaturation", 0));
-            }
-            String size = prefs.getString("userImageSize", null);
-            if (prefs.getBoolean("userSizeSaved", false) && size != null) m.setImageSize(size);
-            String droMode = prefs.getString("userDroMode", null);
-            if (prefs.getBoolean("userDroSaved", false) && droMode != null) {
-                m.setDROMode(droMode);
-                if ("on".equals(droMode)) m.setDROLevel(prefs.getInt("userDroLevel", 1));
-            }
-            camera.getNormalCamera().setParameters(p);
-            prefs.edit().putBoolean("userSaved", false).commit();
-        } catch (Throwable t) {
-            flash("Could not restore your camera settings:\n" + t
-                    + "\nSaved: " + prefs.getString("userMode", "?") + " " + prefs.getInt("userContrast", 0)
-                    + "/" + prefs.getInt("userSaturation", 0) + ", JPEG " + prefs.getString("userImageSize", "?")
-                    + ", DRO " + prefs.getString("userDroMode", "?") + " " + prefs.getInt("userDroLevel", 0), 6000);
-        }
-    }
 
     // ---------------------------------------------------------------- RAW only -> RAW+JPEG
 
@@ -961,19 +956,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         flash("Quality is RAW: no JPEG to convert\nSet RAW & JPEG in the camera menu", 4000);
     }
 
-    private void restoreUserStorageFormat() {
-        String fmt = prefs.getString("userStorageFmt", null);
-        if (camera == null || fmt == null) return;
-        try {
-            android.hardware.Camera.Parameters p = camera.createEmptyParameters();
-            camera.createParametersModifier(p).setPictureStorageFormat(fmt);
-            camera.getNormalCamera().setParameters(p);
-            prefs.edit().remove("userStorageFmt").commit();
-        } catch (Throwable t) {
-            flash("Could not restore your quality setting (" + fmt + "): " + t, 4000);
-        }
-    }
-
     // ---------------------------------------------------------------- JPEG sizes of this camera
 
     /**
@@ -1013,7 +995,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void cycleSize() { cycleSize(1); }
 
     private void cycleSize(int dir) {
-        restoreUserStyle();
+        restoreUser("size", UserSettings.G_STYLE, UserSettings.G_SIZE, UserSettings.G_DRO);
         sizeIndex = ((sizeIndex + dir) % SIZES.length + SIZES.length) % SIZES.length;
         sizeAuto = false;
         applyBase();
@@ -1247,8 +1229,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void cycleBase() { cycleBase(1); }
 
     private void cycleBase(int dir) {
-        restoreUserSharpness();
-        restoreUserStyle();
+        restoreUser("base style", UserSettings.G_SHARPNESS, UserSettings.G_STYLE, UserSettings.G_SIZE, UserSettings.G_DRO);
         baseIndex = ((baseIndex + dir) % BASES.length + BASES.length) % BASES.length;
         applyBase();
         updateTexts();

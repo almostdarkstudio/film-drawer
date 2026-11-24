@@ -224,3 +224,18 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
   settings through the failed camera (openCamera does, as after an abrupt exit) and is split over several messages, so
   keys never wait 5 s (ANR). Not tried on a camera: nothing here runs unless the live view fails.
 - Shooting help is a line shorter on the a7.
+
+## 0.47
+- `UserSettings`: the user's focus mode, sharpness, Creative Style, JPEG size, DRO and quality are forgotten only when
+  the camera reports them again after putting them back. If not, each group is sent again on its own, then at every
+  open / close, 6 times in all (then the app shows what to check). Until then the saved value is never overwritten with
+  the app's. Not reported = trusted, as before. Failures are in HANG.TXT. No Android or Sony calls in it: tested on the
+  PC with fake cameras (ignoring, refusing or not reporting each setting, dead for a while, saved by 0.46, 20000 random
+  histories).
+- Full card (PC, writes failing at 19 points of the file, parallel and serial, new and redo): never a broken or partial
+  file, no .TMP left, the earlier version kept on a failed redo; when only the preview does not fit, the photo is
+  complete without one. "write failed (card full?)". No change was needed.
+- Builds: the classes go to d8 as one jar (since 0.46).
+- Open: contrast, saturation and sharpness may belong to each Creative Style on the camera. Then the user's own values
+  for Standard / Neutral would stay at the app's. To check on a camera.
+- Installed and run on the a7R II. The per-style question is not answered yet.
