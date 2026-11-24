@@ -80,7 +80,8 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 **Controls** (Trash while shooting, or MENU > Controls):
 - **Move focus point**: the arrows move it, OK or half-press keeps it, Trash goes back to the earlier focus area.
 - **Focus area**: Wide, Center or Flexible Spot. The box turns green when focus locks.
-- **Focus**: AF / MF / DMF (the AF/MF-AEL button does not work in the app).
+- **Focus**: AF-S / AF-A / AF-C / DMF / MF, those your camera has (the AF/MF-AEL button does not work in the app). Your
+  own choice is put back when you leave. Lock-on AF and Eye AF are not available.
 - **ISO**, **Dials** (which one is shutter speed) and **Wheel** (looks or ISO; with ISO, looks stay on Up / Down).
 - **What buttons do**.
 

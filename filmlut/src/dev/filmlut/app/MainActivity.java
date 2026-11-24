@@ -123,6 +123,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private volatile File lastShot;               // newest JPEG on the card (look picker thumbnail)
     private volatile long lastShutterMs;
     private boolean s1Down;
+    private boolean afStarted;                    // autoFocus() called and not yet cancelled
     private int swallowUp;                        // key whose release is ignored (it only dismissed the review)
 
     // shoot mode
@@ -525,9 +526,40 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         photoView.setVisibility(View.GONE);
         photoView.setImageBitmap(null);
         updateDepth();                 // RGBA4444, as PMCADemo's camera screen: lets the live view show through
-        openCamera();
+        live.setVisibility(View.VISIBLE);      // a new surface (enterBrowse dropped the old one), as when the app starts
+        ui.removeCallbacks(openWaiting);
+        if (s1Down) ui.postDelayed(openWaiting, 1000);     // left with a half-press: opened when it is released (or now, if held)
+        else openCamera();
+        checkLiveSoon();
         if (wasBrowsing) showHelp(); else updateTexts();
     }
+
+    private final Runnable openWaiting = new Runnable() {
+        public void run() {
+            if (browsing || camera != null) return;
+            openCamera();
+            updateTexts();
+        }
+    };
+
+    // Normally surfaceCreated (or openCamera, if it comes later) starts the live view. If neither did: start it anyway.
+    private boolean liveStarted;
+    private long liveAttempt, openedAt;           // when it was last tried, and when the camera was opened
+
+    private void checkLiveSoon() {
+        ui.removeCallbacks(checkLive);
+        ui.postDelayed(checkLive, 2500);
+    }
+
+    private final Runnable checkLive = new Runnable() {
+        public void run() {
+            if (browsing || camera == null || liveStarted || liveTries > 0 || System.currentTimeMillis() - liveAttempt < 2500) return;
+            boolean valid = live.getHolder().getSurface() != null && live.getHolder().getSurface().isValid();
+            Diag.report("Live view not started, surface " + (surfaceReady ? "ready" : "not ready") + (valid ? ", valid" : ", not valid"));
+            surfaceReady = valid;
+            startLiveView();
+        }
+    };
 
     private android.hardware.Camera.Parameters opening;   // read once while opening: each read is slow (~0.1-0.5 s)
 
@@ -539,13 +571,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (camera != null) return;
         try {
             camera = CameraEx.open(0, null);
+            liveStarted = false;
+            afStarted = false;
+            openedAt = System.currentTimeMillis();
             if (Diag.verbose()) dumpCameraParameters();   // FILMDRAW/DEBUG.TXT on the card turns it on
-            restoreUser("open", UserSettings.G_FOCUS, UserSettings.G_SHARPNESS, UserSettings.G_STYLE, UserSettings.G_SIZE, UserSettings.G_DRO);   // left over from an abrupt exit
+            restoreUser("open", UserSettings.G_FOCUS, UserSettings.G_AF, UserSettings.G_SHARPNESS, UserSettings.G_STYLE, UserSettings.G_SIZE, UserSettings.G_DRO);   // left over from an abrupt exit
             opening = camera.getNormalCamera().getParameters();
             applyStorageFormat();                          // before the size: there must be a JPEG
             applyModeDial(false);                          // turned while browsing, say
             readImageSizes();
             applyBase();
+            applyAppFocus();
             if (liveTries == 0) startLiveView(); else ui.post(startLiveLater);
             focus.open(camera);
             Controls.dump(camera);
@@ -562,10 +598,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     }
 
     private void startLiveView() {
-        if (camera == null || !surfaceReady || browsing) return;
+        if (camera == null || !surfaceReady || browsing || liveStarted) return;
+        liveAttempt = System.currentTimeMillis();
         try {
             camera.getNormalCamera().setPreviewDisplay(live.getHolder());
             camera.getNormalCamera().startPreview();
+            liveStarted = true;
+            Diag.trace("live view started, " + (System.currentTimeMillis() - liveAttempt) + " ms");
             if (liveTries > 0) {
                 Diag.report("Live view started on try " + (liveTries + 1));
                 hideCentre.run();
@@ -586,11 +625,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     private void liveFailed(String what, Throwable t) {
         liveTries++;
-        Diag.report(what + " (try " + liveTries + (s1Down ? ", half-pressed" : "") + (jobs != null && jobs.pending() > 0 ? ", converting" : "") + "): " + t);
+        Diag.report(what + " (try " + liveTries + (s1Down ? ", half-pressed" : "") + (jobs != null && jobs.pending() > 0 ? ", converting" : "") + (surfaceReady ? "" : ", no surface") + ", " + Runtime.getRuntime().freeMemory() / 1024 + "/" + android.os.Debug.getNativeHeapAllocatedSize() / 1024 + " KB): " + t);
         if (liveTries <= LIVE_RETRIES) retryLiveSoon();
         else {
             ui.removeCallbacks(retryLive);
-            flash(what + "\n" + t + "\nHalf-press: try again     PLAY: photos", 0);
+            flash(what + "\n" + t + "\nHalf-press: try again\nor MENU > Exit, and open the app again", 0);
         }
     }
 
@@ -607,9 +646,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private final Runnable retryLive = new Runnable() {
         public void run() {
             if (browsing) return;
-            if (!surfaceReady || s1Down && System.currentTimeMillis() < liveWaitUntil) { ui.postDelayed(this, 300); return; }
+            if (s1Down && System.currentTimeMillis() < liveWaitUntil) { ui.postDelayed(this, 300); return; }
             Diag.trace("live view: trying again");
-            if (camera != null && liveTries == 1) { startLiveView(); return; }
+            if (camera != null && surfaceReady && liveTries == 1) { startLiveView(); return; }
             // Not closeCamera(): the user's settings are not put back through a camera that does not answer properly.
             // They stay saved, and opening it puts them back first, as after an abrupt exit.
             if (camera != null) {
@@ -618,21 +657,40 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 focus.drop();
                 try { camera.release(); } catch (Throwable ignored) {}
                 camera = null;
+                liveStarted = false;
             }
-            ui.postDelayed(reopenLive, 300);
+            live.setVisibility(View.INVISIBLE);                        // and a new surface
+            ui.postDelayed(reopenLive, 600);
         }
     };
 
     private final Runnable reopenLive = new Runnable() {
         public void run() {
             if (browsing || camera != null) return;
-            openCamera();                         // posts the start, see there
+            live.setVisibility(View.VISIBLE);
+            openCamera();                         // surfaceCreated starts it, or the start is posted there
             updateTexts();
+            checkReopened();
+        }
+    };
+
+    /** As checkLive, for a retry: the message must never stay without a result. */
+    private void checkReopened() {
+        ui.removeCallbacks(reopenCheck);
+        ui.postDelayed(reopenCheck, 3000);
+    }
+
+    private final Runnable reopenCheck = new Runnable() {
+        public void run() {
+            if (browsing || camera == null || liveStarted || liveTries == 0 || liveTries > LIVE_RETRIES
+                    || System.currentTimeMillis() - liveAttempt < 3000) return;
+            surfaceReady = live.getHolder().getSurface() != null && live.getHolder().getSurface().isValid();
+            if (surfaceReady) startLiveView(); else liveFailed("Live view failed", new RuntimeException("no surface"));
         }
     };
 
     private final Runnable startLiveLater = new Runnable() {
-        public void run() { startLiveView(); }
+        public void run() { if (liveAttempt < openedAt) startLiveView(); }    // unless surfaceCreated has tried already
     };
 
     /** The "starting again" / "failed" message goes when the user moves on. */
@@ -643,17 +701,36 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         hideCentre.run();
     }
 
-    // ---- focus mode (menu): AF / MF / DMF via Camera.Parameters "focus-mode" (manual, auto, dmf).
-    private static final String[] FOCUS_MODES = {"auto", "manual", "dmf"};
-    private static final String[] FOCUS_NAMES = {"AF", "MF", "DMF"};
-
+    // ---- focus mode (menu): AF-S / AF-A / AF-C / DMF / MF, as on the camera. Two camera settings: "focus-mode" (manual,
+    // auto, dmf) and, for auto, "af-mode" (af-s, af-a, af-c; the a7 has no af-a).
     private String currentFocusMode() {
         try { return camera.getNormalCamera().getParameters().getFocusMode(); } catch (Throwable t) { return null; }
     }
 
-    private static String focusName(String m) {
-        for (int i = 0; i < FOCUS_MODES.length; i++) if (FOCUS_MODES[i].equals(m)) return FOCUS_NAMES[i];
-        return m == null ? "?" : m;
+    private String currentAfMode() {
+        try { return camera.getNormalCamera().getParameters().get("af-mode"); } catch (Throwable t) { return null; }
+    }
+
+    private static String focusName(String m, String af) {
+        if ("manual".equals(m)) return "MF";
+        if ("dmf".equals(m)) return "DMF";
+        if (!"auto".equals(m)) return m == null ? "?" : m;
+        return "af-s".equals(af) ? "AF-S" : "af-c".equals(af) ? "AF-C" : "af-a".equals(af) ? "AF-A" : "AF";
+    }
+
+    private String appFocusMode, appAfMode;       // chosen in the app this session (null = the camera's own): kept after the photos
+
+    private void applyAppFocus() {
+        if (appFocusMode == null && appAfMode == null) return;
+        try {
+            user.saveFocus(settings(params()));
+            android.hardware.Camera.Parameters p = camera.createEmptyParameters();
+            if (appFocusMode != null) p.setFocusMode(appFocusMode);
+            if (appAfMode != null) camera.createParametersModifier(p).setAutoFocusMode(appAfMode);
+            camera.getNormalCamera().setParameters(p);
+        } catch (Throwable t) {
+            Diag.trace("focus mode not set again: " + t);
+        }
     }
 
     /** Steps the focus mode. Your own mode is saved first and put back when the camera closes. */
@@ -663,8 +740,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         try {
             String cur = currentFocusMode();
             String target = "manual".equals(cur) ? "auto" : "manual";
-            if (!prefs.contains("userFocusMode") && cur != null) prefs.edit().putString("userFocusMode", cur).commit();
+            user.saveFocus(settings(camera.getNormalCamera().getParameters()));
             setFocusMode(target);
+            appFocusMode = target;
         } catch (Throwable t) {
             flash("Focus mode: " + t, 3000);
         }
@@ -740,7 +818,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     /** After a focus change: read the mode back, so a refusal by the camera shows instead of a false "MF". */
     private void reportFocus(String wanted) {
         String got = currentFocusMode();
-        String name = "manual".equals(got) ? "MF" : "dmf".equals(got) ? "DMF" : "auto".equals(got) ? "AF" : String.valueOf(got);
+        String name = focusName(got, currentAfMode());
         Diag.trace("focus wanted " + wanted + ", camera reports " + got);
         focus.refresh();                                   // no boxes in MF
         if (wanted.equals(got)) setNote("Focus: " + name);
@@ -751,16 +829,37 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void cycleFocus(int dir) {
         if (camera == null) { setNote("Focus mode: change it while shooting"); return; }
         try {
-            String cur = currentFocusMode();
-            java.util.List<String> ok = camera.getNormalCamera().getParameters().getSupportedFocusModes();
-            int i = 0;
-            for (int k = 0; k < FOCUS_MODES.length; k++) if (FOCUS_MODES[k].equals(cur)) i = k;
-            for (int n = 0; n < FOCUS_MODES.length; n++) {      // next supported mode
-                i = ((i + dir) % FOCUS_MODES.length + FOCUS_MODES.length) % FOCUS_MODES.length;
-                if (ok == null || ok.contains(FOCUS_MODES[i])) break;
+            android.hardware.Camera.Parameters p = camera.getNormalCamera().getParameters();
+            List<String> ok = p.getSupportedFocusModes();
+            List afs = null;
+            try { afs = camera.createParametersModifier(p).getSupportedAutoFocusModes(); } catch (Throwable ignored) {}
+            List<String[]> all = new java.util.ArrayList<String[]>();              // {focus-mode, af-mode}, this camera's
+            if (ok == null || ok.contains("auto")) {
+                for (String a : new String[]{"af-s", "af-a", "af-c"}) if (afs != null && afs.contains(a)) all.add(new String[]{"auto", a});
+                if (all.isEmpty()) all.add(new String[]{"auto", null});
             }
-            if (!prefs.contains("userFocusMode") && cur != null) prefs.edit().putString("userFocusMode", cur).commit();
-            setFocusMode(FOCUS_MODES[i]);
+            for (String f : new String[]{"dmf", "manual"}) if (ok == null || ok.contains(f)) all.add(new String[]{f, null});
+            String cur = p.getFocusMode(), af = p.get("af-mode");
+            int i = 0;
+            for (int k = 0; k < all.size(); k++)
+                if (all.get(k)[0].equals(cur) && (all.get(k)[1] == null || all.get(k)[1].equals(af))) i = k;
+            String[] to = all.get(((i + dir) % all.size() + all.size()) % all.size());
+            user.saveFocus(settings(p));
+            appFocusMode = to[0];
+            if (to[1] != null) appAfMode = to[1];
+            if (!to[0].equals(cur)) setFocusMode(to[0]);
+            if (to[1] != null && !to[1].equals(af)) {
+                android.hardware.Camera.Parameters q = camera.createEmptyParameters();
+                camera.createParametersModifier(q).setAutoFocusMode(to[1]);
+                camera.getNormalCamera().setParameters(q);
+            }
+            p = camera.getNormalCamera().getParameters();
+            String got = focusName(p.getFocusMode(), p.get("af-mode")), wanted = focusName(to[0], to[1] != null ? to[1] : p.get("af-mode"));
+            Diag.trace("focus wanted " + wanted + ", camera has " + got);
+            if (got.equals(wanted)) setNote("Focus: " + got);
+            else flash("Camera kept " + got + "\n(" + wanted + " refused)", 2500);
+            focus.refresh();
+            updateExposureText();
         } catch (Throwable t) {
             flash("Focus mode: " + t, 3000);
         }
@@ -781,6 +880,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             for (Map.Entry<String, String> e : v.entrySet()) {
                 String k = e.getKey(), s = e.getValue();
                 if (k.equals(UserSettings.FOCUS)) p.setFocusMode(s);
+                else if (k.equals(UserSettings.AF)) m.setAutoFocusMode(s);
                 else if (k.equals(UserSettings.SHARPNESS)) m.setSharpness(Integer.parseInt(s));
                 else if (k.equals(UserSettings.MODE)) m.setColorMode(s);
                 else if (k.equals(UserSettings.CONTRAST)) m.setContrast(Integer.parseInt(s));
@@ -799,6 +899,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         CameraEx.ParametersModifier m = camera.createParametersModifier(p);
         Map<String, String> v = new HashMap<String, String>();
         try { v.put(UserSettings.FOCUS, p.getFocusMode()); } catch (Throwable ignored) {}
+        try { v.put(UserSettings.AF, m.getAutoFocusMode()); } catch (Throwable ignored) {}
         try { v.put(UserSettings.SHARPNESS, "" + m.getSharpness()); } catch (Throwable ignored) {}
         try { v.put(UserSettings.MODE, m.getColorMode()); } catch (Throwable ignored) {}
         try { v.put(UserSettings.CONTRAST, "" + m.getContrast()); } catch (Throwable ignored) {}
@@ -824,12 +925,16 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         ui.removeCallbacks(retryLive);
         ui.removeCallbacks(reopenLive);
         ui.removeCallbacks(startLiveLater);
+        ui.removeCallbacks(openWaiting);
+        ui.removeCallbacks(checkLive);
+        ui.removeCallbacks(reopenCheck);
+        liveStarted = false;
         if (camera == null) return;
         if (aeLocked) setAeLock(false);                    // never leave exposure locked
         endMoveSpot();
         focus.close();
         // The quality on its own, last: with RAW the camera may not report a JPEG size to check.
-        restoreUser("close", UserSettings.G_FOCUS, UserSettings.G_SHARPNESS, UserSettings.G_STYLE, UserSettings.G_SIZE, UserSettings.G_DRO);
+        restoreUser("close", UserSettings.G_FOCUS, UserSettings.G_AF, UserSettings.G_SHARPNESS, UserSettings.G_STYLE, UserSettings.G_SIZE, UserSettings.G_DRO);
         restoreUser("close", UserSettings.G_FORMAT);
         try {
             camera.release();
@@ -1062,7 +1167,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             sb.append(ev == 0 ? "±0.0" : (ev > 0 ? "+" : "-") + Math.abs(ev) / 3 + "." + (Math.abs(ev) % 3 == 0 ? "0" : Math.abs(ev) % 3 == 1 ? "3" : "7"));
             sb.append("   ").append(modeName(sceneMode));
             String fm = p.getFocusMode();
-            sb.append("   ").append("manual".equals(fm) ? "MF" : "dmf".equals(fm) ? "DMF" : "AF");
+            sb.append("   ").append(focusName(fm, p.get("af-mode")));
             if (aeLocked) sb.append("   AEL");
             exposure.setText(sb.toString());
             exposure.setVisibility(View.VISIBLE);
@@ -1218,7 +1323,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (camera == null || browsing) return;
         try {
             android.hardware.Camera.Parameters p = camera.getNormalCamera().getParameters();
-            menuFocus = focusName(p.getFocusMode());
+            menuFocus = focusName(p.getFocusMode(), p.get("af-mode"));
             String iso = p.get("iso-sensitivity");
             if (iso != null) menuIso = "0".equals(iso.trim()) ? "Auto" : iso.trim();
         } catch (Throwable t) {
@@ -1238,6 +1343,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     public void surfaceCreated(SurfaceHolder holder) {
         surfaceReady = true;
+        liveStarted = false;                       // not on this surface
         startLiveView();
     }
 
@@ -1245,6 +1351,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     public void surfaceDestroyed(SurfaceHolder holder) {
         surfaceReady = false;
+        liveStarted = false;
     }
 
     private void shutterPressed() {
@@ -1323,6 +1430,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         Diag.trace("enter browse");
         clearLiveFailure();
         closeCamera();
+        live.setVisibility(View.INVISIBLE);        // drops the surface: the live view gets a new one, as when the app starts
         boolean wasShooting = !browsing;
         browsing = true;
         reviewing = false;
@@ -2276,7 +2384,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 }
                 // Half-press autofocuses, except in MF (DMF: AF first, then the ring, as on the camera).
                 if (camera != null && event.getRepeatCount() == 0 && !"manual".equals(currentFocusMode())) {
-                    try { camera.getNormalCamera().autoFocus(null); } catch (Throwable ignored) {}
+                    try { camera.getNormalCamera().autoFocus(null); afStarted = true; } catch (Throwable ignored) {}
                 }
                 return true;
             case K_S1_2:
@@ -2313,17 +2421,19 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
         if (looks == null || jobs == null) return super.onKeyUp(keyCode, event);
-        if (event.getScanCode() == K_S1) s1Down = false;           // also when the release is swallowed below
+        if (event.getScanCode() == K_S1) {
+            s1Down = false;                                        // also when the release is swallowed below
+            if (!browsing && camera == null && liveTries == 0) { ui.removeCallbacks(openWaiting); openWaiting.run(); }
+        }
         if (swallowUp != 0 && event.getScanCode() == swallowUp) { swallowUp = 0; return true; }   // it ended a review
         switch (event.getScanCode()) {
             case K_S1:
                 s1Down = false;
                 focus.clearResult();
-                if (!browsing && camera != null) {
-                    if (!"manual".equals(currentFocusMode())) {
-                        try { camera.getNormalCamera().cancelAutoFocus(); } catch (Throwable ignored) {}
-                    }
+                if (!browsing && camera != null && afStarted) {
+                    try { camera.getNormalCamera().cancelAutoFocus(); } catch (Throwable ignored) {}
                 }
+                afStarted = false;
                 return true;
             case K_S2:
                 if (!browsing && camera != null) {

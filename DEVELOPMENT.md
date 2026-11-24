@@ -239,3 +239,17 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 - Open: contrast, saturation and sharpness may belong to each Creative Style on the camera. Then the user's own values
   for Standard / Neutral would stay at the app's. To check on a camera.
 - Installed and run on the a7R II. The per-style question is not answered yet.
+
+## 0.48
+- a7 tester (0.46 or 0.47): all the retries failed too, with the camera released and reopened. So something outlives the
+  camera. The one thing the app did unlike PMCADemo (and unlike its own start): the live view's surface was kept while
+  photos were shown, across two changes of the framebuffer's depth. Now the surface is dropped with the photos (INVISIBLE) and
+  made anew. Also: the camera is opened when the shutter button is released (1 s at most), cancelAutoFocus is only
+  called after autoFocus, and a retry makes a new surface too. Not proven: no cause is known for sure.
+  Next ideas if it still fails: a lens not waking in time; keeping the camera open while browsing.
+- Focus: AF-S / AF-A / AF-C (`af-mode`; the a7 has no af-a) besides DMF and MF. The app's choice is kept for the session (as
+  the focus area); the user's is saved and put back (`G_AF`). Before, a focus mode chosen in the app was lost on viewing photos.
+- Lock-on AF: the a7 reports no tracking-focus at all; the a7R II has startTrackingFocus(x, y), not tried.
+- a7R II (Android 4.1; the a7 is 2.3): 6 live view starts of 6, 8-23 ms each. One 4 s freeze on PLAY 1.6 s after two shots:
+  probably `Photos.allOutputs()` (a stat per file) on the UI thread while the camera saves RAWs. To move off it.
+- KEYS.TXT (a7R II): no order of getKeyLogicCode's arguments gives the user's dial settings. "As camera" is dropped.

@@ -42,6 +42,9 @@ public class CameraEx {
         public void setDROMode(String mode) { throw new RuntimeException("stub"); }
         public int getDROLevel() { throw new RuntimeException("stub"); }
         public void setDROLevel(int level) { throw new RuntimeException("stub"); }
+        public String getAutoFocusMode() { throw new RuntimeException("stub"); }         // af-a, af-s, af-c
+        public void setAutoFocusMode(String mode) { throw new RuntimeException("stub"); }
+        public List getSupportedAutoFocusModes() { throw new RuntimeException("stub"); }
         public List getSupportedDROModes() { throw new RuntimeException("stub"); }
     }
 

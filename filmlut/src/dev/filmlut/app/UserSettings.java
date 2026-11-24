@@ -22,13 +22,13 @@ final class UserSettings {
     }
 
     static final String FOCUS = "focus mode", SHARPNESS = "sharpness", MODE = "Creative Style", CONTRAST = "contrast",
-            SATURATION = "saturation", SIZE = "JPEG size", DRO = "DRO", DRO_LEVEL = "DRO level", FORMAT = "quality";
+            SATURATION = "saturation", SIZE = "JPEG size", DRO = "DRO", DRO_LEVEL = "DRO level", FORMAT = "quality", AF = "AF mode";
 
     /** Groups, saved and restored as one. */
-    static final int G_FOCUS = 0, G_SHARPNESS = 1, G_STYLE = 2, G_SIZE = 3, G_DRO = 4, G_FORMAT = 5;
+    static final int G_FOCUS = 0, G_SHARPNESS = 1, G_STYLE = 2, G_SIZE = 3, G_DRO = 4, G_FORMAT = 5, G_AF = 6;
 
     /** What is sent to the camera together, in this order. The quality is last: the JPEG size needs a JPEG. */
-    private static final int[][] SENT = {{G_FOCUS}, {G_SHARPNESS}, {G_STYLE, G_SIZE, G_DRO}, {G_FORMAT}};
+    private static final int[][] SENT = {{G_FOCUS}, {G_AF}, {G_SHARPNESS}, {G_STYLE, G_SIZE, G_DRO}, {G_FORMAT}};
 
     private static final int MAX_FAILS = 6;
 
@@ -47,6 +47,7 @@ final class UserSettings {
         boolean any = prefs.getBoolean("userSaved", false);
         switch (group) {
             case G_FOCUS: put(v, FOCUS, prefs.getString("userFocusMode", null)); break;
+            case G_AF: put(v, AF, prefs.getString("userAfMode", null)); break;
             case G_SHARPNESS: if (prefs.contains("userSharpness")) put(v, SHARPNESS, "" + prefs.getInt("userSharpness", 0)); break;
             case G_STYLE:
                 // Older saves (0.6/0.7) have no flags: they only ever saved the style.
@@ -84,6 +85,14 @@ final class UserSettings {
         e.commit();
     }
 
+    /** The same for the focus mode (AF / MF / DMF) and the AF mode (AF-S / AF-C / AF-A). */
+    void saveFocus(Map<String, String> now) {
+        SharedPreferences.Editor e = prefs.edit();
+        if (!saved(G_FOCUS) && now.get(FOCUS) != null) e.putString("userFocusMode", now.get(FOCUS));
+        if (!saved(G_AF) && now.get(AF) != null) e.putString("userAfMode", now.get(AF));
+        e.commit();
+    }
+
     private static int num(String s) {
         try { return s == null ? 0 : Integer.parseInt(s.trim()); } catch (NumberFormatException e) { return 0; }
     }
@@ -98,6 +107,7 @@ final class UserSettings {
             e.remove("restoreFails" + g);
             switch (g) {
                 case G_FOCUS: e.remove("userFocusMode"); break;
+                case G_AF: e.remove("userAfMode"); break;
                 case G_SHARPNESS: e.remove("userSharpness"); break;
                 case G_FORMAT: e.remove("userStorageFmt"); break;
                 default:
