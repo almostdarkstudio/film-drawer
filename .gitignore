@@ -12,3 +12,4 @@ pass.txt
 *.JPG
 *.jpg
 !docs/screenshots/*.jpg
+!docs/examples/*.jpg

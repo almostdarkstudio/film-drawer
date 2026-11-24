@@ -27,6 +27,14 @@ By Almost Dark Studio: https://almostdarkstudio.com
   `FILMLUT\100MSDCF\P4002097.JPG` = DSC02097 in Portra 400). EXIF is kept.
   (The folder keeps the app's working name.)
 
+## Example
+| Camera JPEG | CineStill 800T |
+|---|---|
+| ![Garage shutter at night, camera JPEG](docs/examples/garage-camera.jpg) | ![The same photo in CineStill 800T](docs/examples/garage-cinestill-800t.jpg) |
+
+*Sony a7R II, with the app's own engine and settings for the look: colour, grain and the red halation around the
+lights. Resized for this page, no other editing. Photo: Almost Dark Studio.*
+
 ## Screenshots
 | | |
 |---|---|
