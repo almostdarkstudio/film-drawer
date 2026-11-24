@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Film LUT.
+ * Film Drawer.
  *
  * SHOOT (default): live view; half-press focuses, shutter takes the picture as the camera
  *   normally would; each new JPEG is queued and converted with the current look in the
@@ -401,7 +401,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         String text;
         if (!browsing) {
             text = helpVisible
-                    ? "Film LUT " + appVersion + "  (free, MIT licence)\n"
+                    ? "Film Drawer " + appVersion + "  (free, MIT licence)\n"
                       + "Wheel/Up/Down: look   Left/Right: group   Fn: base   C1: size   C2: grain\n"
                       + "Front: aperture   Rear: shutter/EV   OK: help   PLAY: browse   MENU: menu"
                     : null;
@@ -1390,7 +1390,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void renderMenu() {
         android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
         int s0 = sb.length();
-        sb.append("Film LUT ").append(appVersion);
+        sb.append("Film Drawer ").append(appVersion);
         sb.setSpan(new android.text.style.ForegroundColorSpan(ACCENT), s0, sb.length(), 0);
         sb.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), s0, sb.length(), 0);
         for (int i = 0; i < M_COUNT; i++) {
@@ -1439,13 +1439,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void showAbout() {
         aboutOpen = true;
         menuView.setTypeface(android.graphics.Typeface.DEFAULT);
-        menuView.setText("Film LUT " + appVersion + "\n\n"
+        menuView.setText("Film Drawer " + appVersion + "  by Almost Dark Studio\n"
+                + "almostdarkstudio.com   Donate: ko-fi.com/R6I02B7OBL\n\n"
                 + "Free software, MIT licence.\n"
                 + looks.all.size() + " film looks. Licences and credits:\n"
                 + "  RawTherapee Film Simulation Collection\n"
                 + "    (Pat David, Pavlov Dmitry, Michael Ezra), CC BY-SA 4.0\n"
                 + "  EmulsionPresets by peva3, MIT\n"
-                + "  Aerochrome: made for Film LUT, MIT\n"
+                + "  Aerochrome, Almost Dark: made for Film Drawer, MIT\n"
                 + "This software is based in part on the work of the\n"
                 + "Independent JPEG Group (libjpeg-turbo).\n"
                 + "Film names are trademarks of their owners, used only to\n"

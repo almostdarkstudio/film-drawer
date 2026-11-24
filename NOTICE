@@ -1,7 +1,7 @@
-Film LUT - third-party notices
+Film Drawer - third-party notices
 ==============================
 
-Film LUT is free software (MIT licence, see LICENSE). It contains the following
+Film Drawer is free software (MIT licence, see LICENSE). It contains the following
 third-party material, each under its own licence.
 
 
@@ -49,7 +49,8 @@ POSSIBILITY OF SUCH DAMAGE.
 The full attribution and licence texts are in assets/luts/LICENSE.txt
 (also in the download as LOOKS-LICENSE.txt). In short:
 
-- Aerochrome: made for Film LUT (luts/aerochrome.py), MIT like the app.
+- Aerochrome: made for Film Drawer (luts/aerochrome.py), MIT like the app.
+- Almost Dark: made for Film Drawer (luts/almostdark.py), MIT; modified from the EmulsionPresets Vision3 500T.
 - Looks derived from the RawTherapee Film Simulation Collection (2015-09-20)
   by Pat David, Pavlov Dmitry and Michael Ezra: CC BY-SA 4.0
   (https://creativecommons.org/licenses/by-sa/4.0/). The derived .lut files
@@ -63,6 +64,6 @@ The full attribution and licence texts are in assets/luts/LICENSE.txt
 
 Film stock and product names (Kodak, Portra, Ektar, Fujifilm, Classic Chrome,
 CineStill, Polaroid, Ilford and others) are trademarks of their owners and are
-used only to describe the look each LUT approximates. Film LUT is not
+used only to describe the look each LUT approximates. Film Drawer is not
 affiliated with or endorsed by any of them, nor by Sony. "Sony", "a7R II" and
 "PlayMemories" are trademarks of Sony Group Corporation.

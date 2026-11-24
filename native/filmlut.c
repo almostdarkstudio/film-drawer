@@ -205,11 +205,12 @@ void filmlut_set_halation(int strength) { g_halation = strength < 0 ? 0 : streng
 typedef struct {
     int w, h;          /* map size (about 1/8 of the image) */
     float *g;          /* outward glow map, 0..1 */
-    float *c;          /* light-source cores (softened), 0..1: warmed toward amber */
+    float *c;          /* light-source cores (widely softened), 0..1: glow colour amber near lights */
+    float *k;          /* light-source cores (tightly softened), 0..1: lifted to neutral white */
     float s;           /* strength 0..1 */
 } halo_t;
 
-static void halo_free(halo_t *H) { free(H->g); free(H->c); H->g = H->c = NULL; }
+static void halo_free(halo_t *H) { free(H->g); free(H->c); free(H->k); H->g = H->c = H->k = NULL; }
 
 /* Separable box blur (3 passes ~ Gaussian), in place, radius r. */
 static void box_blur(float *a, float *tmp, int w, int h, int r)
@@ -255,6 +256,7 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
     FILE *f;
     JSAMPARRAY row;
     float *volatile m = NULL;
+    float *volatile km = NULL;
     float *tmp;
     int x, y, r;
     memset(H, 0, sizeof *H);
@@ -263,7 +265,7 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
     e.pub.error_exit = on_error_halo;
     e.pub.output_message = on_message_halo;
     d.err = &e.pub;
-    if (setjmp(e.jump)) { jpeg_destroy_decompress(&d); fclose(f); free(m); return 0; }
+    if (setjmp(e.jump)) { jpeg_destroy_decompress(&d); fclose(f); free(m); free(km); return 0; }
     {
         long off = use_preview ? mpf_preview_offset(f) : 0;
         if (fseek(f, off, SEEK_SET)) off = -1;
@@ -284,24 +286,33 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
     H->w = (int)(d.output_width + 1) / 2;
     H->h = (int)(d.output_height + 1) / 2;
     m = (float *)calloc((size_t)H->w * H->h, sizeof(float));
-    if (!m) longjmp(e.jump, 1);
+    km = (float *)calloc((size_t)H->w * H->h, sizeof(float));
+    if (!m || !km) longjmp(e.jump, 1);
     row = (*d.mem->alloc_sarray)((j_common_ptr)&d, JPOOL_IMAGE, d.output_width * 3, 1);
     for (y = 0; d.output_scanline < d.output_height; y++) {
         const JSAMPLE *p;
         float *cell = m + (size_t)(y / 2) * H->w;
+        float *kcell = km + (size_t)(y / 2) * H->w;
         jpeg_read_scanlines(&d, row, 1);
         p = row[0];
         for (x = 0; x < (int)d.output_width; x++, p += 3) {
             /* Only real light sources / near-clipped highlights glow. Use the brightest channel
              * (lamps and fire are yellow, so luma understates them); ramp from 0.86 to 0.99. */
             int mx = p[0] > p[1] ? p[0] : p[1];
+            int mn = p[0] < p[1] ? p[0] : p[1];
             float v, t;
             mx = mx > p[2] ? mx : p[2];
+            mn = mn < p[2] ? mn : p[2];
             v = mx / 255.0f;
             t = (v - 0.86f) / 0.13f;
             t = t < 0 ? 0 : t > 1 ? 1 : t;
             t = t * t * (3 - 2 * t);
             if (t > cell[x / 2]) cell[x / 2] = t;
+            /* Core map: clipped in ALL channels (white-hot lamps), 0.94 -> 0.99 on the darkest
+             * channel, so a bright yellow sunset sky (blue well below clip) does not count. */
+            v = (mn / 255.0f - 0.94f) / 0.05f;
+            v = v < 0 ? 0 : v > 1 ? 1 : v;
+            if (v > kcell[x / 2]) kcell[x / 2] = v;
         }
     }
     jpeg_finish_decompress(&d);
@@ -315,25 +326,41 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
         size_t n = (size_t)H->w * H->h, i;
         float *tight = (float *)malloc(n * sizeof(float));
         float *wide = (float *)malloc(n * sizeof(float));
+        float *area = (float *)malloc(n * sizeof(float));
         tmp = (float *)malloc((size_t)(H->w > H->h ? H->w : H->h) * sizeof(float));
-        if (!tmp || !wide || !tight) { free(tmp); free(wide); free(tight); free(m); return 0; }
+        if (!tmp || !wide || !tight || !area) { free(tmp); free(wide); free(tight); free(area); free(m); free(km); return 0; }
+        memcpy(area, m, n * sizeof(float));
         memcpy(tight, m, n * sizeof(float));
         memcpy(wide, m, n * sizeof(float));
         r = H->w / 400; if (r < 1) r = 1;      /* tight: ~0.25% of width per pass */
         box_blur(tight, tmp, H->w, H->h, r);
+        box_blur(km, tmp, H->w, H->h, r);      /* white-hot cores, softened the same way */
         r = H->w / 70; if (r < 2) r = 2;       /* wide: ~1.4% of width per pass (0.13: 0.9%) */
         box_blur(wide, tmp, H->w, H->h, r);
+        r = H->w / 24; if (r < 3) r = 3;       /* area: ~4% of width per pass */
+        box_blur(area, tmp, H->w, H->h, r);
         for (i = 0; i < n; i++) {
             float a = tight[i] - m[i], b = wide[i] - m[i], g;
             a = a < 0 ? 0 : a;
             b = b < 0 ? 0 : b;
             g = 3.0f * a + 3.2f * b;            /* more weight on the wide, diffuse fringe */
-            m[i] = g > 1 ? 1 : g;
+            g = g > 1 ? 1 : g;
+            /* 0.30: large blown areas (a lit wall) glow less than lamps, or dark objects in front of
+             * them turn red all over: area = share of near-clipped pixels in a wide neighbourhood. */
+            b = (area[i] - 0.12f) / 0.35f;
+            b = b < 0 ? 0 : b > 1 ? 1 : b;
+            m[i] = g * (1.0f - 0.65f * b * b * (3 - 2 * b));
             wide[i] = wide[i] > 1 ? 1 : wide[i];      /* cores: the source, widely softened */
+            /* 0.29: white-hot cores (km) get lifted back to white in halo_row. The 800T LUT maps
+             * white to ~224 grey and the glow brightened the surroundings above that, so lamp
+             * centres read as grey discs. */
+            km[i] = km[i] > 1 ? 1 : km[i];
         }
-        free(tight);
         free(tmp);
+        free(tight);
+        free(area);
         H->c = wide;
+        H->k = km;
     }
     H->g = m;
     H->s = strength / 100.0f;
@@ -373,9 +400,30 @@ static void halo_row(const halo_t *H, unsigned char *px, unsigned int width, uns
             tg = 0.22f + 0.40f * c;
             tb = 0.06f + 0.12f * c;
         }
+        if (H->k) {
+            /* Light-source cores back to neutral white (no tint: tinted cores went khaki). */
+            const float *k0 = H->k + (size_t)y0 * H->w, *k1 = H->k + (size_t)y1 * H->w;
+            float kc = (k0[x0] * (1 - wx) + k0[x1] * wx) * (1 - wy) + (k1[x0] * (1 - wx) + k1[x1] * wx) * wy;
+            float lift = kc * (H->s * 1.25f > 1 ? 1 : H->s * 1.25f);
+            if (lift > 0.002f)
+                for (k = 0; k < 3; k++) {
+                    float v = 255.0f - (255.0f - px[k]) * (1.0f - lift);
+                    px[k] = (unsigned char)(v > 255.0f ? 255 : (int)(v + 0.5f));
+                }
+        }
         g = (r0[x0] * (1 - wx) + r0[x1] * wx) * (1 - wy) + (r1[x0] * (1 - wx) + r1[x1] * wx) * wy;
         a = H->s * 0.9f * g;
         if (a < 0.002f) continue;
+        {
+            /* 0.30: the glow fades out on already bright pixels (film's shoulder): looks that cap white
+             * below 255 otherwise got peach contours around lit walls. */
+            int mx = px[0] > px[1] ? px[0] : px[1];
+            float u;
+            mx = mx > px[2] ? mx : px[2];
+            u = (mx - 110) / 110.0f;
+            u = u < 0 ? 0 : u > 1 ? 1 : u;
+            a *= 1.0f - u * u * (3 - 2 * u);
+        }
         for (k = 0; k < 3; k++) {
             float tk = k == 0 ? tint[0] : k == 1 ? tg : tb;
             float c = 255.0f - (255.0f - px[k]) * (1.0f - a * tk);

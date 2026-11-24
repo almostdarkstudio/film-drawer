@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 The Film LUT authors
+Copyright (c) 2026 The Film Drawer authors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -20,6 +20,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-This licence covers the Film LUT app, engine and tools. The film looks
+This licence covers the Film Drawer app, engine and tools. The film looks
 (assets/luts/*.lut) and the bundled libjpeg-turbo library are covered by their
 own licences: see NOTICE.

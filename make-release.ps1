@@ -1,6 +1,6 @@
-# Builds a public release of Film LUT into film-app\release\FilmLUT-<version>\ :
-#   FilmLUT-<version>.apk (release-signed), README.md (user guide), LICENSE, NOTICE,
-#   LOOKS-LICENSE.txt, SHA256SUMS.txt and FilmLUT-<version>-source.zip.
+# Builds a public release of Film Drawer into film-app\release\FilmDrawer-<version>\ :
+#   FilmDrawer-<version>.apk (release-signed), README.md (user guide), LICENSE, NOTICE,
+#   LOOKS-LICENSE.txt, SHA256SUMS.txt and FilmDrawer-<version>-source.zip.
 # The source zip is built from an EXPLICIT list of files, never by excluding: personal material
 # (samples\, luts\report\, luts\out*\ previews, build\ test outputs, keys\) can never slip in.
 # Nothing is uploaded anywhere.
@@ -11,7 +11,7 @@ $Here = $PSScriptRoot
 $Py = Join-Path $Here ".venv-tools\Scripts\python.exe"
 
 $ver = ([xml](Get-Content "$Here\filmlut\AndroidManifest.xml" -Raw)).manifest.versionName
-$name = "FilmLUT-$ver"
+$name = "FilmDrawer-$ver"
 $Rel = Join-Path $Here "release\$name"
 if (Test-Path $Rel) { Remove-Item -Recurse -Force $Rel }
 New-Item -ItemType Directory -Force $Rel | Out-Null
@@ -37,7 +37,8 @@ $include = @(
     "native\test\test_main.c", "native\test\build-test.ps1",
     "luts\app-looks.txt", "luts\looks.txt", "luts\emulsion-trial.txt", "luts\candidates-rt.txt", "luts\candidates-ep.txt",
     "luts\assemble.py", "luts\convert.py", "luts\xmp2lut.py", "luts\lookreport.py", "luts\looksheet.py",
-    "luts\aerochrome.py", "luts\original.txt", "luts\tweaks.txt"
+    "luts\aerochrome.py", "luts\almostdark.py", "luts\original.txt", "luts\tweaks.txt",
+    "icon\make-icon.py", "docs\icon.png"
 )
 $includeDirs = @("filmlut\src", "filmlut\res", "filmlut\stubs", "filmlut\assets", "native\jpeg-config")
 $files = New-Object System.Collections.Generic.List[string]
@@ -62,7 +63,7 @@ with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
         z.write(os.path.join(root, n), prefix + '/' + n.replace(os.sep, '/'))
 print('source zip: %d files' % len(names))
 '@
-$files | & $Py -I -c $zipPy $Here $zip "film-lut-$ver"
+$files | & $Py -I -c $zipPy $Here $zip "film-drawer-$ver"
 if ($LASTEXITCODE -ne 0) { throw "zip failed" }
 
 # 4. Checksums.

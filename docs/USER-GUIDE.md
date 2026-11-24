@@ -1,36 +1,38 @@
-# Film LUT
+# Film Drawer
 
 Film looks for Sony cameras that run PlayMemories Camera Apps. Shoot as normal; each JPEG is
 converted in the background with the film look you picked. Your originals are never changed.
 
 By Almost Dark Studio: https://almostdarkstudio.com
 
-**Free and open source (MIT).** If you enjoy it, a donation is welcome: DONATION_LINK
+**Free and open source (MIT).** If you enjoy it, a donation is welcome: https://ko-fi.com/R6I02B7OBL
 
 > Tested on the **Sony a7R II** only. Other bodies that run PlayMemories apps (a6000, a6300, a6500,
 > a7 II, a7S II, RX100 III-V and others) may work but have not been tested. Use at your own risk.
 
 ## What it does
-- 39 looks in 8 groups: Kodak negative, Cinema, Fuji & Agfa negative, Fuji simulations, Slide,
+- 40 looks in 8 groups: Kodak negative, Cinema, Fuji & Agfa negative, Fuji simulations, Slide,
   Instant, Specialty (Metropolis, Aerochrome-style infrared), Black & white. Film grain per look;
   CineStill looks add a red halation glow around lights.
+  **Almost Dark**, in Cinema, is the studio's own low-light look: deep blacks, rich lamplight, clean lights.
 - Shoot inside the app. A quick review shows each photo in its look, and the conversion runs in
   the background (about 20-25 s per photo at JPEG size M on an a7R II).
 - Browse any photo on the card, preview a look, and convert it. Or view your converted photos
   (the camera's own playback cannot show them): Fn in browse mode, or MENU > Converted photos.
 - Converted files go to `FILMLUT\<folder>\<TAG><number>.JPG` (for example
   `FILMLUT\100MSDCF\P4002097.JPG` = DSC02097 in Portra 400). EXIF is kept.
+  (The folder keeps the app's working name.)
 
 ## Installing
-Film LUT is installed the same way as any other PlayMemories app on these cameras, with
+Film Drawer is installed the same way as any other PlayMemories app on these cameras, with
 **Sony-PMCA-RE** (https://github.com/ma1co/Sony-PMCA-RE):
 
 1. On the camera, set **USB Connection** to **MTP** (Setup menu).
 2. Connect the camera to your computer and start Sony-PMCA-RE (`pmca-gui`, or
-   `pmca-console install -f FilmLUT-<version>.apk`).
-3. In the GUI, open **Install app**, choose **Select an apk**, pick `FilmLUT-<version>.apk`, and press
+   `pmca-console install -f FilmDrawer-<version>.apk`).
+3. In the GUI, open **Install app**, choose **Select an apk**, pick `FilmDrawer-<version>.apk`, and press
    **Install**. Keep the cable connected until it says the task completed.
-4. On the camera: **Menu > Application > Application List > Film LUT**.
+4. On the camera: **Menu > Application > Application List > Film Drawer**.
 
 Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 
@@ -56,10 +58,11 @@ in the menu, for bodies without those buttons. To leave the app: MENU > Exit app
 converting carry on next time).
 
 ## Your camera settings
-While you shoot in Film LUT, the app sets a neutral base so the looks come out consistently:
+While you shoot in Film Drawer, the app sets a neutral base so the looks come out consistently:
 Creative Style Standard (or Neutral) with contrast and saturation 0, DRO off, and your chosen JPEG
-size. It saves your own settings first and **puts them back when you leave the app**. If the camera
-is switched off while the app is open, they are put back the next time you open Film LUT. Choose
+size, focus mode and (for CineStill) sharpness. It saves your own settings first and is designed to put
+them back when you leave the app with MENU > Exit application, or the next time you open it if the
+camera was switched off. Please check your settings the first time. Choose
 "Camera settings" (Fn) to leave your Creative Style alone. RAW files are never affected.
 
 ## Problems
@@ -70,7 +73,7 @@ is switched off while the app is open, they are put back the next time you open 
 
 ## Removing
 Camera: **Menu > Application > Application List > Application Management > Manage and Remove**.
-Leave Film LUT normally (MENU > Exit application) first, so your camera settings are back. Converted photos in
+Leave Film Drawer normally (MENU > Exit application) first, so your camera settings are back. Converted photos in
 `FILMLUT\` stay on the card.
 
 ## Acknowledgements
@@ -83,7 +86,7 @@ Leave Film LUT normally (MENU > Exit application) first, so your camera settings
 - libjpeg-turbo; the RawTherapee Film Simulation Collection (Pat David, Pavlov Dmitry, Michael Ezra); EmulsionPresets.
 
 ## Licences
-Film LUT: MIT (`LICENSE`). Bundled libjpeg-turbo and the film looks have their own licences
+Film Drawer: MIT (`LICENSE`). Bundled libjpeg-turbo and the film looks have their own licences
 (`NOTICE`, `LOOKS-LICENSE.txt`). This software is based in part on the work of the Independent JPEG
 Group. Film and product names are trademarks of their owners, used only to describe the look each
-LUT approximates; Film LUT is not affiliated with or endorsed by them, or by Sony.
+LUT approximates; Film Drawer is not affiliated with or endorsed by them, or by Sony.

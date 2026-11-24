@@ -49,6 +49,71 @@ def hue_sat_tweak(cube, yellow=1.0, green=1.0):
     return np.clip(np.rint(out * 255), 0, 255).astype(np.uint8)
 
 
+def toe(cube, toe_r=0.0, toe_g=0.0, toe_b=0.0, toe_p=2.5):
+    """Deepens lifted blacks on LUT outputs (uint8 cube): lowers each channel by its toe amount at the
+    look's own black, fading out towards its white ((white - x) / (white - black)) ** toe_p, so mids are
+    barely touched and highlights not at all."""
+    c = cube.astype(np.float32)
+    blk, wht = c[0, 0, 0], c[-1, -1, -1]
+    f = np.clip((wht - c) / np.maximum(wht - blk, 1), 0, 1) ** toe_p
+    out = c - np.array([toe_r, toe_g, toe_b], np.float32) * f
+    return np.clip(np.rint(out), 0, 255).astype(np.uint8)
+
+
+def keep_hue(cube, amount):
+    """Looks with a capped red channel push bright oranges toward yellow. Turns warm inputs (hue ~5-50)
+    back toward their own hue, keeping the look's luma and (up to 1.15x the input's) chroma strength; fades in with brightness."""
+    n = cube.shape[0]
+    g = np.linspace(0, 1, n, dtype=np.float32)
+    b_, g_, r_ = np.meshgrid(g, g, g, indexing="ij")
+    src = np.stack([r_, g_, b_], -1)
+    c = cube.astype(np.float32) / 255
+    w = np.array([0.299, 0.587, 0.114], np.float32)
+    ys, y = (src @ w)[..., None], (c @ w)[..., None]
+    ds, dc = src - ys, c - y
+    ms, mc = np.linalg.norm(ds, axis=-1, keepdims=True), np.linalg.norm(dc, axis=-1, keepdims=True)
+    mx, mn = src.max(-1), src.min(-1)
+    d = np.maximum(mx - mn, 1e-6)
+    h = np.where(mx == r_, (g_ - b_) / d, np.where(mx == g_, (b_ - r_) / d + 2, 9)) * 60
+    band = np.clip((h + 8) / 20, 0, 1) * np.clip((90 - h) / 32, 0, 1)
+    k = amount * band[..., None] * np.clip((y - 0.30) / 0.30, 0, 1) * np.clip(ms / 0.08, 0, 1)
+    mt = np.minimum(mc, 1.15 * ms)                                # no more than a little over the original
+    d_new = dc * (1 - k) + ds / np.maximum(ms, 1e-6) * mt * k
+    out = y + d_new
+    # Stay under the look's own white (pull chroma in rather than clip one channel and shift hue again).
+    cap = float(cube[-1, -1, -1].max()) / 255
+    over = np.max(np.where(d_new > 1e-6, (out - cap) / np.maximum(d_new, 1e-6), 0), axis=-1, keepdims=True)
+    out = y + d_new * np.where(k > 0, 1 - np.clip(over, 0, 1), 1)
+    return np.clip(np.rint(out * 255), 0, 255).astype(np.uint8)
+
+
+def mid_pull(cube, mid):
+    """Darkens the upper mids of a look that renders bright: up to about `mid` (0..255) around 3/4 of its
+    range, nothing at its black and white."""
+    c = cube.astype(np.float32)
+    blk, wht = c[0, 0, 0], c[-1, -1, -1]
+    u = np.clip((c - blk) / np.maximum(wht - blk, 1), 0, 1)
+    out = c - mid * u ** 3 * (1 - u) / (0.75 ** 3 * 0.25)
+    return np.clip(np.rint(out), 0, 255).astype(np.uint8)
+
+
+TOE_KEYS = ("toe_r", "toe_g", "toe_b", "toe_p")
+
+
+def apply_tweaks(cube, t):
+    tk = {k: v for k, v in t.items() if k in TOE_KEYS}
+    hs = {k: v for k, v in t.items() if k in ("yellow", "green")}
+    if "keep_hue" in t:
+        cube = keep_hue(cube, t["keep_hue"])
+    if hs:
+        cube = hue_sat_tweak(cube, **hs)
+    if tk:
+        cube = toe(cube, **tk)
+    if "mid" in t:
+        cube = mid_pull(cube, t["mid"])
+    return cube
+
+
 def main(luts, dest):
     luts, dest = Path(luts).resolve(), Path(dest)
     sources = [(table(luts / "looks.txt"), luts / "out", "rt"), (table(luts / "emulsion-trial.txt"), luts / "out-emulsion", "ep"),
@@ -99,13 +164,15 @@ def main(luts, dest):
         if lid in tweaks:
             n = raw[4]
             cube = np.frombuffer(raw[5:], np.uint8).reshape(n, n, n, 3)
-            raw = raw[:5] + hue_sat_tweak(cube, **tweaks[lid]).tobytes()
+            raw = raw[:5] + apply_tweaks(cube, tweaks[lid]).tobytes()
         (dest / f"{lid}.lut").write_bytes(raw)
         # looks.txt: id|TAG|Name|grain|halation|group|sharpness (camera sharpness -3..3 while shooting)
         lines.append(f"{lid}|{tag}|{name}|{grain[lid]}|{halation[lid]}|{group[lid]}|{sharp[lid]}")
         used.add(kind)
         if kind == "ep":
             ep_names.append(name)
+        elif lid == "almostdark":          # derived from an EmulsionPresets look: keep its notice
+            ep_names.append(name + " (modified from Vision3 500T)")
     (dest / "looks.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
     lic = []
     if "rt" in used:
@@ -119,7 +186,7 @@ def main(luts, dest):
     if "own" in used:
         own = [n for l, n in zip(lines, [x.split("|")[2] for x in lines]) if l.split("|")[0] in table(luts / "original.txt")]
         lic.append(", ".join(own) + " " + ("was" if len(own) == 1 else "were") +
-                   " made for Film LUT and " + ("is" if len(own) == 1 else "are") +
+                   " made for Film Drawer and " + ("is" if len(own) == 1 else "are") +
                    " covered by the app's MIT licence (see LICENSE.txt).")
     (dest / "LICENSE.txt").write_text("\n\n".join(lic) + "\n", encoding="utf-8")
     print(f"{len(lines)} looks -> {dest}")

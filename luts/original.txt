@@ -1,2 +1,3 @@
-# Looks made for Film LUT itself (MIT licence, like the app), built by their own scripts into out-original/.
+# Looks made for Film Drawer itself (MIT licence, like the app), built by their own scripts into out-original/.
 aerochrome    | AER | Aerochrome         | aerochrome.py
+almostdark    | ALD | Almost Dark        | almostdark.py (from vision500t, EmulsionPresets)

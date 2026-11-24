@@ -105,7 +105,7 @@ if ($Release) {
         # keytool reports progress on stderr, which PowerShell 5.1 turns into an error under "Stop".
         $ErrorActionPreference = "Continue"
         & "$Jdk\keytool.exe" -genkeypair -keystore $Key -storepass:file $PassFile -keypass:file $PassFile `
-            -alias filmlut -keyalg RSA -keysize 3072 -validity 36500 -dname "CN=Film LUT" 2>&1 | Out-Host
+            -alias filmlut -keyalg RSA -keysize 3072 -validity 36500 -dname "CN=Film Drawer" 2>&1 | Out-Host
         $kc = $LASTEXITCODE
         $ErrorActionPreference = "Stop"
         if ($kc -ne 0 -or -not (Test-Path $Key)) { throw "keytool failed ($kc)" }

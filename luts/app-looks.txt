@@ -1,4 +1,4 @@
-# Looks shipped in the Film LUT app, in menu order:
+# Looks shipped in the Film Drawer app, in menu order:
 #   <id>  [default grain 0-100 for "Grain: Auto"]  [strength % - blend toward the original, default 100]
 #         [halation 0-100]  [camera sharpness -3..3 while shooting this look, default 0 = unchanged]
 #         [halation 0-100: red-orange glow around light sources; CineStill stocks only (no remjet)]
@@ -22,6 +22,7 @@ ektar100    15
 ## Cinema | Cine
 vision250d  30
 vision500t  45
+almostdark  55
 cs50d       20   100  30   -2
 cs800t      75   100  80   -3
 k2383       30   80

@@ -11,3 +11,4 @@ pass.txt
 *.ARW
 *.JPG
 *.jpg
+!docs/screenshots/*.jpg

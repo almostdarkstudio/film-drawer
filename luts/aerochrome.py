@@ -1,4 +1,4 @@
-"""Original Aerochrome-style (colour infrared) look for Film LUT. Part of Film LUT (MIT licence).
+"""Original Aerochrome-style (colour infrared) look for Film Drawer. Part of Film Drawer (MIT licence).
 
 Kodak Aerochrome is a false-colour infrared film: with the usual yellow filter its three layers
 record infrared, red and green, and show them as red, green and blue. So foliage (very bright in

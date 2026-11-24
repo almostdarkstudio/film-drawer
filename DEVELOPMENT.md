@@ -1,14 +1,17 @@
-# Film LUT for the Sony a7R II
+# Film Drawer for the Sony a7R II: developer notes
+
+Working name until 0.30: Film LUT. The package id (`dev.filmlut.app`), source names and the `FILMLUT` card
+folder keep it.
 
 A camera app (Android 2.3 / PlayMemories platform) that applies film looks to JPEGs in the camera.
 Originals are never modified; results go to `FILMLUT\<DCF folder>\<TAG><number>.JPG` (the card only
 accepts 8.3 names).
 
 ## Apps
-- `filmlut/` - **Film LUT** (`dev.filmlut.app`).
+- `filmlut/` - **Film Drawer** (`dev.filmlut.app`).
   - Shoot mode (default): live view; shutter saves the photo as normal; each new JPEG is queued and
     converted in the background with the current look. Wheel / up-down: look. Left/right: jump
-    between look groups (`## Group` lines in `luts/app-looks.txt`). OK: help. PLAY: browse. MENU/trash: exit.
+    between look groups (`## Group` lines in `luts/app-looks.txt`). OK: help. PLAY: browse. MENU: menu (exit is in it).
   - Screen (0.14): one top bar (look, grain, JPEG size, base), conversion status/notes top right,
     exposure bottom left; help shows for 4 s at start/mode change (OK toggles it in shoot mode).
   - Quick review (0.14): ~2-3 s after a shot (when the file is on the card) the photo is shown in its
@@ -20,9 +23,8 @@ accepts 8.3 names).
     next start (a job resumed 3 times without finishing is dropped).
   - Browse mode: preview of the look on any photo, or the converted file itself if it exists.
     Left/right: photo. Wheel / up-down: look. OK: convert. Trash: before/after. PLAY or half-press:
-    back to shooting. MENU: exit. Previews include halation (same highlight map as the conversion,
+    back to shooting. MENU: menu. Previews include halation (same highlight map as the conversion,
     cached per photo) but not grain, which averages away at screen size.
-  - In-app shooting uses the camera's last normal-mode settings; the mode dial is ignored.
   - Base (Fn in shoot mode): Standard (default) / Neutral / Camera settings. Sets Creative Style +
     contrast/saturation 0 so the LUTs always start from a known image. The user's own values are saved
     to prefs before any change and restored when leaving shoot mode (or on the next launch after an
@@ -35,8 +37,9 @@ accepts 8.3 names).
   - Grain (C2): Auto (per-look default in `luts/app-looks.txt`) / Off / Low 25 / Medium 50 / High 80.
     Luminance grain after the LUT, midtone-weighted, deterministic per pixel position (parallel ==
     serial). Not shown in the browse preview.
-  - 39 looks in 8 groups (`luts/app-looks.txt`, assembled by `luts/assemble.py`). Aerochrome is our own
-    (`luts/aerochrome.py`: estimated infrared -> red, red -> green, green -> blue; `luts/original.txt`).
+  - 40 looks in 8 groups (`luts/app-looks.txt`, assembled by `luts/assemble.py`). Aerochrome is our own
+    (`luts/aerochrome.py`: estimated infrared -> red, red -> green, green -> blue; `luts/original.txt`). Almost Dark is derived from
+    the Vision3 500T look (`luts/almostdark.py`).
 - `hello/` - test app (`dev.filmlut.hello`) used to bring up the toolchain and engine.
 
 - Previews (0.16) decode the embedded MPF preview (a7R II: 1616x1080, ~1 MB) when it is at least as
@@ -104,7 +107,7 @@ single-threaded C engine: 58.6 s for a 42 MP JPEG (before pipelining/NEON).
 
 ## Public release (0.18+)
     powershell -ExecutionPolicy Bypass -File film-app\make-release.ps1 [-DonationLink <url>]
-Builds `release\FilmLUT-<version>\`: the release-signed APK, user guide (`docs\USER-GUIDE.md`), LICENSE
+Builds `release\FilmDrawer-<version>\`: the release-signed APK, user guide (`docs\USER-GUIDE.md`), LICENSE
 (MIT), NOTICE (libjpeg-turbo, looks, trademarks), LOOKS-LICENSE, SHA256SUMS and a source zip made from an
 explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `keys\`). Nothing is uploaded.
 - Release key: `%USERPROFILE%\.filmlut-release\` (release.jks + pass.txt), outside the project. Back it
@@ -123,3 +126,12 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 - Per-look camera sharpness (5th number in app-looks.txt, looks.txt field 7): 800T -3, 50D -2.
   Set via ParametersModifier.setSharpness while shooting (base style only), user's value saved and
   restored like the other settings; applied 0.4 s after a look change, or at once on shutter.
+
+## 0.29 - 0.31 (from night and indoor shots on the camera)
+- `tweaks.txt` / `assemble.py`: `toe_*` (deeper blacks, fitted to edited pairs), `keep_hue` (a look that caps
+  red turned bright oranges khaki), `mid` (darker upper mids); the 800T yellow/green mute was halved.
+- Halation: all-channel clipped cores go back to white; the glow fades on already bright pixels (no contours on
+  lit walls) and large blown areas glow less than lamps.
+- Almost Dark (`luts/almostdark.py`): own look derived from Vision3 500T.
+- The AF/MF-AEL button does not reach the app as 533/532 on the a7R II; focus mode is in the menu.
+- Icon: `icon/make-icon.py`.

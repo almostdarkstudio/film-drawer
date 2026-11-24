@@ -1,6 +1,15 @@
 # Per-look colour tweaks baked into the LUT by assemble.py (after the strength blend).
-#   <id>  yellow=<sat factor>  green=<sat factor>
+#   <id>  keep_hue=  yellow=<sat factor>  green=<sat factor>  toe_r= toe_g= toe_b= toe_p=  mid=
+# keep_hue (first): turns bright warm colours back toward their own hue (0..1).
+# mid (last): darkens the upper mids by about this much.
 # Hue-selective saturation: yellow ~35-75 deg, green ~75-160 deg (smooth edges), 1 = unchanged.
+# Toe (after the saturation tweak): how far each channel is lowered at the look's own black (0..255),
+# fading out towards its white with power toe_p; highlights are unchanged.
 # CineStill 800T (2026-11-23 review of night shots): real 800T keeps yellows and greens muted and a
 # little sickly under mixed light; the EmulsionPresets bake left them clean and punchy.
-cs800t   yellow=0.48  green=0.62
+# 0.29: the bake lifted black to (24,31,38). Toe fitted to the user's edits of C8T02173/02174 (aligned
+# pairs, frame excluded): luma 27->8, 37->17, 45->27, 75->65, 97->93, highlights unchanged.
+# 0.30 (camera shots 02183/02185): the capped red turned orange walls khaki and daylight mids were bright;
+# mid fitted to the same edits (125->114, 155->138, 185->164).
+# 0.31: mute halved after indoor shots 02190-02192 (amber lampshades and stained glass went grey).
+cs800t   keep_hue=0.8  yellow=0.80  green=0.81  toe_r=18  toe_g=22.5  toe_b=27  toe_p=2.5  mid=18
