@@ -35,7 +35,7 @@ import java.util.Set;
  *   normally would; each new JPEG is queued and converted with the current look in the
  *   background, and a quick review of the look on it is shown. Wheel / up-down: change look
  *   (a card shows the last shot in that look). Left-right: jump between look groups.
- *   OK: help. PLAY: browse. MENU: menu (Exit application there; unfinished conversions resume next time).
+ *   OK: help. PLAY: converted photos. MENU: menu (Exit application there; unfinished conversions resume next time).
  * BROWSE: photo with a preview of the look (or the saved result, if already converted).
  *   Left-right: photo. Wheel / up-down: look. OK: convert. Trash: before/after.
  *   PLAY or half-press: back to shooting. Fn: all photos / converted (FILMDRAW/). MENU: menu.
@@ -169,8 +169,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         baseIndex = Math.max(0, Math.min(BASES.length - 1, prefs.getInt("base", 0)));
         sizeIndex = Math.max(0, Math.min(SIZES.length - 1, prefs.getInt("size", 0)));
         sizeAuto = !prefs.contains("size");
-        dialIndex = Math.max(0, Math.min(DIAL_NAMES.length - 1, prefs.getInt("dials", 0)));
-        wheelIndex = Math.max(0, Math.min(WHEEL_NAMES.length - 1, prefs.getInt("wheel", 0)));
+        dialIndex = prefs.getInt("dials", 0) == 1 ? 1 : 0;       // 0.38-0.42 also had 2: the same as 0 now
+        wheelIndex = prefs.getInt("wheel", 0) == 1 ? 1 : 0;
         grainIndex = Math.max(0, Math.min(GRAIN_NAMES.length - 1, prefs.getInt("grain", 0)));
         reviewIndex = Math.max(0, Math.min(REVIEW_NAMES.length - 1, prefs.getInt("review", 1)));
         if (Native.LOAD_ERROR != null) {
@@ -385,7 +385,23 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         public void run() { centre.setVisibility(View.GONE); }
     };
 
+    private boolean loading;                      // the centre message is "Loading..."
+
+    private void showLoading() {
+        flash("Loading...", 0);
+        loading = true;
+    }
+
+    /** Takes "Loading..." away (any other message stays for its time). */
+    private void hideLoading() {
+        if (!loading) return;
+        loading = false;
+        ui.removeCallbacks(hideCentre);
+        centre.setVisibility(View.GONE);
+    }
+
     private void flash(String msg, int millis) {
+        loading = false;
         centre.setText(msg);
         centre.setVisibility(View.VISIBLE);
         ui.removeCallbacks(hideCentre);
@@ -420,8 +436,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (!browsing) {
             text = helpVisible
                     ? "Film Drawer " + appVersion + "  (free, MIT licence)\n"
-                      + (wheelIsIso(WHEEL_CW) || wheelIsIso(D3_CW) ? "Up/Down: look   Wheel: ISO" : "Wheel/Up/Down: look") + "   Left/Right: group   Fn: base   C1: size   C2: grain\n"
-                      + (dialIndex == 0 ? "Dials: as on the camera" : dialIndex == 1 ? "Front: shutter/EV   Rear: aperture" : "Front: aperture   Rear: shutter/EV") + "   Trash: focus point   PLAY: browse   MENU: menu"
+                      + (wheelIsIso() ? "Up/Down: look   Wheel: ISO" : "Wheel/Up/Down: look") + "   Left/Right: group   Fn: base   C1: size   C2: grain\n"
+                      + (dialIndex == 1 ? "Front: shutter/EV   Rear: aperture" : "Front: aperture   Rear: shutter/EV") + "   Trash: controls   PLAY: converted photos   MENU: menu"
                     : null;
         } else if (photos == null || photos.isEmpty()) {
             text = (showConverted ? "No converted photos yet    Fn: all photos" : "No JPEGs on the card    Fn: converted")
@@ -479,7 +495,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     private void enterShoot() {
         Diag.trace("enter shoot");
-        synchronized (previewLock) { convCache.clear(); prefetchTask = null; }   // free ~4 MB of browse cache
+        synchronized (previewLock) { convCache.clear(); prefetchTask = null; previewRequest = null; previewGen++; }   // free ~4 MB of browse cache
+        hideLoading();                 // left before the photo appeared: it never will now
         boolean wasBrowsing = browsing;
         browsing = false;
         showOriginal = false;
@@ -1074,27 +1091,18 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     }
 
     // ---- control options (menu), for other dial set-ups and bodies with a broken dial
-    // 0 = what the camera itself is set to, where it says (Controls); else front aperture / rear shutter, wheel looks.
-    private static final String[] DIAL_NAMES = {"As camera", "Front S, rear f/", "Front f/, rear S"};
-    private static final String[] WHEEL_NAMES = {"As camera", "ISO", "Looks"};
+    private static final String[] DIAL_NAMES = {"Front f/, rear S", "Front S, rear f/"};
+    private static final String[] WHEEL_NAMES = {"Looks", "ISO"};
     private int dialIndex, wheelIndex;
 
     /** A dial turned while shooting: front (0) or rear (1). */
     private void shootDial(int which, int dir) {
-        int f = Controls.UNKNOWN;
-        if (dialIndex == 0) f = Controls.function(which == 0 ? D1_CW : D2_CW, sceneMode);
-        if (f == Controls.UNKNOWN) f = which == (dialIndex == 1 ? 1 : 0) ? Controls.APERTURE : Controls.SHUTTER;
-        if (f == Controls.APERTURE) frontDial(dir);
-        else if (f == Controls.ISO) stepIso(dir);
-        else if (f == Controls.EV) stepEv(dir);
+        if (which == dialIndex) frontDial(dir);
         else rearDial(dir);                    // shutter speed; EV where the camera sets the shutter
     }
 
     /** True if the wheel changes ISO while shooting (looks are then on Up/Down only). */
-    private boolean wheelIsIso(int key) {
-        if (wheelIndex == 0) return Controls.function(key, sceneMode) == Controls.ISO;
-        return wheelIndex == 1;
-    }
+    private boolean wheelIsIso() { return wheelIndex == 1; }
 
     private static boolean isWheel(int sc) { return sc == WHEEL_CW || sc == WHEEL_CCW || sc == D3_CW || sc == D3_CCW; }
 
@@ -1243,6 +1251,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         updateDepth();
         photoView.setVisibility(View.VISIBLE);
         photos = showConverted ? Photos.allOutputs() : Photos.allJpegs();
+        if (wasShooting && showConverted && photos.isEmpty()) {          // nothing converted yet
+            showConverted = false;
+            photos = Photos.allJpegs();
+        }
         // Opened from shooting: the newest photo. Coming back to the app while browsing: stay on the same one.
         if (wasShooting || photoIndex < 0 || photoIndex >= photos.size()) {
             photoIndex = Math.max(0, photos.size() - 1);
@@ -1312,7 +1324,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     /** Latest request wins, so scrolling quickly doesn't pile up decodes. */
     private void requestPreview(boolean newPhoto) {
-        if (photos == null || photos.isEmpty()) { photoView.setImageBitmap(null); return; }
+        if (photos == null || photos.isEmpty()) { photoView.setImageBitmap(null); hideLoading(); return; }
         final File photo = photos.get(photoIndex);
         final Looks.Look lk = look();
         final boolean original = showOriginal;
@@ -1339,7 +1351,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             };
             previewLock.notify();
         }
-        if (newPhoto && !cached) flash("Loading...", 0);
+        if (newPhoto && !cached) showLoading();
     }
 
     // ---- converted view: small cache of decoded photos + neighbour pre-loading (preview thread)
@@ -1472,6 +1484,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             public void run() {
                 if (stale(gen) || !browsing) { show.recycle(); return; }
                 photoView.setImageBitmap(show);
+                loading = false;
                 ui.removeCallbacks(hideCentre);
                 centre.setVisibility(View.GONE);
                 updateTexts();
@@ -1614,9 +1627,41 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     // ---------------------------------------------------------------- menu (MENU key, as in Sony's own apps)
 
     private static final int M_LOOK = 0, M_GRAIN = 1, M_BASE = 2, M_SIZE = 3, M_FOCUS = 4, M_AREA = 5, M_POINT = 6, M_ISO = 7,
-            M_DIALS = 8, M_WHEEL = 9, M_REVIEW = 10, M_CONVERTED = 11, M_HELP = 12, M_ABOUT = 13, M_EXIT = 14, M_COUNT = 15;
-    private static final int M_VISIBLE = 11;      // rows on screen; the list scrolls
-    private int menuTop;
+            M_DIALS = 8, M_WHEEL = 9, M_REVIEW = 10, M_CONVERTED = 11, M_HELP = 12, M_ABOUT = 13, M_EXIT = 14, M_CONTROLS = 15;
+    /** The menu, and the Controls menu inside it. */
+    private static final int[] MENU_MAIN = {M_LOOK, M_GRAIN, M_BASE, M_SIZE, M_REVIEW, M_CONTROLS, M_CONVERTED, M_ABOUT, M_EXIT};
+    private static final int[] MENU_CONTROLS = {M_POINT, M_AREA, M_FOCUS, M_ISO, M_DIALS, M_WHEEL, M_HELP};
+    private int[] menuRows = MENU_MAIN;
+    private int menuMainSel;                      // row to come back to from Controls
+
+    private boolean menuDirect;                   // Controls opened with Trash: going back closes the menu
+    private long menuDirectAt;
+
+    /** Trash while shooting: straight to Controls, with the focus point first. */
+    private void openControlsDirect() {
+        openMenu();                               // main menu first: fits the text size (once) and resets the rest
+        openControls();
+        menuDirect = true;
+        menuDirectAt = System.currentTimeMillis();
+        renderMenu();
+    }
+
+    private void openControls() {
+        menuMainSel = menuSel;
+        menuRows = MENU_CONTROLS;
+        menuSel = 0;
+        menuFooter = null;
+        readMenuValues();
+        renderMenu();
+    }
+
+    private void closeControls() {
+        if (menuDirect) { closeMenu(); return; }
+        menuRows = MENU_MAIN;
+        menuSel = menuMainSel;
+        menuFooter = null;
+        renderMenu();
+    }
     private TextView menuView;
     private boolean menuOpen, aboutOpen;
     private int menuSel;
@@ -1646,8 +1691,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_DIALS: return "Dials";
             case M_WHEEL: return "Wheel";
             case M_REVIEW: return "Quick review";
-            case M_CONVERTED: return browsing && showConverted ? "All photos" : "Converted photos";
-            case M_HELP: return "Help & controls";
+            case M_CONVERTED: return !browsing || showConverted ? "All photos" : "Converted photos";
+            case M_CONTROLS: return "Controls";
+            case M_HELP: return "What buttons do";
             case M_ABOUT: return "About & licences";
             default: return "Exit application";
         }
@@ -1659,6 +1705,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_GRAIN: return grainIndex == 0 ? "Auto (" + look().grain + ")" : GRAIN_NAMES[grainIndex];
             case M_BASE: return BASE_NAMES[baseIndex];
             case M_SIZE: return sizeName();
+            case M_CONTROLS: return "";
             case M_FOCUS: return menuFocus;
             case M_AREA: return browsing ? "-" : focus.areaName();
             case M_ISO: return menuIso;
@@ -1675,35 +1722,35 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         sb.append("Film Drawer ").append(appVersion);
         sb.setSpan(new android.text.style.ForegroundColorSpan(ACCENT), s0, sb.length(), 0);
         sb.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), s0, sb.length(), 0);
-        if (menuSel < menuTop) menuTop = menuSel;
-        if (menuSel >= menuTop + M_VISIBLE) menuTop = menuSel - M_VISIBLE + 1;
-        sb.append("   ").append(String.valueOf(menuSel + 1)).append(" of ").append(String.valueOf(M_COUNT));
-        for (int i = menuTop; i < Math.min(M_COUNT, menuTop + M_VISIBLE); i++) {
+        if (menuRows == MENU_CONTROLS) sb.append("  \u203a  Controls");
+        for (int row = 0; row < menuRows.length; row++) {
+            int i = menuRows[row];
             sb.append('\n');
             int s = sb.length();
             String v = menuValue(i);
             sb.append("  ").append(menuLabel(i));
             if (v != null) {
                 for (int pad = menuLabel(i).length(); pad < 16; pad++) sb.append(' ');
-                sb.append("‹ ").append(v).append(" ›");
+                if (v.length() == 0) sb.append("  ›"); else sb.append("‹ ").append(v).append(" ›");
             }
             sb.append("  ");
-            if (i == menuSel) {
+            if (row == menuSel) {
                 sb.setSpan(new android.text.style.BackgroundColorSpan(ACCENT), s, sb.length(), 0);
                 sb.setSpan(new android.text.style.ForegroundColorSpan(Color.BLACK), s, sb.length(), 0);
             }
         }
         sb.append("\n");
         int f = sb.length();
-        sb.append(menuFooter != null ? menuFooter : "Up/Down: choose   Left/Right/OK: change   MENU: close");
+        sb.append(menuFooter != null ? menuFooter : "Up/Down: choose   Left/Right/OK: change   MENU: "
+                + (menuRows == MENU_CONTROLS && !menuDirect ? "back" : "close"));
         sb.setSpan(new android.text.style.ForegroundColorSpan(menuFooter != null ? ACCENT : 0xFF9A9A9A), f, sb.length(), 0);
         sb.setSpan(new android.text.style.RelativeSizeSpan(0.75f), f, sb.length(), 0);
         if (menuView.getTypeface() != android.graphics.Typeface.MONOSPACE) menuView.setTypeface(android.graphics.Typeface.MONOSPACE);
         if (menuSize > 0) menuTextSize(menuSize);          // before the text: one layout, not two
         menuView.setText(sb);
         if (menuSize > 0) return;
-        // Once: the largest text that fits this screen, measured on the camera itself. The number of rows never
-        // changes; for the width, room is kept for the widest row ("Move focus point" aside: 16 + a long look name).
+        // Once: the largest text that fits this screen, measured on the camera itself, with the main menu (the
+        // longer one, always shown first); for the width, room is kept for the widest row ("Move focus point" aside: 16 + a long look name).
         View root = (View) menuView.getParent();
         int maxW = root.getWidth(), maxH = root.getHeight();
         if (maxH <= 0) return;                             // not laid out yet
@@ -1728,13 +1775,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     private void openMenu() {
         Diag.trace("menu open");
+        menuDirect = false;
         hideReview();
         hideCardNow();
         menuOpen = true;
         aboutOpen = false;
         menuFooter = null;
         exitArmedUntil = 0;
-        readMenuValues();
+        if (menuRows != MENU_MAIN) { menuRows = MENU_MAIN; menuSel = menuMainSel; }
         renderMenu();
         menuView.setVisibility(View.VISIBLE);
     }
@@ -1745,6 +1793,28 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         menuView.setVisibility(View.GONE);
         updateTexts();
         updateExposureText();
+    }
+
+    /** Controls > What buttons do: a page that stays until a button is pressed. */
+    private void showButtons() {
+        aboutOpen = true;
+        boolean iso = wheelIsIso();
+        String dials = dialIndex == 1 ? "Front dial:  shutter / EV     Rear dial:  aperture"
+                : "Front dial:  aperture     Rear dial:  shutter / EV";
+        menuView.setTypeface(android.graphics.Typeface.DEFAULT);
+        menuTextSize(16);
+        menuView.setText("SHOOTING\n"
+                + (iso ? "Up / Down:  look     Wheel:  ISO\n" : "Wheel, Up / Down:  look\n")
+                + "Left / Right:  next group of looks\n"
+                + dials + "\n"
+                + "Fn:  base style     C1:  JPEG size     C2:  grain\n"
+                + "Trash:  controls (focus point first)     OK:  short help\n"
+                + "PLAY:  your converted photos\n\n"
+                + "YOUR PHOTOS\n"
+                + "Left / Right:  photo     Wheel, Up / Down:  look\n"
+                + "OK:  convert     Trash:  before / after\n"
+                + "Fn:  all photos / converted     PLAY:  shoot\n\n"
+                + "Any button: back");
     }
 
     private void showAbout() {
@@ -1813,18 +1883,20 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void menuActivate(int item) {
         if (menuChange(item, 1)) { renderMenu(); return; }
         switch (item) {
+            case M_CONTROLS:
+                openControls();
+                return;
             case M_CONVERTED:
                 closeMenu();
                 if (browsing) toggleConverted();
-                else { showConverted = true; enterBrowse(); }
+                else { showConverted = false; enterBrowse(); }   // PLAY opens the converted ones
                 return;
             case M_POINT:
                 closeMenu();
                 startMoveSpot();
                 return;
             case M_HELP:
-                closeMenu();
-                showHelp();
+                showButtons();
                 return;
             case M_ABOUT:
                 showAbout();
@@ -1846,13 +1918,22 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (aboutOpen) { renderMenu(); aboutOpen = false; return; }
         switch (sc) {
             case K_UP: case WHEEL_CCW: case D1_CCW: case D2_CCW: case D3_CCW:
-                menuSel = (menuSel + M_COUNT - 1) % M_COUNT; menuFooter = null; break;
+                menuSel = (menuSel + menuRows.length - 1) % menuRows.length; menuFooter = null; break;
             case K_DOWN: case WHEEL_CW: case D1_CW: case D2_CW: case D3_CW:
-                menuSel = (menuSel + 1) % M_COUNT; menuFooter = null; break;
-            case K_LEFT: menuChange(menuSel, -1); break;
-            case K_RIGHT: menuChange(menuSel, 1); break;
-            case K_ENTER: menuActivate(menuSel); return;
-            case K_MENU: case K_SK2: case K_DELETE: case K_S1: case K_PLAY:
+                menuSel = (menuSel + 1) % menuRows.length; menuFooter = null; break;
+            case K_LEFT: menuChange(menuRows[menuSel], -1); break;
+            case K_RIGHT:
+                if (menuRows[menuSel] == M_CONTROLS) { openControls(); return; }
+                menuChange(menuRows[menuSel], 1);
+                break;
+            case K_ENTER: menuActivate(menuRows[menuSel]); return;
+            case K_MENU: case K_SK2: case K_DELETE:
+                // Trash may send two codes per press: the second must not close what the first opened.
+                if (menuDirect && sc != K_MENU && System.currentTimeMillis() - menuDirectAt < 400) return;
+                if (menuRows == MENU_CONTROLS) { closeControls(); return; }
+                closeMenu();
+                return;
+            case K_S1: case K_PLAY:
                 closeMenu(); return;
             default:
                 return;
@@ -1985,7 +2066,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             return true;
         }
         boolean conv = browsing && showConverted;   // converted view: every scroll control changes photo
-        if (!browsing && isWheel(event.getScanCode()) && wheelIsIso(event.getScanCode())) {
+        if (!browsing && isWheel(event.getScanCode()) && wheelIsIso()) {
             stepIso(event.getScanCode() == WHEEL_CW || event.getScanCode() == D3_CW ? 1 : -1);   // looks are still on Up/Down
             return true;
         }
@@ -2090,7 +2171,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 setNote("Grain: " + GRAIN_NAMES[grainIndex] + (grainIndex == 0 ? " (per look)" : ""));
                 return true;
             case K_PLAY:
-                if (browsing) enterShoot(); else enterBrowse();
+                if (browsing) enterShoot();
+                else { showConverted = true; enterBrowse(); }     // the camera's own playback cannot show these
                 return true;
             case K_DELETE: case K_SK2:
                 // Browse (all photos): before/after. Never exits: MENU > Exit application does.
@@ -2098,7 +2180,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                     showOriginal = !showOriginal;
                     updateTexts();
                     requestPreview(false);
-                } else if (!browsing && System.currentTimeMillis() - moveEnded > 600) startMoveSpot();
+                } else if (!browsing && camera != null && System.currentTimeMillis() - moveEnded > 600) openControlsDirect();
                 return true;
             case K_MENU:
                 openMenu();

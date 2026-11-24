@@ -23,7 +23,7 @@ ektar100    15
 vision250d  30
 vision500t  45
 almostdark  55
-cs50d       20   100  30   -2
+cs50d       20   100  50   -2
 cs800t      75   100  80   -3
 k2383       30   80
 eterna      30

@@ -752,6 +752,193 @@ static void *encoder(void *arg)
 
 /* ---- public: full-size conversion ------------------------------------- */
 
+/* ---- preview and thumbnail inside the output --------------------------- *
+ * Like the camera's own JPEGs: a screen-size preview (MPF) after the end of the main picture, so viewing a
+ * converted photo does not need a full decode, and an EXIF thumbnail in the look (the original's was kept
+ * until 0.40). Both come from the camera's own embedded preview: LUT and halation, no grain. Optional
+ * throughout: if anything fails, the photo is written as before. One conversion at a time. */
+#define PREVIEW_W 808            /* half of the cameras' 1616: an exact, fast DCT reduction */
+#define MPF_LEN 86               /* APP2 data: "MPF\0", TIFF header, 3 entries, 2 picture records */
+static unsigned char *g_prev, *g_thumb;
+static size_t g_prev_len, g_thumb_len;
+static double g_prev_s;
+static int g_no_extras;
+void filmlut_no_extras(int on) { g_no_extras = on; }
+
+static void extras_free(void)
+{
+    free(g_prev); free(g_thumb);
+    g_prev = g_thumb = NULL;
+    g_prev_len = g_thumb_len = 0;
+}
+
+/* RGB -> JPEG in memory (malloc'd), or NULL. */
+static unsigned char *encode_mem(const unsigned char *rgb, int w, int h, int quality, int h_samp, int v_samp, size_t *len)
+{
+    struct jpeg_compress_struct c;
+    err_mgr e;
+    unsigned char *volatile buf = NULL;
+    unsigned char *b = NULL;
+    unsigned long n = 0;
+    err_init(&e);
+    c.err = &e.pub;
+    if (setjmp(e.jump)) { jpeg_destroy_compress(&c); free(b); return NULL; }
+    jpeg_create_compress(&c);
+    jpeg_mem_dest(&c, &b, &n);
+    c.image_width = (JDIMENSION)w; c.image_height = (JDIMENSION)h;
+    c.input_components = 3; c.in_color_space = JCS_RGB;
+    jpeg_set_defaults(&c);
+    jpeg_set_quality(&c, quality, TRUE);
+    c.dct_method = JDCT_IFAST;
+    c.comp_info[0].h_samp_factor = h_samp; c.comp_info[0].v_samp_factor = v_samp;
+    c.write_JFIF_header = FALSE;
+    jpeg_start_compress(&c, TRUE);
+    while (c.next_scanline < c.image_height) {
+        JSAMPROW r = (JSAMPROW)(rgb + (size_t)c.next_scanline * w * 3);
+        jpeg_write_scanlines(&c, &r, 1);
+    }
+    jpeg_finish_compress(&c);
+    jpeg_destroy_compress(&c);
+    buf = b;
+    *len = (size_t)n;
+    return buf;
+}
+
+static void extras_build(const char *in_path, const lut3d *lut)
+{
+    char msg[200];
+    int w = 0, h = 0, x, y, *px;
+    unsigned char *rgb;
+    halo_t H;
+    double t0 = tnow();
+    extras_free();
+    g_prev_s = 0;
+    if (g_no_extras || !(px = filmlut_preview(in_path, PREVIEW_W, PREVIEW_W, &w, &h, msg, sizeof msg))) return;
+    rgb = (unsigned char *)malloc((size_t)w * h * 3);
+    if (!rgb) { free(px); return; }
+    for (y = 0; y < w * h; y++) {
+        rgb[y * 3] = (unsigned char)(px[y] >> 16); rgb[y * 3 + 1] = (unsigned char)(px[y] >> 8); rgb[y * 3 + 2] = (unsigned char)px[y];
+    }
+    free(px);
+    filmlut_lut_rgb(lut, rgb, (unsigned)(w * h));
+    memset(&H, 0, sizeof H);
+    if (g_halation && halo_build(in_path, &H, g_halation, 1)) {
+        for (y = 0; y < h; y++) halo_row(&H, rgb + (size_t)y * w * 3, (unsigned)w, (unsigned)h, (unsigned)y);
+        halo_free(&H);
+    }
+    g_prev = encode_mem(rgb, w, h, 88, 2, 1, &g_prev_len);
+    {
+        /* 160x120 thumbnail, letterboxed as the camera's. */
+        static const int TW = 160, TH = 120;
+        unsigned char *t = (unsigned char *)calloc((size_t)TW * TH, 3);
+        int tw = TW, th = h * TW / w, oy;
+        if (th > TH) { th = TH; tw = w * TH / h; }
+        if (t && tw > 0 && th > 0) {
+            int ox = (TW - tw) / 2;
+            oy = (TH - th) / 2;
+            for (y = 0; y < th; y++)
+                for (x = 0; x < tw; x++) {
+                    int x0 = x * w / tw, x1 = (x + 1) * w / tw, y0 = y * h / th, y1 = (y + 1) * h / th, sx, sy, k, s[3] = { 0, 0, 0 }, n = 0;
+                    if (x1 <= x0) x1 = x0 + 1;
+                    if (y1 <= y0) y1 = y0 + 1;
+                    for (sy = y0; sy < y1; sy++)
+                        for (sx = x0; sx < x1; sx++, n++)
+                            for (k = 0; k < 3; k++) s[k] += rgb[((size_t)sy * w + sx) * 3 + k];
+                    for (k = 0; k < 3; k++) t[((size_t)(y + oy) * TW + x + ox) * 3 + k] = (unsigned char)(s[k] / n);
+                }
+            g_thumb = encode_mem(t, TW, TH, 80, 2, 1, &g_thumb_len);
+        }
+        free(t);
+    }
+    free(rgb);
+    g_prev_s = tnow() - t0;
+}
+
+/* Replaces the EXIF thumbnail in place, if the new one fits where the old one was. */
+static void exif_set_thumb(unsigned char *a, size_t n)
+{
+    unsigned char *t, *off, *len;
+    unsigned long ifd0, ifd1, o, l;
+    int le;
+    if (!g_thumb || n < 14 || memcmp(a, "Exif\0\0", 6)) return;
+    t = a + 6; n -= 6;
+    if (!((t[0] == 'I' && t[1] == 'I') || (t[0] == 'M' && t[1] == 'M'))) return;
+    le = t[0] == 'I';
+    ifd0 = ex32(t + 4, le);
+    if (n < 6 || ifd0 > n - 6) return;
+    o = ifd0 + 2 + 12ul * ex16(t + ifd0, le);
+    if (o + 4 > n) return;
+    ifd1 = ex32(t + o, le);
+    if (!ifd1) return;
+    off = exif_entry(t, n, ifd1, 0x0201, le);
+    len = exif_entry(t, n, ifd1, 0x0202, le);
+    if (!off || !len) return;
+    o = ex32(off + 8, le); l = ex32(len + 8, le);
+    if (o > n || l > n - o || g_thumb_len > l) return;
+    memcpy(t + o, g_thumb, g_thumb_len);
+    memset(t + o + g_thumb_len, 0, l - g_thumb_len);
+    for (l = 0; l < 4; l++) len[8 + l] = (unsigned char)(g_thumb_len >> (le ? 8 * l : 24 - 8 * l));
+}
+
+static void put32(unsigned char *p, unsigned long v) { int i; for (i = 0; i < 4; i++) p[i] = (unsigned char)(v >> (8 * i)); }
+
+/* The APP2 segment, written with the header. Until extras_append() succeeds it is named "FDP\0", which nothing
+ * reads, so a failure in between leaves an ordinary JPEG. */
+static void mpf_marker(struct jpeg_compress_struct *c)
+{
+    static const unsigned char tiff[] = {
+        'F','D','P',0, 'I','I',42,0, 8,0,0,0, 3,0,
+        0x00,0xB0, 7,0, 4,0,0,0, '0','1','0','0',
+        0x01,0xB0, 4,0, 1,0,0,0, 2,0,0,0,
+        0x02,0xB0, 7,0, 32,0,0,0, 50,0,0,0,
+        0,0,0,0 };
+    unsigned char m[MPF_LEN];
+    if (!g_prev) return;
+    memset(m, 0, sizeof m);
+    memcpy(m, tiff, sizeof tiff);
+    put32(m + 54, 0xA0030000ul);
+    put32(m + 70, 0x40010002ul);
+    jpeg_write_marker(c, JPEG_APP0 + 2, m, MPF_LEN);
+}
+
+/* Appends the preview to the finished file and fills in the segment. On failure the file is cut back. */
+static void extras_append(const char *path)
+{
+    unsigned char h[4], m[MPF_LEN];
+    long end, pos = 2, seg = 0;
+    FILE *f;
+    int ok = 0;
+    if (!g_prev || !(f = fopen(path, "r+b"))) return;
+    fseek(f, 0, SEEK_END);
+    end = ftell(f);
+    while (pos + 4 < end && pos < 300000) {
+        unsigned int len;
+        if (fseek(f, pos, SEEK_SET) || fread(h, 1, 4, f) != 4 || h[0] != 0xFF || h[1] == 0xDA) break;
+        len = h[2] << 8 | h[3];
+        if (h[1] == 0xE2 && len == MPF_LEN + 2) {
+            if (fread(m, 1, MPF_LEN, f) == MPF_LEN && !memcmp(m, "FDP", 4)) seg = pos + 4;
+            break;
+        }
+        pos += 2 + (long)len;
+    }
+    if (seg && !fseek(f, end, SEEK_SET) && fwrite(g_prev, 1, g_prev_len, f) == g_prev_len && fflush(f) == 0) {
+        memcpy(m, "MPF", 4);
+        put32(m + 58, (unsigned long)end);                     /* main picture: size, offset 0 */
+        put32(m + 74, (unsigned long)g_prev_len);
+        put32(m + 78, (unsigned long)(end - (seg + 4)));       /* from the TIFF header */
+        ok = !fseek(f, seg, SEEK_SET) && fwrite(m, 1, MPF_LEN, f) == MPF_LEN;
+    }
+    if (fclose(f)) ok = 0;
+    if (!ok && truncate(path, end)) { /* the main picture is complete either way */ }
+}
+
+static void prepare_markers(jpeg_saved_marker_ptr m)
+{
+    markers_to_srgb(m);
+    for (; m; m = m->next)
+        if (m->marker == JPEG_APP0 + 1) exif_set_thumb(m->data, m->data_length);
+}
+
 /* Original pipeline: one encoder thread. Kept as the fallback for apply_parallel(). */
 static int apply_serial(const char *in_path, const char *out_path,
                         const unsigned char *lut_file, size_t lut_len,
@@ -834,9 +1021,10 @@ static int apply_serial(const char *in_path, const char *out_path,
     c.comp_info[2].h_samp_factor = 1; c.comp_info[2].v_samp_factor = 1;
     c.write_JFIF_header = FALSE;                                          /* EXIF instead, as the camera does */
     jpeg_start_compress(&c, TRUE);
-    markers_to_srgb(d.marker_list);
+    prepare_markers(d.marker_list);
     for (m = d.marker_list; m; m = m->next)
         jpeg_write_marker(&c, m->marker, m->data, m->data_length);
+    mpf_marker(&c);
 
     p.width = d.output_width;
     p.height = d.output_height;
@@ -918,6 +1106,7 @@ finish:
         snprintf(msg, msglen, "%s", p.msg);
         rc = 2;
     } else {
+        extras_append(tmp_path);
         unlink(out_path);
         if (rename(tmp_path, out_path) != 0) { unlink(tmp_path); snprintf(msg, msglen, "rename failed"); rc = 3; }
         else g_progress = 1000;
@@ -1073,7 +1262,10 @@ static void *par_encoder(void *arg)
     c->restart_in_rows = 1;            /* one restart interval per MCU row */
     jpeg_start_compress(c, TRUE);
     if (e->k == 0)
+    {
         for (m = p->markers; m; m = m->next) jpeg_write_marker(c, m->marker, m->data, m->data_length);
+        mpf_marker(c);
+    }
 
     for (; u < p->units; u += NENC) {
         slot_t *s = &p->slot[u % PSLOTS];
@@ -1193,7 +1385,7 @@ static int apply_parallel(const char *in_path, const char *tmp_path,
 
     p->width = d.output_width;
     p->height = d.output_height;
-    markers_to_srgb(d.marker_list);                    /* what the LUT gives is sRGB */
+    prepare_markers(d.marker_list);                    /* what the LUT gives is sRGB */
     p->markers = d.marker_list;
     p->units = (int)((d.output_height + 7) / 8);
     halo_build(in_path, &p->halo, g_halation, 0);
@@ -1375,12 +1567,15 @@ static int apply_any(const char *in_path, const char *out_path,
         memcpy(tmp_path + stem, ".TMP", 5);
         if (strcmp(tmp_path, out_path) == 0) { snprintf(msg, msglen, "output must not end in .TMP"); return 1; }
     }
+    extras_build(in_path, &lut);
+    if (g_cancel) { snprintf(msg, msglen, "cancelled"); return 2; }
     rc = g_force_serial ? 4 : apply_parallel(in_path, tmp_path, &lut, quality, msg, msglen);
     if (rc == 4) {   /* not enough memory / threads: use the proven single-encoder pipeline */
         g_cancel = 0;
         return apply_serial(in_path, out_path, lut_file, lut_len, quality, msg, msglen);
     }
     if (rc != 0) return rc;
+    extras_append(tmp_path);
     unlink(out_path);
     if (rename(tmp_path, out_path) != 0) { unlink(tmp_path); snprintf(msg, msglen, "rename failed"); return 3; }
     g_progress = 1000;
@@ -1398,6 +1593,11 @@ int filmlut_apply(const char *in_path, const char *out_path,
         return 1;
     }
     rc = apply_any(in_path, out_path, adobe ? adobe : lut_file, lut_len, quality, msg, msglen);
+    {
+        size_t n = strlen(g_stats);
+        if (rc == 0 && g_prev) snprintf(g_stats + n, sizeof g_stats - n, " preview %.1f (%lu KB)", g_prev_s, (unsigned long)(g_prev_len / 1024));
+    }
+    extras_free();
     free(adobe);
     return rc;
 }

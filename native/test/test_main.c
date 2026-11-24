@@ -56,6 +56,8 @@ int main(int argc, char **argv)
         if (o) filmlut_set_scale(atoi(o));
         o = getenv("FILMLUT_GRAIN");      /* 0..100 */
         if (o) filmlut_set_grain(atoi(o));
+        o = getenv("FILMLUT_NOEXTRAS");
+        if (o) filmlut_no_extras(atoi(o));
         o = getenv("FILMLUT_HALATION");   /* 0..100 */
         if (o) filmlut_set_halation(atoi(o));
     }

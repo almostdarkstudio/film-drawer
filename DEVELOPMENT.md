@@ -179,3 +179,26 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 - `Controls.java`: dials follow the camera's own set-up via `ScalarInput.getKeyLogicCode(key, mode, 1)`, if it answers
   with a known FUNC_* code; otherwise as before. What it answers is written to KEYS.TXT (with DEBUG.TXT).
 - Eye AF: `executeAutoFocusStartTrigger` (TRIGGER_EYE_START) exists from interface version 16; not used.
+
+## 0.39
+- MENU > Controls holds focus, focus area, move focus point, ISO, dials and wheel; the button guide too; the main menu has 9 rows and no
+  longer scrolls. Trash (shooting) opens Controls directly. The camera's values are read when Controls opens, so the main menu opens without a camera call.
+
+## 0.40
+- PLAY opens the converted photos (all photos if there are none yet); Fn or the menu goes to all photos.
+
+## 0.41 (preview and thumbnail in converted photos)
+- `extras_*` in filmlut.c: an 808-wide preview (look + halation, no grain) after the main picture, listed in an MPF
+  APP2 segment as in the camera's own JPEGs, and an EXIF thumbnail in the look (the original's was kept before). Made
+  from the source's embedded preview. The segment is named FDP until the preview is safely appended, then MPF.
+- Checked on the PC: main picture's scan data byte-identical with and without it; parallel and serial; 3 libraries
+  (libjpeg-turbo, PIL, ffmpeg); 1001x667 to 7952x5304 in 4:4:4 / 4:2:2 / 4:2:0; cut-off and corrupted inputs.
+- CineStill 50D halation 30 -> 50 (at 30 it was barely visible).
+
+## 0.42
+- "Loading..." goes away when browse is left before the photo has loaded.
+- KEYS.TXT (0.38, a7R II): getKeyLogicCode(key, mode, status) answers with nonsense (dials = EXPOSURE_MODE), so "As
+  camera" never did anything there. Eye AF: executeAutoFocusStartTrigger is not on the a7R II.
+
+## 0.43
+- "As camera" removed (see Controls.java). Three 0.41 files written by an a7R II were byte-identical to the PC's.

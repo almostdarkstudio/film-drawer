@@ -60,6 +60,9 @@ void filmlut_set_halation(int strength);
  * the full conversion (cached for the last photo). Returns 1 if applied. Preview thread only. */
 int filmlut_preview_halation(const char *path, int *argb, int w, int h, int strength);
 
+/* Test only: 1 = no preview / thumbnail in the output. */
+void filmlut_no_extras(int on);
+
 /* Test only: 1 = always use the single-encoder pipeline (for comparisons). */
 void filmlut_force_serial(int on);
 

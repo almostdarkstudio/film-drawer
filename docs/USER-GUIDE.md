@@ -19,7 +19,7 @@ By Almost Dark Studio: https://almostdarkstudio.com
 - Shoot inside the app. A quick review shows each photo in its look, and the conversion runs in
   the background (about 20-25 s per photo at JPEG size M on an a7R II).
 - Browse any photo on the card, preview a look, and convert it. Or view your converted photos
-  (the camera's own playback cannot show them): Fn in browse mode, or MENU > Converted photos.
+  (the camera's own playback cannot show them): PLAY.
 - Converted files go to `FILMDRAW\<folder>\<TAG><number>.JPG` (for example
   `FILMDRAW\100MSDCF\P4002097.JPG` = DSC02097 in Portra 400). EXIF is kept.
   (Up to 0.34 the folder was `FILMLUT`. The app still shows what is in it, and never moves it.)
@@ -40,21 +40,25 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 ## Controls
 | | Shoot mode | Browse mode |
 |---|---|---|
-| Wheel / Up / Down | Change look (a card shows your last photo in that look). The wheel can change ISO instead, see below | Change look |
+| Wheel / Up / Down | Change look (a card shows your last photo in that look). The wheel can change ISO instead (Controls > Wheel) | Change look |
 | Left / Right | Jump to the previous / next look group | Previous / next photo |
-| Front dial | As set on your camera if it says so, else aperture (A/M/P) | Change look |
-| Rear dial | As set on your camera if it says so, else shutter speed (S/M) or exposure compensation | Previous / next photo |
-| Focus area (Wide / Center / Flexible Spot) | MENU > Focus area. The box turns green when focus locks | |
-| ISO, dials, wheel | MENU > ISO. MENU > Dials: as camera, or choose which dial is shutter. MENU > Wheel: as camera, ISO or looks (with ISO, looks stay on Up / Down) | |
+| Front dial | Aperture (A/M/P), or shutter speed (Controls > Dials) | Change look |
+| Rear dial | Shutter speed (S/M), else exposure compensation, or aperture (Controls > Dials) | Previous / next photo |
 | Fn | Base style: Standard / Neutral / Camera settings | Switch between all photos and converted photos |
 | C1 | JPEG size in the app: M / S / L, with your camera's megapixels | |
 | EV dial (a7R II) | Exposure compensation follows the dial | |
-| Focus mode (AF / MF / DMF) | MENU > Focus (the AF/MF-AEL button does not work in the app) | |
 | C2 | Grain: Auto (per look) / Off / Low / Medium / High | Same |
 | OK | Show / hide help | Convert this photo |
-| Trash | Move the focus point: arrows move it, OK or half-press keeps it, Trash again goes back | Before / after (all photos) |
-| PLAY | Browse | Back to shooting (or half-press) |
-| MENU | Menu: look, grain, base style, JPEG size, focus, focus area, move focus point, ISO, dials, wheel, quick review, converted photos, help, about, **Exit application** | Same |
+| Trash | **Controls**: the list below, with Move focus point first | Before / after (all photos) |
+| PLAY | Your converted photos, newest first (Fn: all photos) | Back to shooting (or half-press) |
+| MENU | Menu: look, grain, base style, JPEG size, quick review, **Controls**, photos, about, **Exit application** | Same |
+
+**Controls** (Trash while shooting, or MENU > Controls):
+- **Move focus point**: the arrows move it, OK or half-press keeps it, Trash goes back to the earlier focus area.
+- **Focus area**: Wide, Center or Flexible Spot. The box turns green when focus locks.
+- **Focus**: AF / MF / DMF (the AF/MF-AEL button does not work in the app).
+- **ISO**, **Dials** (which one is shutter speed) and **Wheel** (looks or ISO; with ISO, looks stay on Up / Down).
+- **What buttons do**.
 
 The camera's mode dial sets the exposure mode as usual (P/A/S/M). In 0.32 and earlier, set it before opening the app:
 turning it in the app had no effect. Everything on Fn, C1 and C2 is also

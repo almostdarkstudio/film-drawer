@@ -6,11 +6,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * What the user has set each dial to on the camera (Dial/Wheel Setup, Custom Key Settings), so the app can
- * follow it: ScalarInput.getKeyLogicCode(key, shooting mode, status) -> a FUNC_* code. Read-only.
- *
- * Undocumented (the argument order is taken from its constants and getKeyStatus(key)), so only the codes
- * below are trusted; any other answer, or an error, means "unknown" and the app uses its own assignment.
+ * Diagnostics only (KEYS.TXT): looking for what the user has set each dial to on the camera (Dial/Wheel Setup,
+ * Custom Key Settings), via ScalarInput.getKeyLogicCode(int, int, int) -> a FUNC_* code. Read-only. Undocumented:
+ * with the arguments as key, mode, status (0.38) an a7R II gave nonsense, so "As camera" was removed in 0.43 until
+ * the right order is known. function() is kept for that.
  */
 final class Controls {
     private Controls() {}
@@ -108,6 +107,27 @@ final class Controls {
             }
         } catch (Throwable e) {
             sb.append("\nnot available: ").append(e).append(e.getCause() == null ? "" : " / " + e.getCause()).append('\n');
+        }
+        // 0.38 on an a7R II: key, mode, status gave nonsense. The other orders of the three arguments, for a few keys.
+        int[][] orders = {{0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};      // position of key, mode, status
+        for (int[] o : orders) {
+            sb.append("\norder: key at ").append(o[0]).append(", mode at ").append(o[1]).append(", status at ").append(o[2]).append('\n');
+            for (int i = 0; i < 12; i++) {
+                sb.append(what[i]).append(' ').append(keys[i]).append(':');
+                for (int m : new int[]{0, 1, 2, 3, 5}) {
+                    for (int st = 1; st <= 2; st++) {
+                        int[] a = new int[3];
+                        a[o[0]] = keys[i]; a[o[1]] = m; a[o[2]] = st;
+                        String v;
+                        try {
+                            int x = ask(a[0], a[1], a[2]);
+                            v = x + (names.containsKey(x) ? "(" + names.get(x) + ")" : "");
+                        } catch (Throwable e) { v = String.valueOf(e.getCause() == null ? e : e.getCause()); }
+                        sb.append(" m").append(m).append('s').append(st).append('=').append(v);
+                    }
+                }
+                sb.append('\n');
+            }
         }
         // Is there anything for Eye AF, or AF on a button?
         for (Method m : camera.getClass().getMethods())
