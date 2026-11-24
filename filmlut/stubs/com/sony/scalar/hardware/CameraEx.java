@@ -27,6 +27,9 @@ public class CameraEx {
         public String getImageSize() { throw new RuntimeException("stub"); }
         public void setImageSize(String size) { throw new RuntimeException("stub"); }
         public List getSupportedImageSizes() { throw new RuntimeException("stub"); }
+        public String getPictureStorageFormat() { throw new RuntimeException("stub"); }   // jpeg, raw, rawjpeg
+        public void setPictureStorageFormat(String fmt) { throw new RuntimeException("stub"); }
+        public List getSupportedPictureStorageFormats() { throw new RuntimeException("stub"); }
         public String getDROMode() { throw new RuntimeException("stub"); }
         public void setDROMode(String mode) { throw new RuntimeException("stub"); }
         public int getDROLevel() { throw new RuntimeException("stub"); }

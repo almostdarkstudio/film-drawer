@@ -68,7 +68,7 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 | Front dial | Aperture (A/M/P) | Change look |
 | Rear dial | Shutter speed (S/M), else exposure compensation | Previous / next photo |
 | Fn | Base style: Standard / Neutral / Camera settings | Switch between all photos and converted photos |
-| C1 | JPEG size in the app: M (default) / S / L | |
+| C1 | JPEG size in the app: M / S / L, with your camera's megapixels | |
 | EV dial (a7R II) | Exposure compensation follows the dial | |
 | Focus mode (AF / MF / DMF) | MENU > Focus (the AF/MF-AEL button does not work in the app) | |
 | C2 | Grain: Auto (per look) / Off / Low / Medium / High | Same |
@@ -84,7 +84,8 @@ converting carry on next time).
 ## Your camera settings
 While you shoot in Film Drawer, the app sets a neutral base so the looks come out consistently:
 Creative Style Standard (or Neutral) with contrast and saturation 0, DRO off, and your chosen JPEG
-size, focus mode and (for CineStill) sharpness. It saves your own settings first and is designed to put
+size, focus mode and (for CineStill) sharpness. The looks are applied to the JPEG, so if your camera is set
+to RAW only, the app shoots RAW+JPEG while it is open. It saves your own settings first and is designed to put
 them back when you leave the app with MENU > Exit application, or the next time you open it if the
 camera was switched off. Please check your settings the first time. Choose
 "Camera settings" (Fn) to leave your Creative Style alone. RAW files are never affected.

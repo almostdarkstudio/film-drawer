@@ -29,7 +29,7 @@ accepts 8.3 names).
     contrast/saturation 0 so the LUTs always start from a known image. The user's own values are saved
     to prefs before any change and restored when leaving shoot mode (or on the next launch after an
     abrupt exit). Uses Sony's CameraEx.ParametersModifier, as Sony's own apps do (setColorMode).
-  - JPEG size while shooting in the app (C1): M 18MP (default) / S 11MP / L 42MP, via
+  - JPEG size while shooting in the app (C1): M / S / L, megapixels read from the camera (default: the largest up to ~20 MP), via
     ParametersModifier.setImageSize ("midium"/"small"/"large"). Saved and restored with the base
     style; RAW stays full size. Smaller JPEGs convert much faster (decoder is the bottleneck).
   - Dials (0.7+): front = aperture; rear = shutter (S/M) or EV (A/P); wheel = look.
@@ -135,3 +135,10 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 - Almost Dark (`luts/almostdark.py`): own look derived from Vision3 500T.
 - The AF/MF-AEL button does not reach the app as 533/532 on the a7R II; focus mode is in the menu.
 - Icon: `icon/make-icon.py`.
+
+## 0.32 (other cameras)
+- Quality = RAW: `storage-fmt` raw is switched to rawjpeg while the app is open (pref `userStorageFmt`, put back in
+  `closeCamera`). If refused, the app says so and queues nothing. Not yet tried on a camera.
+- JPEG size labels come from `image-pixel-size-<l|m|s>-<aspect>`; letter only if missing or in APS-C crop.
+- Engine checked on the PC at 12 sizes from 1920x1080 to 7952x5304 in 4:2:0, 4:2:2 and 4:4:4 (parallel == serial).
+- Grain is a fixed size in pixels (tuned at 18 MP), so it looks coarser in small photos and finer in large ones.

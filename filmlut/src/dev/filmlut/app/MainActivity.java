@@ -61,7 +61,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     /** JPEG size while shooting in the app (RAW is always full size). Sony spells medium "midium". */
     private static final String[] SIZES = {"midium", "small", "large"};
-    private static final String[] SIZE_NAMES = {"M 18MP", "S 11MP", "L 42MP"};
+    private static final String[] SIZE_KEYS = {"m", "s", "l"};
+    /** Megapixels per size, read from this camera (readImageSizes); 0 = unknown, then not shown. */
+    private final float[] sizeMp = new float[SIZES.length];
+    /** No size chosen yet with C1 / the menu: use the largest up to AUTO_MAX_MP (a7R II: M). */
+    private boolean sizeAuto;
+    private static final float AUTO_MAX_MP = 20.5f;
     private static final int K_C1 = 622;
     private int sizeIndex;
 
@@ -159,6 +164,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         lookIndex = Math.max(0, Math.min(looks.all.size() - 1, prefs.getInt("look", 1)));
         baseIndex = Math.max(0, Math.min(BASES.length - 1, prefs.getInt("base", 0)));
         sizeIndex = Math.max(0, Math.min(SIZES.length - 1, prefs.getInt("size", 0)));
+        sizeAuto = !prefs.contains("size");
         grainIndex = Math.max(0, Math.min(GRAIN_NAMES.length - 1, prefs.getInt("grain", 0)));
         reviewIndex = Math.max(0, Math.min(REVIEW_NAMES.length - 1, prefs.getInt("review", 1)));
         if (Native.LOAD_ERROR != null) {
@@ -206,7 +212,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         Diag.trace("pause");
         Diag.dumpTrace("left the app (pause)");
         closeCamera();
-        if (prefs != null) prefs.edit().putInt("look", lookIndex).putInt("base", baseIndex).putInt("size", sizeIndex).putInt("grain", grainIndex).putInt("review", reviewIndex).commit();
+        if (prefs != null) prefs.edit().putInt("look", lookIndex).putInt("base", baseIndex).putInt("grain", grainIndex).putInt("review", reviewIndex).commit();
+        if (prefs != null && !sizeAuto) prefs.edit().putInt("size", sizeIndex).commit();
     }
 
     // ---------------------------------------------------------------- views
@@ -480,6 +487,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             if (Diag.verbose()) dumpCameraParameters();   // FILMLUT/DEBUG.TXT on the card turns it on
             restoreUserFocus();                            // left over from an abrupt exit
             restoreUserSharpness();
+            applyStorageFormat();                          // before the size: there must be a JPEG
+            readImageSizes();
             applyBase();
             startLiveView();
             applyEvDial(false);                            // match the EV dial's position
@@ -642,6 +651,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         restoreUserFocus();
         restoreUserSharpness();
         restoreUserStyle();
+        restoreUserStorageFormat();                        // last: the JPEG size above needs a JPEG
         try {
             camera.release();
         } catch (Throwable ignored) {
@@ -770,14 +780,104 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         }
     }
 
+    // ---------------------------------------------------------------- RAW only -> RAW+JPEG
+
+    private boolean rawOnly;       // the camera saves no JPEG, so there is nothing to convert
+
+    /**
+     * The looks are applied to the JPEG, so with Quality = RAW nothing would ever be converted. Then the
+     * app shoots RAW+JPEG (the RAW is saved just the same) and puts RAW back when it closes the camera.
+     * JPEG and RAW+JPEG are left alone. Says so if the camera refuses.
+     */
+    private void applyStorageFormat() {
+        rawOnly = false;
+        if (camera == null) return;
+        try {
+            CameraEx.ParametersModifier cur = camera.createParametersModifier(camera.getNormalCamera().getParameters());
+            String fmt = cur.getPictureStorageFormat();
+            // Left over from an abrupt exit, but changed by the user since: forget it.
+            if ("jpeg".equals(fmt)) prefs.edit().remove("userStorageFmt").commit();
+            if (!"raw".equals(fmt)) return;
+            rawOnly = true;
+            List ok = cur.getSupportedPictureStorageFormats();
+            if (ok == null || ok.contains("rawjpeg")) {
+                prefs.edit().putString("userStorageFmt", fmt).commit();
+                android.hardware.Camera.Parameters p = camera.createEmptyParameters();
+                camera.createParametersModifier(p).setPictureStorageFormat("rawjpeg");
+                camera.getNormalCamera().setParameters(p);
+                cur = camera.createParametersModifier(camera.getNormalCamera().getParameters());
+                rawOnly = "raw".equals(cur.getPictureStorageFormat());
+            }
+        } catch (Throwable t) {
+            Diag.trace("storage format: " + t);
+        }
+        Diag.trace("quality RAW -> " + (rawOnly ? "refused" : "RAW+JPEG"));
+        if (rawOnly) warnRawOnly();
+        else setNote("RAW+JPEG in the app (yours: RAW)");
+    }
+
+    private void warnRawOnly() {
+        flash("Quality is RAW: no JPEG to convert\nSet RAW & JPEG in the camera menu", 4000);
+    }
+
+    private void restoreUserStorageFormat() {
+        String fmt = prefs.getString("userStorageFmt", null);
+        if (camera == null || fmt == null) return;
+        try {
+            android.hardware.Camera.Parameters p = camera.createEmptyParameters();
+            camera.createParametersModifier(p).setPictureStorageFormat(fmt);
+            camera.getNormalCamera().setParameters(p);
+            prefs.edit().remove("userStorageFmt").commit();
+        } catch (Throwable t) {
+            flash("Could not restore your quality setting (" + fmt + "): " + t, 4000);
+        }
+    }
+
+    // ---------------------------------------------------------------- JPEG sizes of this camera
+
+    /**
+     * Megapixels of L / M / S from the camera ("image-pixel-size-m-3-2" = "5168x3448"), for the aspect
+     * ratio in use. Not shown in APS-C crop, where these may not apply.
+     */
+    private void readImageSizes() {
+        if (camera == null) return;
+        try {
+            android.hardware.Camera.Parameters p = camera.getNormalCamera().getParameters();
+            String aspect = p.get("image-aspect"), crop = p.get("apsc-mode");
+            String suffix = "-" + (aspect == null ? "3:2" : aspect).replace(':', '-');
+            boolean full = crop == null || "off".equals(crop);
+            for (int i = 0; i < SIZES.length; i++) sizeMp[i] = full ? megapixels(p.get("image-pixel-size-" + SIZE_KEYS[i] + suffix)) : 0;
+        } catch (Throwable t) {
+            Diag.trace("image sizes: " + t);
+        }
+        if (!sizeAuto) return;
+        int best = -1;
+        for (int i = 0; i < SIZES.length; i++)
+            if (sizeMp[i] > 0 && sizeMp[i] <= AUTO_MAX_MP && (best < 0 || sizeMp[i] > sizeMp[best])) best = i;
+        if (best >= 0) sizeIndex = best;
+    }
+
+    /** "5168x3448" -> 17.8; 0 if missing or not understood. */
+    private static float megapixels(String wh) {
+        if (wh == null) return 0;
+        String[] s = wh.trim().split("x");
+        if (s.length != 2) return 0;
+        try { return Integer.parseInt(s[0]) * (float) Integer.parseInt(s[1]) / 1e6f; } catch (NumberFormatException e) { return 0; }
+    }
+
+    private String sizeName() {
+        return SIZE_SHORT[sizeIndex] + (sizeMp[sizeIndex] > 0 ? " " + Math.round(sizeMp[sizeIndex]) + "MP" : "");
+    }
+
     private void cycleSize() { cycleSize(1); }
 
     private void cycleSize(int dir) {
         restoreUserStyle();
         sizeIndex = ((sizeIndex + dir) % SIZES.length + SIZES.length) % SIZES.length;
+        sizeAuto = false;
         applyBase();
         updateTexts();
-        setNote("JPEG size: " + SIZE_NAMES[sizeIndex]);
+        setNote("JPEG size: " + sizeName());
     }
 
     /**
@@ -918,6 +1018,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (camera == null) return;
         if (sharpPending) { ui.removeCallbacks(applySharpnessLater); applySharpnessLater.run(); }   // look just changed
         try {
+            if (rawOnly) {                                  // no JPEG will come: never queue a look for it
+                camera.getNormalCamera().takePicture(null, null, null);
+                warnRawOnly();
+                return;
+            }
             synchronized (shotLooks) {
                 long now = System.currentTimeMillis();
                 lastShutterMs = now;
@@ -1380,7 +1485,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_LOOK: return look().name;
             case M_GRAIN: return grainIndex == 0 ? "Auto (" + look().grain + ")" : GRAIN_NAMES[grainIndex];
             case M_BASE: return BASE_NAMES[baseIndex];
-            case M_SIZE: return SIZE_NAMES[sizeIndex];
+            case M_SIZE: return sizeName();
             case M_FOCUS: return focusName();
             case M_REVIEW: return REVIEW_NAMES[reviewIndex];
             default: return null;
