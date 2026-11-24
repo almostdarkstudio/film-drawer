@@ -122,11 +122,11 @@ public final class JobQueue {
         if (current != null) Native.cancel();
     }
 
-    /** One line per conversion in FILMLUT/LOG.TXT (time, result, priority, NEON) for tuning. */
+    /** One line per conversion in FILMDRAW/LOG.TXT (time, result, priority, NEON) for tuning. */
     private static void log(String line) {
-        if (!Diag.verbose()) return;   // FILMLUT/DEBUG.TXT on the card turns LOG.TXT on
+        if (!Diag.verbose()) return;   // FILMDRAW/DEBUG.TXT on the card turns LOG.TXT on
         try {
-            java.io.File f = new java.io.File(new java.io.File(Photos.sd(), "FILMLUT"), "LOG.TXT");
+            java.io.File f = new java.io.File(Photos.appDir(), "LOG.TXT");
             f.getParentFile().mkdirs();
             java.io.FileWriter w = new java.io.FileWriter(f, true);
             w.write(line + "\n");

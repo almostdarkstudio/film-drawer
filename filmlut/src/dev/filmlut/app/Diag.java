@@ -11,8 +11,8 @@ import java.util.Date;
 /**
  * Diagnostics for testing on the camera (there is no readable system log):
  *  - trace(): ring buffer of the last 80 app events (keys, mode changes, renders, jobs);
- *  - crashes (uncaught exceptions on any thread) -> FILMLUT/CRASH.TXT;
- *  - watchdog: if the UI thread does not answer for 3 s -> FILMLUT/HANG.TXT with the UI thread's
+ *  - crashes (uncaught exceptions on any thread) -> FILMDRAW/CRASH.TXT;
+ *  - watchdog: if the UI thread does not answer for 3 s -> FILMDRAW/HANG.TXT with the UI thread's
  *    stack (where it is stuck) and the event trace; a line when it recovers.
  * Files are appended and capped at ~200 KB.
  */
@@ -40,9 +40,9 @@ public final class Diag {
         return sb.toString();
     }
 
-    private static synchronized void write(String name, String text) {
+    static synchronized void write(String name, String text) {
         try {
-            File f = new File(new File(Photos.sd(), "FILMLUT"), name);
+            File f = new File(Photos.appDir(), name);
             f.getParentFile().mkdirs();
             if (f.length() > 200000) return;
             FileWriter w = new FileWriter(f, true);
@@ -56,23 +56,23 @@ public final class Diag {
 
     /**
      * Verbose diagnostics (TRACE.TXT on every exit, PARAMS.TXT camera dump) only when the user has
-     * created FILMLUT/DEBUG.TXT on the card. HANG.TXT / CRASH.TXT are always on: they are written
+     * created FILMDRAW/DEBUG.TXT on the card. HANG.TXT / CRASH.TXT are always on: they are written
      * only when something goes wrong, and are what a bug report needs.
      */
     public static boolean verbose() {
         if (verbose == null) {
             boolean v = false;
-            try { v = new File(new File(Photos.sd(), "FILMLUT"), "DEBUG.TXT").exists(); } catch (Throwable ignored) {}
+            try { v = Photos.debugFile(); } catch (Throwable ignored) {}
             verbose = v;
         }
         return verbose;
     }
 
-    /** Writes the event trace to FILMLUT/TRACE.TXT (replacing it), e.g. when the app is left. Verbose only. */
+    /** Writes the event trace to FILMDRAW/TRACE.TXT (replacing it), e.g. when the app is left. Verbose only. */
     public static void dumpTrace(String why) {
         if (!verbose()) return;
         try {
-            File f = new File(new File(Photos.sd(), "FILMLUT"), "TRACE.TXT");
+            File f = new File(Photos.appDir(), "TRACE.TXT");
             f.getParentFile().mkdirs();
             FileWriter w = new FileWriter(f, false);
             w.write(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "  " + why + "\n" + traceText());
@@ -131,7 +131,7 @@ public final class Diag {
 
     private static boolean cameraDumped;
 
-    /** Once: writes FILMLUT/CAMERAEX.TXT with every public method of Sony's CameraEx and its nested
+    /** Once: writes FILMDRAW/CAMERAEX.TXT with every public method of Sony's CameraEx and its nested
      *  classes (read-only reflection), to find how MF is switched on this body. */
     public static synchronized void dumpCameraEx(Object camera) {
         if (cameraDumped || camera == null) return;
@@ -154,7 +154,7 @@ public final class Diag {
             sb.append("failed: ").append(t).append('\n');
         }
         try {
-            File f = new File(new File(Photos.sd(), "FILMLUT"), "CAMERAEX.TXT");
+            File f = new File(Photos.appDir(), "CAMERAEX.TXT");
             f.getParentFile().mkdirs();
             FileWriter w = new FileWriter(f, false);
             w.write(sb.toString());
@@ -163,7 +163,7 @@ public final class Diag {
         }
     }
 
-    /** Once: writes FILMLUT/INPUT.TXT with every ScalarInput constant and method (read-only lookups). */
+    /** Once: writes FILMDRAW/INPUT.TXT with every ScalarInput constant and method (read-only lookups). */
     public static synchronized void dumpInputClass() {
         if (inputDumped) return;
         inputDumped = true;
@@ -188,7 +188,7 @@ public final class Diag {
             sb.append("not available: ").append(t).append('\n');
         }
         try {
-            File f = new File(new File(Photos.sd(), "FILMLUT"), "INPUT.TXT");
+            File f = new File(Photos.appDir(), "INPUT.TXT");
             f.getParentFile().mkdirs();
             FileWriter w = new FileWriter(f, false);
             w.write(sb.toString());

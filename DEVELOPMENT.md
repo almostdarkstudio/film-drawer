@@ -158,3 +158,12 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 - Mode dial (ISV_KEY_MODE_DIAL 572) was ignored, so the exposure mode stayed as it was when the app opened. Now its
   status is mapped to scene-mode, with a camera reopen as fallback. The codes themselves have not been logged.
 - The menu measures the screen and picks the largest text that fits (13 rows at size 18 did not).
+
+## 0.35 - 0.36 (focus area, folder)
+- `Focus.java`: boxes over the live view from `CameraEx.getFocusAreaInfos` (argument: 0 = 3:2, 1 = 16:9), focus result
+  from `AutoFocusDoneListener`, area from `setFocusAreaMode`, spot from `setFocusPoint(x, y)`. The autofocus itself is
+  the camera's. What the a7R II reported (units, box 0, spot size, refused Zone) is in the class comment.
+- The spot is rounded to the camera's own grid (asked for -663, got -665), so a move is judged by the read-back.
+- The menu scrolls (15 rows, 11 shown).
+- Card folder FILMLUT -> FILMDRAW (8.3 names only); the old one is still read. The package name stays `dev.filmlut.app`,
+  so updates install over earlier versions.

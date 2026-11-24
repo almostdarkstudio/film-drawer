@@ -11,6 +11,18 @@ import java.util.List;
 public final class Photos {
     private Photos() {}
 
+    /** The app's folder on the card (8.3 name). Up to 0.34 it was FILMLUT: still read, never moved. */
+    private static final String DIR = "FILMDRAW", OLD_DIR = "FILMLUT";
+
+    public static File appDir() { return new File(sd(), DIR); }
+
+    private static File oldDir() { return new File(sd(), OLD_DIR); }
+
+    /** FILMDRAW/DEBUG.TXT (or in the old folder) turns detailed logs on. */
+    public static boolean debugFile() {
+        return new File(appDir(), "DEBUG.TXT").exists() || new File(oldDir(), "DEBUG.TXT").exists();
+    }
+
     public static File sd() {
         return Environment.getExternalStorageDirectory();
     }
@@ -65,13 +77,16 @@ public final class Photos {
     }
 
     /**
-     * Converted photos (FILMLUT/<folder>/<TAG><last 5 of name>.JPG; _DSC1234 ends in C1234), oldest first by time written.
+     * Converted photos (FILMDRAW/<folder>/<TAG><last 5 of name>.JPG; _DSC1234 ends in C1234), oldest first by time written.
      * The camera's own playback does not show these (they are outside DCIM).
      */
     public static List<File> allOutputs() {
         List<File> out = new ArrayList<File>();
-        File[] dirs = new File(sd(), "FILMLUT").listFiles();
-        if (dirs == null) return out;
+        List<File> dirs = new ArrayList<File>();
+        for (File top : new File[]{appDir(), oldDir()}) {
+            File[] l = top.listFiles();
+            if (l != null) dirs.addAll(Arrays.asList(l));
+        }
         for (File d : dirs) {
             if (!d.isDirectory()) continue;
             for (String n : jpegNamesIn(d)) {
@@ -95,8 +110,8 @@ public final class Photos {
     }
 
     /**
-     * Output for a photo and look: FILMLUT/<DCF folder>/<TAG><last 5 of name>.JPG.
-     * The camera's card only accepts 8.3 upper-case names (e.g. FILMLUT/100MSDCF/P4002097.JPG).
+     * Output for a photo and look: FILMDRAW/<DCF folder>/<TAG><last 5 of name>.JPG.
+     * The camera's card only accepts 8.3 upper-case names (e.g. FILMDRAW/100MSDCF/P4002097.JPG).
      */
     public static File outputFor(File photo, String tag) {
         String base = photo.getName();
@@ -105,6 +120,8 @@ public final class Photos {
         if (base.length() > 5) base = base.substring(base.length() - 5);
         String folder = photo.getParentFile().getName().toUpperCase();
         if (folder.length() > 8) folder = folder.substring(0, 8);
-        return new File(new File(new File(sd(), "FILMLUT"), folder), (tag + base).toUpperCase() + ".JPG");
+        String name = (tag + base).toUpperCase() + ".JPG";
+        File out = new File(new File(appDir(), folder), name), old = new File(new File(oldDir(), folder), name);
+        return !out.exists() && old.exists() ? old : out;      // converted before the folder was renamed
     }
 }

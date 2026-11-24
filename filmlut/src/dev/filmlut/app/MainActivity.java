@@ -38,10 +38,10 @@ import java.util.Set;
  *   OK: help. PLAY: browse. MENU: menu (Exit application there; unfinished conversions resume next time).
  * BROWSE: photo with a preview of the look (or the saved result, if already converted).
  *   Left-right: photo. Wheel / up-down: look. OK: convert. Trash: before/after.
- *   PLAY or half-press: back to shooting. Fn: all photos / converted (FILMLUT/). MENU: menu.
+ *   PLAY or half-press: back to shooting. Fn: all photos / converted (FILMDRAW/). MENU: menu.
  * MENU (both modes): settings, converted photos, help, about, Exit application.
  *
- * Originals are never modified; results go to FILMLUT/<folder>/<TAG><number>.JPG.
+ * Originals are never modified; results go to FILMDRAW/<folder>/<TAG><number>.JPG.
  */
 public class MainActivity extends Activity implements SurfaceHolder.Callback, JobQueue.Listener {
     // Sony scan codes (OpenMemories-Framework stubs, ScalarInput).
@@ -99,6 +99,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private int reviewIndex = 1;
 
     private final Handler ui = new Handler();
+    private Focus focus;                          // focus area: boxes, choice, moving the spot
+    private boolean movingSpot;                   // arrows move the focus point (Trash, or the menu)
     private SharedPreferences prefs;
     private Looks looks;
     private JobQueue jobs;
@@ -242,6 +244,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         live.getHolder().setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
         live.getHolder().addCallback(this);
         root.addView(live, new FrameLayout.LayoutParams(-1, -1));
+        focus = new Focus(this, prefs, ui);
+        root.addView(focus.view, new FrameLayout.LayoutParams(-1, -1));   // under the photo, menu and texts
         photoView = new ImageView(this);
         photoView.setScaleType(ImageView.ScaleType.FIT_CENTER);
         photoView.setBackgroundColor(Color.BLACK);
@@ -410,12 +414,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             bottom.setVisibility(View.GONE);
             return;
         }
+        if (movingSpot) { showMoveHelp(); return; }
         String text;
         if (!browsing) {
             text = helpVisible
                     ? "Film Drawer " + appVersion + "  (free, MIT licence)\n"
                       + (wheelIndex == 1 ? "Up/Down: look   Wheel: ISO" : "Wheel/Up/Down: look") + "   Left/Right: group   Fn: base   C1: size   C2: grain\n"
-                      + (dialIndex == 1 ? "Front: shutter/EV   Rear: aperture" : "Front: aperture   Rear: shutter/EV") + "   OK: help   PLAY: browse   MENU: menu"
+                      + (dialIndex == 1 ? "Front: shutter/EV   Rear: aperture" : "Front: aperture   Rear: shutter/EV") + "   Trash: focus point   PLAY: browse   MENU: menu"
                     : null;
         } else if (photos == null || photos.isEmpty()) {
             text = (showConverted ? "No converted photos yet    Fn: all photos" : "No JPEGs on the card    Fn: converted")
@@ -495,7 +500,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (camera != null) return;
         try {
             camera = CameraEx.open(0, null);
-            if (Diag.verbose()) dumpCameraParameters();   // FILMLUT/DEBUG.TXT on the card turns it on
+            if (Diag.verbose()) dumpCameraParameters();   // FILMDRAW/DEBUG.TXT on the card turns it on
             restoreUserFocus();                            // left over from an abrupt exit
             restoreUserSharpness();
             if (prefs.getBoolean("userSaved", false)) restoreUserStyle();
@@ -505,6 +510,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             readImageSizes();
             applyBase();
             startLiveView();
+            focus.open(camera);
             applyEvDial(false);                            // match the EV dial's position
         } catch (Throwable t) {
             camera = null;
@@ -593,7 +599,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     /**
      * Sets the focus mode, trying (1) a parameter set with only focus-mode (as for EV), then (2) the
      * full current parameters with focus-mode changed (some firmwares want that). Reads it back after
-     * each. If neither takes, writes FILMLUT/CAMERAEX.TXT (Sony's camera methods) to find the right way.
+     * each. If neither takes, writes FILMDRAW/CAMERAEX.TXT (Sony's camera methods) to find the right way.
      */
     private void setFocusMode(String target) {
         String how = null;
@@ -625,6 +631,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         String got = currentFocusMode();
         String name = "manual".equals(got) ? "MF" : "dmf".equals(got) ? "DMF" : "auto".equals(got) ? "AF" : String.valueOf(got);
         Diag.trace("focus wanted " + wanted + ", camera reports " + got);
+        focus.refresh();                                   // no boxes in MF
         if (wanted.equals(got)) setNote("Focus: " + name);
         else flash("Camera kept " + name + "\n(" + wanted + " refused)", 2500);
         updateExposureText();
@@ -664,6 +671,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void closeCamera() {
         if (camera == null) return;
         if (aeLocked) setAeLock(false);                    // never leave exposure locked
+        endMoveSpot();
+        focus.close();
         restoreUserFocus();
         restoreUserSharpness();
         restoreUserStyle();
@@ -899,7 +908,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     /**
      * READ-ONLY diagnostic, once per launch: writes every camera parameter (Camera.Parameters.flatten)
-     * and the method names of Sony's ParametersModifier to FILMLUT/PARAMS.TXT, to find out which
+     * and the method names of Sony's ParametersModifier to FILMDRAW/PARAMS.TXT, to find out which
      * settings (e.g. Picture Profile) apps can reach on this body. Changes nothing on the camera.
      */
     private boolean paramsDumped;
@@ -908,7 +917,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (paramsDumped || camera == null) return;
         paramsDumped = true;
         try {
-            File out = new File(new File(Photos.sd(), "FILMLUT"), "PARAMS.TXT");
+            File out = new File(Photos.appDir(), "PARAMS.TXT");
             out.getParentFile().mkdirs();
             java.io.FileWriter w = new java.io.FileWriter(out);
             w.write("Camera.Parameters (key=value), " + android.os.Build.MODEL + "\n");
@@ -1380,7 +1389,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void renderPreview(File photo, Looks.Look lk, boolean original, final int gen) {
         Bitmap bmp;
         if (showConverted) {
-            // Converted view: `photo` is a file from FILMLUT/; show it as it is (cached / pre-loaded).
+            // Converted view: `photo` is a file from FILMDRAW/; show it as it is (cached / pre-loaded).
             int[] px = convPixels(photo);
             if (px == null) { postFlash("Cannot read " + photo.getName()); return; }
             if (stale(gen)) return;
@@ -1561,8 +1570,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     // ---------------------------------------------------------------- menu (MENU key, as in Sony's own apps)
 
-    private static final int M_LOOK = 0, M_GRAIN = 1, M_BASE = 2, M_SIZE = 3, M_FOCUS = 4, M_ISO = 5, M_DIALS = 6,
-            M_WHEEL = 7, M_REVIEW = 8, M_CONVERTED = 9, M_HELP = 10, M_ABOUT = 11, M_EXIT = 12, M_COUNT = 13;
+    private static final int M_LOOK = 0, M_GRAIN = 1, M_BASE = 2, M_SIZE = 3, M_FOCUS = 4, M_AREA = 5, M_POINT = 6, M_ISO = 7,
+            M_DIALS = 8, M_WHEEL = 9, M_REVIEW = 10, M_CONVERTED = 11, M_HELP = 12, M_ABOUT = 13, M_EXIT = 14, M_COUNT = 15;
+    private static final int M_VISIBLE = 11;      // rows on screen; the list scrolls
+    private int menuTop;
     private TextView menuView;
     private boolean menuOpen, aboutOpen;
     private int menuSel;
@@ -1586,6 +1597,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_BASE: return "Base style";
             case M_SIZE: return "JPEG size";
             case M_FOCUS: return "Focus";
+            case M_AREA: return "Focus area";
+            case M_POINT: return "Move focus point";
             case M_ISO: return "ISO";
             case M_DIALS: return "Dials";
             case M_WHEEL: return "Wheel";
@@ -1604,6 +1617,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_BASE: return BASE_NAMES[baseIndex];
             case M_SIZE: return sizeName();
             case M_FOCUS: return focusName();
+            case M_AREA: return browsing ? "-" : focus.areaName();
             case M_ISO: return isoName();
             case M_DIALS: return DIAL_NAMES[dialIndex];
             case M_WHEEL: return WHEEL_NAMES[wheelIndex];
@@ -1618,7 +1632,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         sb.append("Film Drawer ").append(appVersion);
         sb.setSpan(new android.text.style.ForegroundColorSpan(ACCENT), s0, sb.length(), 0);
         sb.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), s0, sb.length(), 0);
-        for (int i = 0; i < M_COUNT; i++) {
+        if (menuSel < menuTop) menuTop = menuSel;
+        if (menuSel >= menuTop + M_VISIBLE) menuTop = menuSel - M_VISIBLE + 1;
+        sb.append("   ").append(String.valueOf(menuSel + 1)).append(" of ").append(String.valueOf(M_COUNT));
+        for (int i = menuTop; i < Math.min(M_COUNT, menuTop + M_VISIBLE); i++) {
             sb.append('\n');
             int s = sb.length();
             String v = menuValue(i);
@@ -1709,6 +1726,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_FOCUS:
                 cycleFocus(dir);
                 break;
+            case M_AREA:
+                setNote(focus.cycleArea(dir));
+                break;
             case M_ISO:
                 stepIso(dir);
                 break;
@@ -1735,6 +1755,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 closeMenu();
                 if (browsing) toggleConverted();
                 else { showConverted = true; enterBrowse(); }
+                return;
+            case M_POINT:
+                closeMenu();
+                startMoveSpot();
                 return;
             case M_HELP:
                 closeMenu();
@@ -1775,6 +1799,58 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     }
 
     // ---------------------------------------------------------------- keys
+
+    private void startMoveSpot() {
+        if (camera == null || browsing) { setNote("Focus point: move it while shooting"); return; }
+        hideCardNow();
+        String why = focus.startMove();
+        if (why != null) { flash(why, 2500); return; }
+        movingSpot = true;
+        setNote(focus.areaName());
+        showMoveHelp();
+    }
+
+    private void showMoveHelp() {
+        bottom.setText("Arrows: move the focus point\nOK or half-press: done   Trash: back to before");
+        bottom.setVisibility(View.VISIBLE);
+    }
+
+    private void endMoveSpot() {
+        if (!movingSpot) return;
+        movingSpot = false;
+        moveEnded = System.currentTimeMillis();
+        focus.endMove();
+        updateTexts();
+    }
+
+    private long moveEnded;        // Trash may send two codes per press: the second must not start again
+
+    private void cancelMoveSpot() {
+        movingSpot = false;
+        focus.cancelMove();
+        moveEnded = System.currentTimeMillis();
+        setNote("Focus area: " + focus.areaName());
+        updateTexts();
+    }
+
+    /** Keys while the focus point is being moved. False = act on the key as usual (the shutter also ends moving). */
+    private boolean moveKey(int sc) {
+        String problem = null;
+        switch (sc) {
+            case K_UP: problem = focus.move(0, -1); break;
+            case K_DOWN: problem = focus.move(0, 1); break;
+            case K_LEFT: problem = focus.move(-1, 0); break;
+            case K_RIGHT: problem = focus.move(1, 0); break;
+            case K_S1: case K_S2: endMoveSpot(); return false;
+            case K_ENTER: case K_MENU: case K_PLAY: case K_FN: endMoveSpot(); return true;
+            case K_DELETE: case K_SK2: cancelMoveSpot(); return true;
+            case K_S1_2: case K_EV_DIAL: case K_AEL: case D1_CW: case D1_CCW: case D2_CW: case D2_CCW: case D3_CW: case D3_CCW:
+                return false;                               // exposure stays adjustable
+            default: break;
+        }
+        if (problem != null) setNote(problem);
+        return true;
+    }
 
     private void changeLook(int delta) {
         int n = looks.all.size();
@@ -1842,6 +1918,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             swallowUp = sc;
             return true;
         }
+        if (movingSpot && moveKey(event.getScanCode())) {
+            swallowUp = event.getScanCode();
+            return true;
+        }
         boolean conv = browsing && showConverted;   // converted view: every scroll control changes photo
         if (!browsing && wheelIndex == 1 && (event.getScanCode() == WHEEL_CW || event.getScanCode() == WHEEL_CCW)) {
             stepIso(event.getScanCode() == WHEEL_CW ? 1 : -1);   // looks are still on Up/Down
@@ -1904,7 +1984,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 // Unknown control: show its code so the dial mapping can be corrected after a try.
                 // 0.22: always shown (corner note), to learn the EV dial / AF-MF button codes on the a7R II.
                 if (event.getRepeatCount() == 0 && Diag.verbose()) {
-                    // Diagnostics (FILMLUT/DEBUG.TXT): code, the camera's own name and reported position.
+                    // Diagnostics (FILMDRAW/DEBUG.TXT): code, the camera's own name and reported position.
                     int sc = event.getScanCode();
                     String name = Diag.keyName(sc), st = Diag.keyStatus(sc);
                     Diag.trace("unknown key " + sc + " " + name + " status " + st + " (keyCode " + keyCode + ")");
@@ -1922,6 +2002,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         switch (event.getScanCode()) {
             case K_S1:
                 s1Down = false;
+                focus.clearResult();
                 if (!browsing && camera != null) {
                     if (!"manual".equals(currentFocusMode())) {
                         try { camera.getNormalCamera().cancelAutoFocus(); } catch (Throwable ignored) {}
@@ -1960,7 +2041,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                     showOriginal = !showOriginal;
                     updateTexts();
                     requestPreview(false);
-                }
+                } else if (!browsing && System.currentTimeMillis() - moveEnded > 600) startMoveSpot();
                 return true;
             case K_MENU:
                 openMenu();

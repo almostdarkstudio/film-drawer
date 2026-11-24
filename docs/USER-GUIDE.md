@@ -20,9 +20,9 @@ By Almost Dark Studio: https://almostdarkstudio.com
   the background (about 20-25 s per photo at JPEG size M on an a7R II).
 - Browse any photo on the card, preview a look, and convert it. Or view your converted photos
   (the camera's own playback cannot show them): Fn in browse mode, or MENU > Converted photos.
-- Converted files go to `FILMLUT\<folder>\<TAG><number>.JPG` (for example
-  `FILMLUT\100MSDCF\P4002097.JPG` = DSC02097 in Portra 400). EXIF is kept.
-  (The folder keeps the app's working name.)
+- Converted files go to `FILMDRAW\<folder>\<TAG><number>.JPG` (for example
+  `FILMDRAW\100MSDCF\P4002097.JPG` = DSC02097 in Portra 400). EXIF is kept.
+  (Up to 0.34 the folder was `FILMLUT`. The app still shows what is in it, and never moves it.)
 
 ## Installing
 Film Drawer is installed the same way as any other PlayMemories app on these cameras, with
@@ -44,6 +44,7 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 | Left / Right | Jump to the previous / next look group | Previous / next photo |
 | Front dial | Aperture (A/M/P) | Change look |
 | Rear dial | Shutter speed (S/M), else exposure compensation | Previous / next photo |
+| Focus area (Wide / Center / Flexible Spot) | MENU > Focus area. The box turns green when focus locks | |
 | ISO, swapped dials, wheel | MENU > ISO. MENU > Dials swaps front and rear. MENU > Wheel lets the wheel change ISO (looks stay on Up / Down) | |
 | Fn | Base style: Standard / Neutral / Camera settings | Switch between all photos and converted photos |
 | C1 | JPEG size in the app: M / S / L, with your camera's megapixels | |
@@ -51,9 +52,9 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 | Focus mode (AF / MF / DMF) | MENU > Focus (the AF/MF-AEL button does not work in the app) | |
 | C2 | Grain: Auto (per look) / Off / Low / Medium / High | Same |
 | OK | Show / hide help | Convert this photo |
-| Trash | (nothing) | Before / after (all photos) |
+| Trash | Move the focus point: arrows move it, OK or half-press keeps it, Trash again goes back | Before / after (all photos) |
 | PLAY | Browse | Back to shooting (or half-press) |
-| MENU | Menu: look, grain, base style, JPEG size, focus, ISO, dials, wheel, quick review, converted photos, help, about, **Exit application** | Same |
+| MENU | Menu: look, grain, base style, JPEG size, focus, focus area, move focus point, ISO, dials, wheel, quick review, converted photos, help, about, **Exit application** | Same |
 
 The camera's mode dial sets the exposure mode as usual (P/A/S/M). In 0.32 and earlier, set it before opening the app:
 turning it in the app had no effect. Everything on Fn, C1 and C2 is also
@@ -63,22 +64,22 @@ converting carry on next time).
 ## Your camera settings
 While you shoot in Film Drawer, the app sets a neutral base so the looks come out consistently:
 Creative Style Standard (or Neutral) with contrast and saturation 0, DRO off, and your chosen JPEG
-size, focus mode and (for CineStill) sharpness. The looks are applied to the JPEG, so if your camera is set
+size, focus mode, focus area and (for CineStill) sharpness. The looks are applied to the JPEG, so if your camera is set
 to RAW only, the app shoots RAW+JPEG while it is open. It saves your own settings first and is designed to put
 them back when you leave the app with MENU > Exit application, or the next time you open it if the
 camera was switched off. Please check your settings the first time. Choose
 "Camera settings" (Fn) to leave your Creative Style alone. RAW files are never affected.
 
 ## Problems
-- If the app freezes or crashes it writes `FILMLUT\HANG.TXT` or `FILMLUT\CRASH.TXT` on the card.
+- If the app freezes or crashes it writes `FILMDRAW\HANG.TXT` or `FILMDRAW\CRASH.TXT` on the card.
   Please include that file, your camera model and the app version (shown in the help) in a bug report.
-- For detailed logs, create an empty file `FILMLUT\DEBUG.TXT` on the card. The app then also writes
-  `LOG.TXT` (conversion timings), `TRACE.TXT` and `PARAMS.TXT`. Delete it to turn them off again.
+- For detailed logs, create an empty file `FILMDRAW\DEBUG.TXT` on the card. The app then also writes
+  `LOG.TXT` (conversion timings), `FOCUS.TXT`, `TRACE.TXT` and `PARAMS.TXT`. Delete it to turn them off again.
 
 ## Removing
 Camera: **Menu > Application > Application List > Application Management > Manage and Remove**.
 Leave Film Drawer normally (MENU > Exit application) first, so your camera settings are back. Converted photos in
-`FILMLUT\` stay on the card.
+`FILMDRAW\` stay on the card.
 
 ## Acknowledgements
 - Chris Gampat, The Phoblographer, "Exclusive: I Hacked a Sony a7 With AI to Do What Sony Took Away" (16 October 2026):

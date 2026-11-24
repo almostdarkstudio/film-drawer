@@ -29,4 +29,4 @@ body:
     id: logs
     attributes:
       label: CRASH.TXT or HANG.TXT (optional)
-      description: If the FILMLUT folder on your card has either file, paste or attach it. Check it before posting.
+      description: If the FILMDRAW folder on your card has either file, paste or attach it. Check it before posting.

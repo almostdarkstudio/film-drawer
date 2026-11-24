@@ -28,6 +28,13 @@ public class CameraEx {
         public void setImageSize(String size) { throw new RuntimeException("stub"); }
         public List getSupportedImageSizes() { throw new RuntimeException("stub"); }
         public void setISOSensitivity(int iso) { throw new RuntimeException("stub"); }          // 0 = Auto
+        public String getFocusAreaMode() { throw new RuntimeException("stub"); }
+        public void setFocusAreaMode(String mode) { throw new RuntimeException("stub"); }
+        public List getSupportedFocusAreaModes() { throw new RuntimeException("stub"); }
+        public android.util.Pair getFocusPoint() { throw new RuntimeException("stub"); }
+        public int getFocusPointIndex() { throw new RuntimeException("stub"); }
+        public void setFocusPoint(int index) { throw new RuntimeException("stub"); }
+        public void setFocusPoint(int x, int y) { throw new RuntimeException("stub"); }
         public String getPictureStorageFormat() { throw new RuntimeException("stub"); }   // jpeg, raw, rawjpeg
         public void setPictureStorageFormat(String fmt) { throw new RuntimeException("stub"); }
         public List getSupportedPictureStorageFormats() { throw new RuntimeException("stub"); }
@@ -37,6 +44,31 @@ public class CameraEx {
         public void setDROLevel(int level) { throw new RuntimeException("stub"); }
         public List getSupportedDROModes() { throw new RuntimeException("stub"); }
     }
+
+    public static class FocusAreaInfos {
+        public String focusAreaMode;
+        public FocusAreaRectInfo[] rectInfos;
+    }
+
+    public static class FocusAreaRectInfo {
+        public boolean enable;
+        public int index;
+        public android.graphics.Rect rect;
+    }
+
+    public interface AutoFocusDoneListener {
+        void onDone(int status, int[] areas, CameraEx camera);
+    }
+
+    public interface FocusAreaListener {
+        void onChanged(FocusAreaInfos infos, CameraEx camera);
+    }
+
+    public FocusAreaInfos[] getFocusAreaInfos(int previewAspect) { throw new RuntimeException("stub"); }
+
+    public void setAutoFocusDoneListener(AutoFocusDoneListener l) { throw new RuntimeException("stub"); }
+
+    public final void setFocusAreaListener(FocusAreaListener l) { throw new RuntimeException("stub"); }
 
     public static CameraEx open(int cameraId, OpenOptions options) {
         throw new RuntimeException("stub");
