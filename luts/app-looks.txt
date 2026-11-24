@@ -12,39 +12,39 @@
 # Strengths from the look review on skin/sky/sunset/night test photos (2026-11-23): Portra, Superia,
 # the Kodak slide films, Astia and Polaroid were the right character but overdone.
 ## Kodak negative | Kodak
+portra400   35   65
+portra160   20   60
+portra800   50   60
 gold200     35
 ultramax    45
 colorplus   40
-portra160   20   60
-portra400   35   65
-portra800   50   60
 ektar100    15
 ## Cinema | Cine
-vision250d  30
-vision500t  45
 almostdark  55
-cs50d       20   100  50   -2
+vision500t  45
+vision250d  30
 cs800t      75   100  80   -3
+cs50d       20   100  50   -2
 k2383       30   80
 eterna      30
 ## Fuji & Agfa negative | Fuji
-fujic200    35
+fuji400h    35
+pro160ns    25
+reala100    25
 superia400  40   70
 superia1600 70
-reala100    25
-fuji400h    35
+fujic200    35
 vista200    35
-pro160ns    25
 ## Fuji simulations | Sims
 classicchrome 20
 classicneg  30
 ## Slide | Slide
 kchrome64   20   75
-ekta100vs   20   80
 e100        15   55
-velvia50    15
+ekta100vs   20   80
 provia100f  20
 astia100f   20   70
+velvia50    15
 ## Instant | Instant
 pola669     35   75
 sx70        35
@@ -56,6 +56,6 @@ aerochrome  35
 trix400     55
 hp5std      55
 tmax400     40
-acros100    25
 delta3200   80
+acros100    25
 panf50      10

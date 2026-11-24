@@ -202,3 +202,15 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 
 ## 0.43
 - "As camera" removed (see Controls.java). Three 0.41 files written by an a7R II were byte-identical to the PC's.
+
+## 0.44
+- Looks reordered within their groups (the most wanted first, families together, gentle to strong); first start opens
+  on Portra 400. The look is saved by id (`lookId`); a position saved by an earlier version is converted.
+- "HP5 (standard)" is called Ilford HP5 (its source is "Ilford HP5 2"; "HP5 Plus 400" is another one).
+
+## 0.45
+- Trash in the converted view: delete the converted photo (asks first, Cancel preselected). `Photos.deleteOutput` only
+  accepts the app's own outputs (FILMDRAW|FILMLUT/<folder>/<TAG>...JPG): originals are in DCIM and never deleted, since
+  that would also leave the camera's image database out of step.
+- Photos' delete guard was tested on the PC against a fake card (originals, RAWs, logs, other files and folders refused).
+  Installed and checked on the a7R II.

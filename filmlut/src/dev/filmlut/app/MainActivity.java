@@ -37,7 +37,7 @@ import java.util.Set;
  *   (a card shows the last shot in that look). Left-right: jump between look groups.
  *   OK: help. PLAY: converted photos. MENU: menu (Exit application there; unfinished conversions resume next time).
  * BROWSE: photo with a preview of the look (or the saved result, if already converted).
- *   Left-right: photo. Wheel / up-down: look. OK: convert. Trash: before/after.
+ *   Left-right: photo. Wheel / up-down: look. OK: convert. Trash: before/after (converted photos: delete).
  *   PLAY or half-press: back to shooting. Fn: all photos / converted (FILMDRAW/). MENU: menu.
  * MENU (both modes): settings, converted photos, help, about, Exit application.
  *
@@ -165,7 +165,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             centre.setText("Cannot load looks: " + e);
             return;
         }
-        lookIndex = Math.max(0, Math.min(looks.all.size() - 1, prefs.getInt("look", 1)));
+        lookIndex = savedLook();
         baseIndex = Math.max(0, Math.min(BASES.length - 1, prefs.getInt("base", 0)));
         sizeIndex = Math.max(0, Math.min(SIZES.length - 1, prefs.getInt("size", 0)));
         sizeAuto = !prefs.contains("size");
@@ -217,12 +217,29 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         super.onPause();
         ui.removeCallbacks(modeDialSettled);
         Diag.trace("pause");
+        if (deleteFile != null) closeDelete();
         Diag.dumpTrace("left the app (pause)");
         closeCamera();
-        if (prefs != null) prefs.edit().putInt("look", lookIndex).putInt("base", baseIndex).putInt("grain", grainIndex).putInt("review", reviewIndex)
+        if (prefs != null) prefs.edit().putString("lookId", looks == null ? null : look().id).remove("look").putInt("base", baseIndex).putInt("grain", grainIndex).putInt("review", reviewIndex)
                 .putInt("dials", dialIndex).putInt("wheel", wheelIndex).commit();
         if (prefs != null && !sizeAuto) prefs.edit().putInt("size", sizeIndex).commit();
     }
+
+    /**
+     * The look in use last time, saved by id. Up to 0.43 it was saved as a position in the list, whose order
+     * changed in 0.44: OLD_ORDER turns that into the same look. First start: Portra 400.
+     */
+    private int savedLook() {
+        String id = prefs.getString("lookId", null);
+        if (id == null) {
+            int old = prefs.getInt("look", -1);
+            id = old >= 0 && old < OLD_ORDER.length ? OLD_ORDER[old] : "portra400";
+        }
+        Looks.Look lk = looks.byId(id);
+        return lk == null ? 0 : looks.all.indexOf(lk);
+    }
+
+    private static final String[] OLD_ORDER = ("gold200 ultramax colorplus portra160 portra400 portra800 ektar100 vision250d vision500t almostdark cs50d cs800t k2383 eterna fujic200 superia400 superia1600 reala100 fuji400h vista200 pro160ns classicchrome classicneg kchrome64 ekta100vs e100 velvia50 provia100f astia100f pola669 sx70 fp100c metropolis aerochrome trix400 hp5std tmax400 acros100 delta3200 panf50").split(" ");
 
     // ---------------------------------------------------------------- views
 
@@ -445,7 +462,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         } else if (showConverted) {
             File p = photos.get(photoIndex);
             text = p.getParentFile().getName() + "/" + p.getName() + "  " + (photoIndex + 1) + "/" + photos.size()
-                    + (helpVisible ? "\nLeft/Right/Wheel: photo   Fn: all photos   MENU: menu   PLAY: shoot" : "");
+                    + (helpVisible ? "\nLeft/Right/Wheel: photo   Trash: delete   Fn: all photos   PLAY: shoot" : "");
         } else {
             File p = photos.get(photoIndex);
             boolean done = Photos.outputFor(p, look().tag).exists();
@@ -1445,8 +1462,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (showConverted) {
             // Converted view: `photo` is a file from FILMDRAW/; show it as it is (cached / pre-loaded).
             int[] px = convPixels(photo);
-            if (px == null) { postFlash("Cannot read " + photo.getName()); return; }
-            if (stale(gen)) return;
+            if (stale(gen)) return;                        // e.g. deleted meanwhile
+            if (px == null) {
+                ui.post(new Runnable() { public void run() { if (!stale(gen) && browsing) photoView.setImageBitmap(null); } });   // not the one before
+                postFlash("Cannot read " + photo.getName());
+                return;
+            }
             postShow(toBitmap(px, photo), gen);
             return;
         }
@@ -1787,6 +1808,91 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         menuView.setVisibility(View.VISIBLE);
     }
 
+    // ---- deleting a converted photo (Trash, converted view; uses the menu's panel). Originals are never deleted.
+    private File deleteFile;                      // non-null: the question is on screen
+    private boolean deleteYes;
+    private String deleteOriginal;
+    private long deleteAt;                        // Trash may send two codes per press: opened / closed just now
+
+    private void askDelete() {
+        if (photos == null || photos.isEmpty() || System.currentTimeMillis() - deleteAt < 600) return;
+        if (loading) { setNote("Still loading"); return; }                // only what can be seen
+        File f = photos.get(photoIndex);
+        if (jobs.writes(f)) { setNote("Still converting"); return; }
+        deleteFile = f;
+        deleteOriginal = Photos.originalOf(f);
+        deleteYes = false;
+        deleteAt = System.currentTimeMillis();
+        menuOpen = true;
+        aboutOpen = false;
+        renderDelete();
+        menuView.setVisibility(View.VISIBLE);
+    }
+
+    private void renderDelete() {
+        android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
+        sb.append("Delete this converted photo?");
+        sb.setSpan(new android.text.style.ForegroundColorSpan(ACCENT), 0, sb.length(), 0);
+        sb.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, sb.length(), 0);
+        sb.append("\n" + deleteFile.getParentFile().getName() + "/" + deleteFile.getName() + "\n"
+                + (deleteOriginal != null ? "The original stays (" + deleteOriginal + ")"
+                                          : "Its original is NOT on the card: this is the only copy here") + "\n");
+        for (int i = 0; i < 2; i++) {
+            sb.append('\n');
+            int s = sb.length();
+            sb.append(i == 0 ? "   Delete   " : "   Cancel   ");
+            if ((i == 0) == deleteYes) {
+                sb.setSpan(new android.text.style.BackgroundColorSpan(ACCENT), s, sb.length(), 0);
+                sb.setSpan(new android.text.style.ForegroundColorSpan(Color.BLACK), s, sb.length(), 0);
+            }
+        }
+        menuView.setTypeface(android.graphics.Typeface.DEFAULT);
+        menuTextSize(18);
+        menuView.setText(sb);
+    }
+
+    private void closeDelete() {
+        deleteFile = null;
+        deleteAt = System.currentTimeMillis();
+        closeMenu();
+    }
+
+    /** All keys while the question is on screen (key-down). Cancel is chosen first; only OK on Delete deletes. */
+    private void deleteKey(int sc) {
+        switch (sc) {
+            case K_UP: case K_LEFT: case WHEEL_CCW: case D1_CCW: case D2_CCW: case D3_CCW: deleteYes = true; renderDelete(); return;
+            case K_DOWN: case K_RIGHT: case WHEEL_CW: case D1_CW: case D2_CW: case D3_CW: deleteYes = false; renderDelete(); return;
+            case K_ENTER:
+                File f = deleteFile;
+                boolean yes = deleteYes;
+                closeDelete();
+                if (yes) deleteNow(f);
+                return;
+            case K_DELETE: case K_SK2:
+                if (System.currentTimeMillis() - deleteAt < 400) return;
+                closeDelete();
+                return;
+            case K_MENU: case K_S1: case K_PLAY:
+                closeDelete();
+        }
+    }
+
+    private void deleteNow(File f) {
+        int i = photos.indexOf(f);
+        if (i < 0) return;
+        if (jobs.writes(f)) { setNote("Still converting"); return; }
+        boolean ok = Photos.deleteOutput(f);
+        Diag.trace("delete " + f.getName() + (ok ? " ok" : " FAILED"));
+        if (!ok) { flash("Could not delete " + f.getName(), 3000); return; }
+        synchronized (previewLock) { convCache.remove(f.getAbsolutePath()); prefetchTask = null; }
+        photos.remove(i);
+        // The next photo takes its place; at the newest end, the one before.
+        photoIndex = Math.max(0, Math.min(i, photos.size() - 1));
+        setNote("Deleted " + f.getName());
+        updateTexts();
+        requestPreview(true);
+    }
+
     private void closeMenu() {
         menuOpen = false;
         aboutOpen = false;
@@ -1812,7 +1918,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 + "PLAY:  your converted photos\n\n"
                 + "YOUR PHOTOS\n"
                 + "Left / Right:  photo     Wheel, Up / Down:  look\n"
-                + "OK:  convert     Trash:  before / after\n"
+                + "OK:  convert     Trash:  before / after (converted: delete)\n"
                 + "Fn:  all photos / converted     PLAY:  shoot\n\n"
                 + "Any button: back");
     }
@@ -2057,7 +2163,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             // The menu takes every key; its release is ignored (MENU would otherwise reopen it).
             int sc = event.getScanCode();
             boolean scroll = sc == K_UP || sc == K_DOWN || isWheel(sc);
-            if (event.getRepeatCount() == 0 || scroll) menuKey(sc);
+            if (deleteFile != null) { if (event.getRepeatCount() == 0) deleteKey(sc); }
+            else if (event.getRepeatCount() == 0 || scroll) menuKey(sc);
             swallowUp = sc;
             return true;
         }
@@ -2175,12 +2282,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 else { showConverted = true; enterBrowse(); }     // the camera's own playback cannot show these
                 return true;
             case K_DELETE: case K_SK2:
-                // Browse (all photos): before/after. Never exits: MENU > Exit application does.
-                if (browsing && !showConverted) {
+                // Browse: before/after (all photos) or delete (converted). Never exits: MENU > Exit application does.
+                if (browsing && showConverted) askDelete();
+                else if (browsing) {
                     showOriginal = !showOriginal;
                     updateTexts();
                     requestPreview(false);
-                } else if (!browsing && camera != null && System.currentTimeMillis() - moveEnded > 600) openControlsDirect();
+                } else if (camera != null && System.currentTimeMillis() - moveEnded > 600) openControlsDirect();
                 return true;
             case K_MENU:
                 openMenu();

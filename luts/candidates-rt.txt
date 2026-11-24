@@ -1,7 +1,7 @@
 # Candidate replacements (RawTherapee HaldCLUT set), evaluated against the current looks.
 portra160nc | P1N | Portra 160 NC      | HaldCLUT/Color/Kodak/Kodak Portra 160 NC 2.png
 portra400nc | P4N | Portra 400 NC      | HaldCLUT/Color/Kodak/Kodak Portra 400 NC 2.png
-hp5std      | HPS | HP5 (standard)     | HaldCLUT/Black-and-White/Ilford/Ilford HP5 2.png
+hp5std      | HPS | Ilford HP5         | HaldCLUT/Black-and-White/Ilford/Ilford HP5 2.png
 # Batch 2 (look review 2026-11-23): chosen over the EmulsionPresets versions (Superia 1600 had more
 # character at night; xmp2lut does not implement the Lightroom B&W mixer, so its Delta 3200 stayed colour).
 superia1600 | S16 | Superia 1600       | HaldCLUT/Color/Fuji/Fuji Superia 1600 2.png

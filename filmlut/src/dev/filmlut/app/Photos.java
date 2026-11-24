@@ -110,7 +110,7 @@ public final class Photos {
         for (File d : dirs) {
             if (!d.isDirectory()) continue;
             for (String n : jpegNamesIn(d)) {
-                if (n.length() == 12 && n.substring(3, 8).matches("[A-Z0-9_][0-9]{4}")) out.add(new File(d, n));
+                if (isOutputName(n)) out.add(new File(d, n));
             }
         }
         final java.util.Map<File, Long> t = new java.util.HashMap<File, Long>();
@@ -127,6 +127,33 @@ public final class Photos {
     /** The look tag of a converted photo (first 3 letters of its name). */
     public static String tagOf(File output) {
         return output.getName().substring(0, 3);
+    }
+
+    /** Is this one of the app's own converted photos (in its folder, with its kind of name)? Nothing else is ever deleted. */
+    private static boolean isOutput(File f) {
+        File folder = f.getParentFile(), top = folder == null ? null : folder.getParentFile();
+        return (appDir().equals(top) || oldDir().equals(top)) && isOutputName(f.getName()) && f.isFile();
+    }
+
+    private static boolean isOutputName(String n) {
+        return n.length() == 12 && n.substring(3, 8).matches("[A-Z0-9_][0-9]{4}") && n.toUpperCase().endsWith(".JPG");
+    }
+
+    /** Deletes a converted photo; false if it is not one, or the camera refused. */
+    public static boolean deleteOutput(File f) {
+        return isOutput(f) && f.delete() && !f.exists();
+    }
+
+    /** The name of the photo (JPEG, else RAW) a converted photo was made from, or null if it is not on the card. */
+    public static String originalOf(File output) {
+        String last5 = output.getName().substring(3, 8), raw = null;
+        String[] names = new File(new File(sd(), "DCIM"), output.getParentFile().getName()).list();
+        if (names != null) for (String n : names) {
+            String u = n.toUpperCase();
+            if (u.endsWith(last5 + ".JPG")) return n;
+            if (u.endsWith(last5 + ".ARW")) raw = n;
+        }
+        return raw;
     }
 
     /**

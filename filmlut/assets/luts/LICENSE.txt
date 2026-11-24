@@ -4,7 +4,7 @@ by Pat David, Pavlov Dmitry and Michael Ezra, licensed CC BY-SA 4.0
 These derived LUTs are shared under the same licence. Film stock names are used
 only to identify the look each approximates; no affiliation or endorsement.
 
-Gold 200, UltraMax 400, ColorPlus 200, Vision3 250D, Vision3 500T, Almost Dark (modified from Vision3 500T), CineStill 50D, CineStill 800T, Kodak 2383 Print, Fujifilm Eterna, Fujicolor C200, Fuji Pro 160NS, Classic Chrome, Classic Negative, Ektachrome E100, Polaroid SX-70, Lomo Metropolis
+Gold 200, UltraMax 400, ColorPlus 200, Almost Dark (modified from Vision3 500T), Vision3 500T, Vision3 250D, CineStill 800T, CineStill 50D, Kodak 2383 Print, Fujifilm Eterna, Fuji Pro 160NS, Fujicolor C200, Classic Chrome, Classic Negative, Ektachrome E100, Polaroid SX-70, Lomo Metropolis
 are approximations baked from Lightroom presets in EmulsionPresets by peva3
 (https://github.com/peva3/EmulsionPresets), used under the MIT License:
 

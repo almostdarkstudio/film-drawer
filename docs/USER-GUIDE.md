@@ -19,7 +19,7 @@ By Almost Dark Studio: https://almostdarkstudio.com
 - Shoot inside the app. A quick review shows each photo in its look, and the conversion runs in
   the background (about 20-25 s per photo at JPEG size M on an a7R II).
 - Browse any photo on the card, preview a look, and convert it. Or view your converted photos
-  (the camera's own playback cannot show them): PLAY.
+  (the camera's own playback cannot show them) and delete the ones you don't want: PLAY.
 - Converted files go to `FILMDRAW\<folder>\<TAG><number>.JPG` (for example
   `FILMDRAW\100MSDCF\P4002097.JPG` = DSC02097 in Portra 400). EXIF is kept.
   (Up to 0.34 the folder was `FILMLUT`. The app still shows what is in it, and never moves it.)
@@ -49,7 +49,7 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 | EV dial (a7R II) | Exposure compensation follows the dial | |
 | C2 | Grain: Auto (per look) / Off / Low / Medium / High | Same |
 | OK | Show / hide help | Convert this photo |
-| Trash | **Controls**: the list below, with Move focus point first | Before / after (all photos) |
+| Trash | **Controls**: the list below, with Move focus point first | All photos: before / after. Converted photos: delete (asks first; only the converted copy, never the original) |
 | PLAY | Your converted photos, newest first (Fn: all photos) | Back to shooting (or half-press) |
 | MENU | Menu: look, grain, base style, JPEG size, quick review, **Controls**, photos, about, **Exit application** | Same |
 
@@ -60,10 +60,28 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 - **ISO**, **Dials** (which one is shutter speed) and **Wheel** (looks or ISO; with ISO, looks stay on Up / Down).
 - **What buttons do**.
 
+**Deleting a converted photo** (PLAY, then Trash): the app asks first, with Cancel chosen. Up, then OK, deletes it. Trash
+again, MENU, PLAY or a half-press cancels. Only the converted copy is deleted, and the app warns you if the original is
+no longer on the card. The app never deletes originals: use the camera's own playback for those.
+
 The camera's mode dial sets the exposure mode as usual (P/A/S/M). In 0.32 and earlier, set it before opening the app:
 turning it in the app had no effect. Everything on Fn, C1 and C2 is also
 in the menu, for bodies without those buttons. To leave the app: MENU > Exit application (photos still
 converting carry on next time).
+
+## The looks
+In menu order. The app opens on Portra 400 the first time, then on the look you used last.
+
+| Group | Looks |
+|---|---|
+| Kodak negative | Portra 400, Portra 160, Portra 800, Gold 200, UltraMax 400, ColorPlus 200, Ektar 100 |
+| Cinema | Almost Dark, Vision3 500T, Vision3 250D, CineStill 800T, CineStill 50D, Kodak 2383 Print, Fujifilm Eterna |
+| Fuji & Agfa negative | Fuji 400H, Fuji Pro 160NS, Reala 100, Superia 400, Superia 1600, Fujicolor C200, Agfa Vista 200 |
+| Fuji simulations | Classic Chrome, Classic Negative |
+| Slide | Kodachrome 64, Ektachrome E100, Ektachrome 100VS, Provia 100F, Astia 100F, Velvia 50 |
+| Instant | Polaroid 669, Polaroid SX-70, Fuji FP-100C |
+| Specialty | Lomo Metropolis, Aerochrome |
+| Black & white | Tri-X 400, Ilford HP5, T-Max 400, Delta 3200, Acros 100, Pan F Plus 50 |
 
 ## Your camera settings
 While you shoot in Film Drawer, the app sets a neutral base so the looks come out consistently:

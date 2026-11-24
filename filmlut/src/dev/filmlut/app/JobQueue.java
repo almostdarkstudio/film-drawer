@@ -109,6 +109,12 @@ public final class JobQueue {
         return out;
     }
 
+    /** Is a queued or running conversion going to write this file? */
+    public synchronized boolean writes(File out) {
+        for (Job j : outstanding) if (j.out.equals(out)) return true;
+        return false;
+    }
+
     public int pending() { return pending; }
     public Job current() { return current; }
     public int done() { return done; }
