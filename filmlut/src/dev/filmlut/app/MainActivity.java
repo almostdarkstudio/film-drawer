@@ -54,6 +54,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     // 1/3-stop clicks, 0x200 = negative), and the AF/MF-AEL button. Names from the camera (INPUT.TXT):
     // ISV_KEY_EV_COMPENSATION = 620, ISV_KEY_AFMF = 533 (lever at AF/MF), ISV_KEY_AEL = 532 (lever at AEL).
     private static final int K_EV_DIAL = 620, K_AF_MF = 533, K_AEL = 532;
+    private static final int K_MODE_DIAL = 572;   // ISV_KEY_MODE_DIAL; its status should be an ISV_KEY_MODE_* code
 
     /** In-camera base while shooting: a known starting point for the LUTs. "camera" = leave as is. */
     private static final String[] BASES = {"standard", "neutral", "camera"};
@@ -165,6 +166,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         baseIndex = Math.max(0, Math.min(BASES.length - 1, prefs.getInt("base", 0)));
         sizeIndex = Math.max(0, Math.min(SIZES.length - 1, prefs.getInt("size", 0)));
         sizeAuto = !prefs.contains("size");
+        dialIndex = prefs.getInt("dials", 0) == 1 ? 1 : 0;
+        wheelIndex = prefs.getInt("wheel", 0) == 1 ? 1 : 0;
         grainIndex = Math.max(0, Math.min(GRAIN_NAMES.length - 1, prefs.getInt("grain", 0)));
         reviewIndex = Math.max(0, Math.min(REVIEW_NAMES.length - 1, prefs.getInt("review", 1)));
         if (Native.LOAD_ERROR != null) {
@@ -209,10 +212,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     @Override
     protected void onPause() {
         super.onPause();
+        ui.removeCallbacks(modeDialSettled);
         Diag.trace("pause");
         Diag.dumpTrace("left the app (pause)");
         closeCamera();
-        if (prefs != null) prefs.edit().putInt("look", lookIndex).putInt("base", baseIndex).putInt("grain", grainIndex).putInt("review", reviewIndex).commit();
+        if (prefs != null) prefs.edit().putInt("look", lookIndex).putInt("base", baseIndex).putInt("grain", grainIndex).putInt("review", reviewIndex)
+                .putInt("dials", dialIndex).putInt("wheel", wheelIndex).commit();
         if (prefs != null && !sizeAuto) prefs.edit().putInt("size", sizeIndex).commit();
     }
 
@@ -409,8 +414,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (!browsing) {
             text = helpVisible
                     ? "Film Drawer " + appVersion + "  (free, MIT licence)\n"
-                      + "Wheel/Up/Down: look   Left/Right: group   Fn: base   C1: size   C2: grain\n"
-                      + "Front: aperture   Rear: shutter/EV   OK: help   PLAY: browse   MENU: menu"
+                      + (wheelIndex == 1 ? "Up/Down: look   Wheel: ISO" : "Wheel/Up/Down: look") + "   Left/Right: group   Fn: base   C1: size   C2: grain\n"
+                      + (dialIndex == 1 ? "Front: shutter/EV   Rear: aperture" : "Front: aperture   Rear: shutter/EV") + "   OK: help   PLAY: browse   MENU: menu"
                     : null;
         } else if (photos == null || photos.isEmpty()) {
             text = (showConverted ? "No converted photos yet    Fn: all photos" : "No JPEGs on the card    Fn: converted")
@@ -480,6 +485,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (wasBrowsing) showHelp(); else updateTexts();
     }
 
+    private android.hardware.Camera.Parameters opening;   // read once while opening: each read is slow (~0.1-0.5 s)
+
+    private android.hardware.Camera.Parameters params() {
+        return opening != null ? opening : camera.getNormalCamera().getParameters();
+    }
+
     private void openCamera() {
         if (camera != null) return;
         try {
@@ -487,7 +498,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             if (Diag.verbose()) dumpCameraParameters();   // FILMLUT/DEBUG.TXT on the card turns it on
             restoreUserFocus();                            // left over from an abrupt exit
             restoreUserSharpness();
+            if (prefs.getBoolean("userSaved", false)) restoreUserStyle();
+            opening = camera.getNormalCamera().getParameters();
             applyStorageFormat();                          // before the size: there must be a JPEG
+            applyModeDial(false);                          // turned while browsing, say
             readImageSizes();
             applyBase();
             startLiveView();
@@ -495,6 +509,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         } catch (Throwable t) {
             camera = null;
             flash("Camera unavailable:\n" + t + "\nPLAY: browse photos", 0);
+        } finally {
+            opening = null;
         }
     }
 
@@ -546,7 +562,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         int v = st & 0x1FF;
         if ((st & 0x200) != 0) v = -v;
         try {
-            android.hardware.Camera.Parameters cur = camera.getNormalCamera().getParameters();
+            android.hardware.Camera.Parameters cur = params();
             v = Math.max(cur.getMinExposureCompensation(), Math.min(cur.getMaxExposureCompensation(), v));
             android.hardware.Camera.Parameters p = camera.createEmptyParameters();
             p.setExposureCompensation(v);
@@ -676,7 +692,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         String size = SIZES[sizeIndex];
         boolean style = !"camera".equals(base);
         try {
-            CameraEx.ParametersModifier cur = camera.createParametersModifier(camera.getNormalCamera().getParameters());
+            CameraEx.ParametersModifier cur = camera.createParametersModifier(params());
             List modes = cur.getSupportedColorModes();
             if (style && modes != null && !modes.contains(base)) {
                 flash("Base '" + base + "' not supported here", 3000);
@@ -723,7 +739,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (camera == null || "camera".equals(BASES[baseIndex]) || looks == null) return;
         try {
             if (!prefs.contains("userSharpness")) {
-                CameraEx.ParametersModifier cur = camera.createParametersModifier(camera.getNormalCamera().getParameters());
+                CameraEx.ParametersModifier cur = camera.createParametersModifier(params());
                 prefs.edit().putInt("userSharpness", cur.getSharpness()).commit();
             }
             android.hardware.Camera.Parameters p = camera.createEmptyParameters();
@@ -793,7 +809,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         rawOnly = false;
         if (camera == null) return;
         try {
-            CameraEx.ParametersModifier cur = camera.createParametersModifier(camera.getNormalCamera().getParameters());
+            CameraEx.ParametersModifier cur = camera.createParametersModifier(params());
             String fmt = cur.getPictureStorageFormat();
             // Left over from an abrupt exit, but changed by the user since: forget it.
             if ("jpeg".equals(fmt)) prefs.edit().remove("userStorageFmt").commit();
@@ -805,7 +821,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 android.hardware.Camera.Parameters p = camera.createEmptyParameters();
                 camera.createParametersModifier(p).setPictureStorageFormat("rawjpeg");
                 camera.getNormalCamera().setParameters(p);
-                cur = camera.createParametersModifier(camera.getNormalCamera().getParameters());
+                opening = camera.getNormalCamera().getParameters();
+                cur = camera.createParametersModifier(opening);
                 rawOnly = "raw".equals(cur.getPictureStorageFormat());
             }
         } catch (Throwable t) {
@@ -842,7 +859,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void readImageSizes() {
         if (camera == null) return;
         try {
-            android.hardware.Camera.Parameters p = camera.getNormalCamera().getParameters();
+            android.hardware.Camera.Parameters p = params();
             String aspect = p.get("image-aspect"), crop = p.get("apsc-mode");
             String suffix = "-" + (aspect == null ? "3:2" : aspect).replace(':', '-');
             boolean full = crop == null || "off".equals(crop);
@@ -956,6 +973,51 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         return m;
     }
 
+    /** Exposure mode for a mode-dial position (ISV_KEY_MODE_* / ISV_KEY_EXPOSURE_MODE_*), or null. */
+    private static String sceneFor(int code) {
+        switch (code) {
+            case 537: case 628: return "program-auto";
+            case 539: case 629: return "aperture-priority";
+            case 538: case 630: return "shutter-speed";
+            case 540: case 631: return "manual-exposure";
+            default: return null;
+        }
+    }
+
+    /**
+     * The mode dial. While an app is open the camera leaves it to the app: without this, turning A -> M kept
+     * A until the app was reopened. Sets the exposure mode for the dial's position; if that position is
+     * unknown or refused, the camera is reopened instead (fallback), as leaving and reopening the app does.
+     */
+    private void applyModeDial(boolean fallback) {
+        if (camera == null || browsing) return;
+        Integer st = Diag.keyStatusValue(K_MODE_DIAL);
+        String want = st == null ? null : sceneFor(st), was = null, got = null;
+        try {
+            was = got = params().get("scene-mode");
+            if (want != null && !want.equals(was)) {
+                android.hardware.Camera.Parameters p = camera.createEmptyParameters();
+                p.setSceneMode(want);
+                camera.getNormalCamera().setParameters(p);
+                got = camera.getNormalCamera().getParameters().get("scene-mode");
+            }
+        } catch (Throwable t) {
+            Diag.trace("mode dial: " + t);
+        }
+        Diag.trace("mode dial " + st + " -> " + want + " (was " + was + ", now " + got + ")");
+        if (fallback && (want == null || !want.equals(got))) {
+            closeCamera();
+            openCamera();
+            hideReview();
+        }
+        updateExposureText();
+        if (fallback) setNote("Mode " + modeName(sceneMode));
+    }
+
+    private final Runnable modeDialSettled = new Runnable() {
+        public void run() { applyModeDial(true); }
+    };
+
     private boolean apertureAdjustable() {
         return "aperture-priority".equals(sceneMode) || "manual-exposure".equals(sceneMode) || "program-auto".equals(sceneMode);
     }
@@ -990,6 +1052,44 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             }
         } catch (Throwable t) { flash("Dial: " + t, 2000); }
         updateExposureText();
+    }
+
+    // ---- control options (menu), for other dial set-ups and bodies with a broken dial
+    private static final String[] DIAL_NAMES = {"Front f/, rear S", "Front S, rear f/"};
+    private static final String[] WHEEL_NAMES = {"Looks", "ISO"};
+    private int dialIndex, wheelIndex;
+
+    /** A dial turned while shooting: front (0) or rear (1), swapped by the menu's Dials option. */
+    private void shootDial(int which, int dir) {
+        if (which == dialIndex) frontDial(dir); else rearDial(dir);
+    }
+
+    /** Next / previous ISO the camera offers (0 = Auto, listed first). */
+    private void stepIso(int dir) {
+        if (camera == null || browsing) { setNote("ISO: change it while shooting"); return; }
+        try {
+            android.hardware.Camera.Parameters cur = camera.getNormalCamera().getParameters();
+            String list = cur.get("iso-sensitivity-values"), now = cur.get("iso-sensitivity");
+            if (list == null || now == null) { setNote("ISO cannot be changed here"); return; }
+            String[] v = list.split(",");
+            int at = 0;
+            for (int i = 0; i < v.length; i++) if (v[i].trim().equals(now.trim())) at = i;
+            int to = Math.max(0, Math.min(v.length - 1, at + dir));
+            if (to == at) return;
+            android.hardware.Camera.Parameters p = camera.createEmptyParameters();
+            camera.createParametersModifier(p).setISOSensitivity(Integer.parseInt(v[to].trim()));
+            camera.getNormalCamera().setParameters(p);
+            Diag.trace("ISO " + now + " -> " + v[to]);
+        } catch (Throwable t) { flash("ISO: " + t, 2000); }
+        updateExposureText();
+    }
+
+    private String isoName() {
+        if (camera == null || browsing) return "-";
+        try {
+            String iso = camera.getNormalCamera().getParameters().get("iso-sensitivity");
+            return iso == null ? "-" : "0".equals(iso.trim()) ? "Auto" : iso.trim();
+        } catch (Throwable t) { return "-"; }
     }
 
     private void cycleBase() { cycleBase(1); }
@@ -1225,6 +1325,20 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         Diag.trace("prefetched " + f.getName() + " " + (System.currentTimeMillis() - t0) + " ms");
     }
 
+    private String adobePath, adobeLook;       // last answers (preview thread only)
+    private boolean adobeIs;
+    private byte[] adobeBytes;
+
+    /** The look's LUT for this photo: Adobe RGB photos need their own (as the conversion does). */
+    private byte[] lutFor(File photo, Looks.Look lk) throws Exception {
+        String path = photo.getAbsolutePath();
+        if (!path.equals(adobePath)) { adobeIs = Native.isAdobe(path); adobePath = path; }
+        byte[] lut = looks.lut(lk);
+        if (!adobeIs) return lut;
+        if (!lk.id.equals(adobeLook)) { adobeBytes = Native.adobeLut(lut); adobeLook = lk.id; }
+        return adobeBytes != null ? adobeBytes : lut;
+    }
+
     /** The look applied to a small decode: LUT, then halation (as the conversion; grain is left out,
      *  since at screen size the real grain averages away). Returns [w, h, argb...] or null. */
     private int[] withLook(File photo, int[] src, Looks.Look lk) {
@@ -1233,7 +1347,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         px[0] = w;
         px[1] = h;
         try {
-            if (!Native.lutArgb(src, px, 2, w * h, looks.lut(lk))) { postFlash("LUT failed"); return null; }
+            if (!Native.lutArgb(src, px, 2, w * h, lutFor(photo, lk))) { postFlash("LUT failed"); return null; }
         } catch (Exception e) { postFlash("LUT: " + e); return null; }
         if (lk.halation > 0) Native.previewHalation(photo.getAbsolutePath(), px, 2, w, h, lk.halation);
         return px;
@@ -1447,8 +1561,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     // ---------------------------------------------------------------- menu (MENU key, as in Sony's own apps)
 
-    private static final int M_LOOK = 0, M_GRAIN = 1, M_BASE = 2, M_SIZE = 3, M_FOCUS = 4, M_REVIEW = 5,
-            M_CONVERTED = 6, M_HELP = 7, M_ABOUT = 8, M_EXIT = 9, M_COUNT = 10;
+    private static final int M_LOOK = 0, M_GRAIN = 1, M_BASE = 2, M_SIZE = 3, M_FOCUS = 4, M_ISO = 5, M_DIALS = 6,
+            M_WHEEL = 7, M_REVIEW = 8, M_CONVERTED = 9, M_HELP = 10, M_ABOUT = 11, M_EXIT = 12, M_COUNT = 13;
     private TextView menuView;
     private boolean menuOpen, aboutOpen;
     private int menuSel;
@@ -1472,6 +1586,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_BASE: return "Base style";
             case M_SIZE: return "JPEG size";
             case M_FOCUS: return "Focus";
+            case M_ISO: return "ISO";
+            case M_DIALS: return "Dials";
+            case M_WHEEL: return "Wheel";
             case M_REVIEW: return "Quick review";
             case M_CONVERTED: return browsing && showConverted ? "All photos" : "Converted photos";
             case M_HELP: return "Help & controls";
@@ -1487,6 +1604,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_BASE: return BASE_NAMES[baseIndex];
             case M_SIZE: return sizeName();
             case M_FOCUS: return focusName();
+            case M_ISO: return isoName();
+            case M_DIALS: return DIAL_NAMES[dialIndex];
+            case M_WHEEL: return WHEEL_NAMES[wheelIndex];
             case M_REVIEW: return REVIEW_NAMES[reviewIndex];
             default: return null;
         }
@@ -1520,6 +1640,15 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         sb.setSpan(new android.text.style.RelativeSizeSpan(0.75f), f, sb.length(), 0);
         menuView.setTypeface(android.graphics.Typeface.MONOSPACE);
         menuView.setText(sb);
+        // Largest text that fits this screen (0.33's 13 rows did not at 18), measured on the camera itself.
+        View root = (View) menuView.getParent();
+        int maxW = root.getWidth(), maxH = root.getHeight();
+        for (int size = 18; size >= 10; size--) {
+            menuView.setTextSize(size);
+            if (maxH <= 0) break;                          // not laid out yet
+            menuView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+            if (menuView.getMeasuredHeight() <= maxH - 8 && menuView.getMeasuredWidth() <= maxW) break;
+        }
     }
 
     private void openMenu() {
@@ -1544,6 +1673,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void showAbout() {
         aboutOpen = true;
         menuView.setTypeface(android.graphics.Typeface.DEFAULT);
+        menuView.setTextSize(18);
         menuView.setText("Film Drawer " + appVersion + "  by Almost Dark Studio\n"
                 + "almostdarkstudio.com   Donate: ko-fi.com/R6I02B7OBL\n\n"
                 + "Free software, MIT licence.\n"
@@ -1578,6 +1708,15 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 break;
             case M_FOCUS:
                 cycleFocus(dir);
+                break;
+            case M_ISO:
+                stepIso(dir);
+                break;
+            case M_DIALS:
+                dialIndex ^= 1;
+                break;
+            case M_WHEEL:
+                wheelIndex ^= 1;
                 break;
             case M_REVIEW:
                 reviewIndex = ((reviewIndex + dir) % REVIEW_NAMES.length + REVIEW_NAMES.length) % REVIEW_NAMES.length;
@@ -1690,6 +1829,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 return true;
             }
         }
+        if (event.getScanCode() == K_MODE_DIAL || sceneFor(event.getScanCode()) != null) {
+            ui.removeCallbacks(modeDialSettled);               // once the dial has settled (menu open or not)
+            ui.postDelayed(modeDialSettled, 400);
+            return true;
+        }
         if (menuOpen) {
             // The menu takes every key; its release is ignored (MENU would otherwise reopen it).
             int sc = event.getScanCode();
@@ -1699,6 +1843,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             return true;
         }
         boolean conv = browsing && showConverted;   // converted view: every scroll control changes photo
+        if (!browsing && wheelIndex == 1 && (event.getScanCode() == WHEEL_CW || event.getScanCode() == WHEEL_CCW)) {
+            stepIso(event.getScanCode() == WHEEL_CW ? 1 : -1);   // looks are still on Up/Down
+            return true;
+        }
         switch (event.getScanCode()) {
             case K_UP: case WHEEL_CCW:
                 if (conv) changePhoto(-1); else changeLook(-1);
@@ -1710,17 +1858,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 // Shooting: front dial = aperture. Browsing: change look (converted view: photo).
                 if (conv) changePhoto(event.getScanCode() == D1_CW ? 1 : -1);
                 else if (browsing) changeLook(event.getScanCode() == D1_CW ? 1 : -1);
-                else frontDial(event.getScanCode() == D1_CW ? 1 : -1);
+                else shootDial(0, event.getScanCode() == D1_CW ? 1 : -1);
                 return true;
             case D2_CW: case D2_CCW:
                 // Shooting: rear dial = shutter (S/M) or EV (A/P). Browsing: change photo.
                 if (browsing) changePhoto(event.getScanCode() == D2_CW ? 1 : -1);
-                else rearDial(event.getScanCode() == D2_CW ? 1 : -1);
+                else shootDial(1, event.getScanCode() == D2_CW ? 1 : -1);
                 return true;
             case D3_CW: case D3_CCW:
                 if (conv) changePhoto(event.getScanCode() == D3_CW ? 1 : -1);
                 else if (browsing) changeLook(event.getScanCode() == D3_CW ? 1 : -1);
-                else rearDial(event.getScanCode() == D3_CW ? 1 : -1);
+                else shootDial(1, event.getScanCode() == D3_CW ? 1 : -1);
                 return true;
             case K_LEFT:
                 if (browsing) changePhoto(-1); else changeGroup(-1);

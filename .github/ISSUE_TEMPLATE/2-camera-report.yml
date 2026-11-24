@@ -4,7 +4,7 @@ labels: ["camera report"]
 body:
   - type: markdown
     attributes:
-      value: "Film Drawer has only been tested on an a7R II, so reports from other cameras help everyone. Issues are public. Please remove location data from photos before attaching them, and leave out anything private."
+      value: "Film Drawer has mainly been tested on an a7R II, so reports from other cameras help everyone. Issues are public. Please remove location data from photos before attaching them, and leave out anything private."
   - type: input
     id: camera
     attributes:

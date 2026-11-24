@@ -18,6 +18,13 @@ int filmlut_lut_init(lut3d *l, const unsigned char *lut_file, size_t lut_len);
 void filmlut_lut_rgb(const lut3d *l, unsigned char *px, unsigned int count);
 void filmlut_lut_argb(const lut3d *l, const int *src, int *dst, unsigned int count);
 
+/* Adobe RGB photos (camera "Color Space: AdobeRGB", files named _DSC....JPG): the looks expect sRGB.
+ * filmlut_is_adobe: 1 if the JPEG's EXIF says Adobe RGB. filmlut_lut_adobe: a malloc'd FLUT (same length)
+ * that takes Adobe RGB input and gives what `lut_file` gives for the same colour in sRGB; NULL on error.
+ * filmlut_apply does this itself, and marks the output as sRGB. */
+int filmlut_is_adobe(const char *path);
+unsigned char *filmlut_lut_adobe(const unsigned char *lut_file, size_t lut_len);
+
 /* Applies a FLUT 3D LUT to in_path and writes out_path (via a .TMP file next to it).
  * Uses 4 threads. Returns 0 on success; otherwise writes a reason into msg.
  * Never modifies in_path. One conversion at a time. */

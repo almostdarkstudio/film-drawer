@@ -142,3 +142,19 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 - JPEG size labels come from `image-pixel-size-<l|m|s>-<aspect>`; letter only if missing or in APS-C crop.
 - Engine checked on the PC at 12 sizes from 1920x1080 to 7952x5304 in 4:2:0, 4:2:2 and 4:4:4 (parallel == serial).
 - Grain is a fixed size in pixels (tuned at 18 MP), so it looks coarser in small photos and finer in large ones.
+
+## 0.33 (first report from another camera: ILCE-7, firmware 3.20, app 0.31)
+- It ran and converted: M 10 MP in 26 s, L 24 MP in 58 s (4 CPUs, no NEON), about half the a7R II's speed per pixel.
+  Its PARAMS.TXT from a later session showed the tester's own style (deep), DRO (auto) and size (L) at start.
+- Adobe RGB (`color-space=expanded`, files `_DSCnnnn.JPG`, EXIF uncalibrated + interop R03) was treated as sRGB: colours
+  came out about 15% less saturated, and the output was still marked Adobe RGB. Now a per-job LUT takes Adobe RGB in
+  (`filmlut_lut_adobe`), and the output EXIF says sRGB. sRGB photos are byte-identical to 0.32.
+- "Converted photos" skipped outputs of `_DSCnnnn` files (C8TC1527: not 5 digits).
+- Menu: ISO, Dials (swap front / rear), Wheel (looks or ISO). The wheel's own codes (522/523) are unconfirmed on the a7.
+- Opening the camera reads the parameters once instead of five times (HANG.TXT: 3 s in applyEvDial under load).
+- Converted files have no embedded preview, so viewing them takes 3-6 s on the a7.
+
+## 0.34
+- Mode dial (ISV_KEY_MODE_DIAL 572) was ignored, so the exposure mode stayed as it was when the app opened. Now its
+  status is mapped to scene-mode, with a camera reopen as fallback. The codes themselves have not been logged.
+- The menu measures the screen and picks the largest text that fits (13 rows at size 18 did not).

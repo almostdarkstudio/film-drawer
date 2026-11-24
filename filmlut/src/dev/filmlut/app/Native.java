@@ -43,6 +43,12 @@ public final class Native {
      */
     public static native boolean previewHalation(String path, int[] px, int offset, int w, int h, int strength);
 
+    /** True if the photo is Adobe RGB (apply() handles that itself; previews use adobeLut). */
+    public static native boolean isAdobe(String path);
+
+    /** The LUT for Adobe RGB input, or null. */
+    public static native byte[] adobeLut(byte[] lut);
+
     /** Applies a LUT to ARGB pixels src[offset..offset+count) into dst. */
     public static native boolean lutArgb(int[] src, int[] dst, int offset, int count, byte[] lut);
 }

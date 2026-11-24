@@ -9,6 +9,7 @@
  * LUT format (see film-app/luts/convert.py): "FLUT", N, then N^3 RGB triples,
  * red index fastest, then green, then blue.
  */
+#include <math.h>
 #include <pthread.h>
 #include <setjmp.h>
 #include <stdio.h>
@@ -88,6 +89,141 @@ void filmlut_lut_argb(const lut3d *l, const int *src, int *dst, unsigned int cou
         lut_px(l, (p >> 16) & 255, (p >> 8) & 255, p & 255, o);
         dst[x] = (int)(0xFF000000u | ((unsigned int)o[0] << 16) | ((unsigned int)o[1] << 8) | o[2]);
     }
+}
+
+/* ---- Adobe RGB input ------------------------------------------------- */
+
+/* Tetrahedral interpolation at a float position (grid units 0..n-1), one channel. */
+static float lut_at(const lut3d *l, const float *pos, int k)
+{
+    const int step[3] = { 3, 3 * l->n, 3 * l->n * l->n };
+    const unsigned char *c = l->t + k;
+    float f[3], v;
+    int o[3] = { 0, 1, 2 }, i, j;
+    for (i = 0; i < 3; i++) {
+        int b = (int)pos[i];
+        if (b > l->n - 2) b = l->n - 2;
+        f[i] = pos[i] - b;
+        c += b * step[i];
+    }
+    for (i = 0; i < 2; i++)                       /* axes by descending fraction */
+        for (j = 0; j < 2 - i; j++)
+            if (f[o[j]] < f[o[j + 1]]) { int t = o[j]; o[j] = o[j + 1]; o[j + 1] = t; }
+    v = c[0];
+    for (i = 0; i < 3; i++) {
+        const unsigned char *d = c + step[o[i]];
+        v += f[o[i]] * ((float)d[0] - c[0]);
+        c = d;
+    }
+    return v;
+}
+
+unsigned char *filmlut_lut_adobe(const unsigned char *lut_file, size_t lut_len)
+{
+    lut3d l;
+    unsigned char *out;
+    float lin[256];
+    int n, r, g, b, k;
+    size_t i = 5;
+    if (!filmlut_lut_init(&l, lut_file, lut_len) || !(out = (unsigned char *)malloc(lut_len))) return NULL;
+    memcpy(out, lut_file, 5);
+    n = l.n;
+    for (r = 0; r < n; r++) lin[r] = (float)pow(r / (double)(n - 1), 563.0 / 256.0);
+    for (b = 0; b < n; b++)
+        for (g = 0; g < n; g++)
+            for (r = 0; r < n; r++) {
+                float p[3];
+                /* Adobe RGB -> sRGB, both linear and D65; out-of-gamut colours are clipped. */
+                p[0] = 1.3982832f * lin[r] - 0.3982831f * lin[g];
+                p[1] = lin[g];
+                p[2] = 1.0429383f * lin[b] - 0.0429383f * lin[g];
+                for (k = 0; k < 3; k++) {
+                    float v = p[k] < 0 ? 0 : p[k] > 1 ? 1 : p[k];
+                    v = v <= 0.0031308f ? 12.92f * v : 1.055f * (float)pow(v, 1 / 2.4) - 0.055f;
+                    p[k] = (v < 0 ? 0 : v > 1 ? 1 : v) * (n - 1);
+                }
+                for (k = 0; k < 3; k++) {
+                    float v = lut_at(&l, p, k) + 0.5f;
+                    out[i++] = (unsigned char)(v < 0 ? 0 : v > 255 ? 255 : v);
+                }
+            }
+    return out;
+}
+
+static unsigned int ex16(const unsigned char *p, int le) { return le ? p[0] | p[1] << 8 : p[0] << 8 | p[1]; }
+static unsigned long ex32(const unsigned char *p, int le)
+{
+    return le ? (unsigned long)p[0] | (unsigned long)p[1] << 8 | (unsigned long)p[2] << 16 | (unsigned long)p[3] << 24
+              : (unsigned long)p[0] << 24 | (unsigned long)p[1] << 16 | (unsigned long)p[2] << 8 | p[3];
+}
+
+/* The 12-byte entry for `tag` in the IFD at `ifd`, or NULL. */
+static unsigned char *exif_entry(unsigned char *t, size_t len, unsigned long ifd, unsigned int tag, int le)
+{
+    unsigned int i, cnt;
+    if (len < 2 || ifd > len - 2) return NULL;
+    cnt = ex16(t + ifd, le);
+    for (i = 0; i < cnt && ifd + 2 + 12ul * (i + 1) <= len; i++) {
+        unsigned char *e = t + ifd + 2 + 12ul * i;
+        if (ex16(e, le) == tag) return e;
+    }
+    return NULL;
+}
+
+/* APP1 data (from "Exif"): 1 if the photo is Adobe RGB (ColorSpace 2, or uncalibrated with interop "R03",
+ * as cameras write it). mark_srgb: rewrites those two entries in place to sRGB (ColorSpace 1, "R98"). */
+static int exif_adobe(unsigned char *a, size_t n, int mark_srgb)
+{
+    unsigned char *t, *e, *cs, *ip;
+    int le, adobe;
+    if (n < 14 || memcmp(a, "Exif\0\0", 6)) return 0;
+    t = a + 6; n -= 6;
+    if (!((t[0] == 'I' && t[1] == 'I') || (t[0] == 'M' && t[1] == 'M'))) return 0;
+    le = t[0] == 'I';
+    if (!(e = exif_entry(t, n, ex32(t + 4, le), 0x8769, le))) return 0;
+    {
+        unsigned long sub = ex32(e + 8, le);
+        cs = exif_entry(t, n, sub, 0xA001, le);
+        ip = exif_entry(t, n, sub, 0xA005, le);
+    }
+    if (ip) ip = exif_entry(t, n, ex32(ip + 8, le), 1, le);
+    if (!cs) return 0;
+    adobe = ex16(cs + 8, le) == 2 || (ex16(cs + 8, le) == 0xFFFF && ip && !memcmp(ip + 8, "R03", 3));
+    if (adobe && mark_srgb) {
+        cs[8] = le ? 1 : 0; cs[9] = le ? 0 : 1;
+        if (ip) memcpy(ip + 8, "R98", 3);
+    }
+    return adobe;
+}
+
+int filmlut_is_adobe(const char *path)
+{
+    unsigned char hdr[4], *seg;
+    int res = 0, i;
+    FILE *f = fopen(path, "rb");
+    if (!f) return 0;
+    if (fread(hdr, 1, 2, f) == 2 && hdr[0] == 0xFF && hdr[1] == 0xD8) {
+        for (i = 0; i < 8; i++) {                     /* EXIF is one of the first segments */
+            unsigned int len;
+            if (fread(hdr, 1, 4, f) != 4 || hdr[0] != 0xFF || hdr[1] == 0xDA) break;
+            len = hdr[2] << 8 | hdr[3];
+            if (len < 2) break;
+            if (hdr[1] != 0xE1) { if (fseek(f, (long)len - 2, SEEK_CUR)) break; continue; }
+            if ((seg = (unsigned char *)malloc(len)) != NULL) {
+                if (fread(seg, 1, len - 2, f) == len - 2) res = exif_adobe(seg, len - 2, 0);
+                free(seg);
+            }
+            break;
+        }
+    }
+    fclose(f);
+    return res;
+}
+
+static void markers_to_srgb(jpeg_saved_marker_ptr m)
+{
+    for (; m; m = m->next)
+        if (m->marker == JPEG_APP0 + 1) exif_adobe(m->data, m->data_length, 1);
 }
 
 /* ---- film grain ------------------------------------------------------ */
@@ -698,6 +834,7 @@ static int apply_serial(const char *in_path, const char *out_path,
     c.comp_info[2].h_samp_factor = 1; c.comp_info[2].v_samp_factor = 1;
     c.write_JFIF_header = FALSE;                                          /* EXIF instead, as the camera does */
     jpeg_start_compress(&c, TRUE);
+    markers_to_srgb(d.marker_list);
     for (m = d.marker_list; m; m = m->next)
         jpeg_write_marker(&c, m->marker, m->data, m->data_length);
 
@@ -1056,6 +1193,7 @@ static int apply_parallel(const char *in_path, const char *tmp_path,
 
     p->width = d.output_width;
     p->height = d.output_height;
+    markers_to_srgb(d.marker_list);                    /* what the LUT gives is sRGB */
     p->markers = d.marker_list;
     p->units = (int)((d.output_height + 7) / 8);
     halo_build(in_path, &p->halo, g_halation, 0);
@@ -1217,9 +1355,9 @@ finish:
 static int g_force_serial = 0;
 void filmlut_force_serial(int on) { g_force_serial = on; }
 
-int filmlut_apply(const char *in_path, const char *out_path,
-                  const unsigned char *lut_file, size_t lut_len,
-                  int quality, char *msg, size_t msglen)
+static int apply_any(const char *in_path, const char *out_path,
+                     const unsigned char *lut_file, size_t lut_len,
+                     int quality, char *msg, size_t msglen)
 {
     lut3d lut;
     char tmp_path[1024];
@@ -1247,6 +1385,21 @@ int filmlut_apply(const char *in_path, const char *out_path,
     if (rename(tmp_path, out_path) != 0) { unlink(tmp_path); snprintf(msg, msglen, "rename failed"); return 3; }
     g_progress = 1000;
     return 0;
+}
+
+int filmlut_apply(const char *in_path, const char *out_path,
+                  const unsigned char *lut_file, size_t lut_len,
+                  int quality, char *msg, size_t msglen)
+{
+    unsigned char *adobe = NULL;
+    int rc;
+    if (filmlut_is_adobe(in_path) && !(adobe = filmlut_lut_adobe(lut_file, lut_len))) {
+        snprintf(msg, msglen, "bad LUT file or out of memory");
+        return 1;
+    }
+    rc = apply_any(in_path, out_path, adobe ? adobe : lut_file, lut_len, quality, msg, msglen);
+    free(adobe);
+    return rc;
 }
 
 /* ---- test only: single-threaded stage timing --------------------------- */

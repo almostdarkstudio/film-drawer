@@ -113,7 +113,33 @@ static jboolean j_preview_halation(JNIEnv *env, jclass cls, jstring jpath, jintA
     return ok ? JNI_TRUE : JNI_FALSE;
 }
 
+static jboolean j_is_adobe(JNIEnv *env, jclass cls, jstring jpath)
+{
+    const char *path = (*env)->GetStringUTFChars(env, jpath, NULL);
+    int r = path ? filmlut_is_adobe(path) : 0;
+    (void)cls;
+    if (path) (*env)->ReleaseStringUTFChars(env, jpath, path);
+    return r ? JNI_TRUE : JNI_FALSE;
+}
+
+static jbyteArray j_adobe_lut(JNIEnv *env, jclass cls, jbyteArray jlut)
+{
+    jsize len;
+    unsigned char *lut = copy_bytes(env, jlut, &len), *out;
+    jbyteArray res = NULL;
+    (void)cls;
+    if (!lut) return NULL;
+    out = filmlut_lut_adobe(lut, (size_t)len);
+    free(lut);
+    if (!out) return NULL;
+    if ((res = (*env)->NewByteArray(env, len)) != NULL) (*env)->SetByteArrayRegion(env, res, 0, len, (const jbyte *)out);
+    free(out);
+    return res;
+}
+
 static const JNINativeMethod methods[] = {
+    { "isAdobe",  "(Ljava/lang/String;)Z",                                       (void *)j_is_adobe },
+    { "adobeLut", "([B)[B",                                                      (void *)j_adobe_lut },
     { "apply",    "(Ljava/lang/String;Ljava/lang/String;[BI)Ljava/lang/String;", (void *)j_apply },
     { "progress", "()I",                                                         (void *)j_progress },
     { "stats",    "()Ljava/lang/String;",                                        (void *)j_stats },

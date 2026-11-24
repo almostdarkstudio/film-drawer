@@ -11,8 +11,9 @@ By Almost Dark Studio: https://almostdarkstudio.com
 
 <a href='https://ko-fi.com/R6I02B7OBL' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
 
-> Tested on the **Sony a7R II** only. Other bodies that run PlayMemories apps (a6000, a6300, a6500,
-> a7 II, a7S II, RX100 III-V and others) may work but have not been tested. Use at your own risk.
+> Developed and tested on the **Sony a7R II**. One user has run it on the original **a7** (slower there). Other
+> bodies that run PlayMemories apps (a6000, a6300, a6500, a7 II, a7S II, RX100 III-V and others) may work but have
+> not been tested. Use at your own risk.
 
 ## What it does
 - 40 looks in 8 groups: Kodak negative, Cinema, Fuji & Agfa negative, Fuji simulations, Slide,
@@ -67,6 +68,7 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 | Left / Right | Jump to the previous / next look group | Previous / next photo |
 | Front dial | Aperture (A/M/P) | Change look |
 | Rear dial | Shutter speed (S/M), else exposure compensation | Previous / next photo |
+| ISO, swapped dials, wheel | MENU > ISO. MENU > Dials swaps front and rear. MENU > Wheel lets the wheel change ISO (looks stay on Up / Down) | |
 | Fn | Base style: Standard / Neutral / Camera settings | Switch between all photos and converted photos |
 | C1 | JPEG size in the app: M / S / L, with your camera's megapixels | |
 | EV dial (a7R II) | Exposure compensation follows the dial | |
@@ -75,9 +77,10 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 | OK | Show / hide help | Convert this photo |
 | Trash | (nothing) | Before / after (all photos) |
 | PLAY | Browse | Back to shooting (or half-press) |
-| MENU | Menu: look, grain, base style, JPEG size, focus, quick review, converted photos, help, about, **Exit application** | Same |
+| MENU | Menu: look, grain, base style, JPEG size, focus, ISO, dials, wheel, quick review, converted photos, help, about, **Exit application** | Same |
 
-The camera's mode dial sets the exposure mode as usual (P/A/S/M). Everything on Fn, C1 and C2 is also
+The camera's mode dial sets the exposure mode as usual (P/A/S/M). In 0.32 and earlier, set it before opening the app:
+turning it in the app had no effect. Everything on Fn, C1 and C2 is also
 in the menu, for bodies without those buttons. To leave the app: MENU > Exit application (photos still
 converting carry on next time).
 

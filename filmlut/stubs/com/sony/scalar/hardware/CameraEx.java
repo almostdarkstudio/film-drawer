@@ -27,6 +27,7 @@ public class CameraEx {
         public String getImageSize() { throw new RuntimeException("stub"); }
         public void setImageSize(String size) { throw new RuntimeException("stub"); }
         public List getSupportedImageSizes() { throw new RuntimeException("stub"); }
+        public void setISOSensitivity(int iso) { throw new RuntimeException("stub"); }          // 0 = Auto
         public String getPictureStorageFormat() { throw new RuntimeException("stub"); }   // jpeg, raw, rawjpeg
         public void setPictureStorageFormat(String fmt) { throw new RuntimeException("stub"); }
         public List getSupportedPictureStorageFormats() { throw new RuntimeException("stub"); }

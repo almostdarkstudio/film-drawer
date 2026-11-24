@@ -65,7 +65,7 @@ public final class Photos {
     }
 
     /**
-     * Converted photos (FILMLUT/<folder>/<TAG><5 digits>.JPG), oldest first by time written.
+     * Converted photos (FILMLUT/<folder>/<TAG><last 5 of name>.JPG; _DSC1234 ends in C1234), oldest first by time written.
      * The camera's own playback does not show these (they are outside DCIM).
      */
     public static List<File> allOutputs() {
@@ -75,7 +75,7 @@ public final class Photos {
         for (File d : dirs) {
             if (!d.isDirectory()) continue;
             for (String n : jpegNamesIn(d)) {
-                if (n.length() == 12 && n.substring(3, 8).matches("[0-9]{5}")) out.add(new File(d, n));
+                if (n.length() == 12 && n.substring(3, 8).matches("[A-Z0-9_][0-9]{4}")) out.add(new File(d, n));
             }
         }
         final java.util.Map<File, Long> t = new java.util.HashMap<File, Long>();
