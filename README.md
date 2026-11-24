@@ -95,6 +95,16 @@ camera was switched off. Please check your settings the first time. Choose
 - For detailed logs, create an empty file `FILMLUT\DEBUG.TXT` on the card. The app then also writes
   `LOG.TXT` (conversion timings), `TRACE.TXT` and `PARAMS.TXT`. Delete it to turn them off again.
 
+## Requests and feedback
+Missing a film stock, or using a camera that has not been tested? [Open an issue](../../issues/new/choose):
+- **Look request:** a stock or look you would like. Your own scans help most. Looks must be free to share, so please
+  do not send paid presets or LUTs.
+- **Camera report:** what works, or does not, on your model.
+- **Bug report:** what happened, with `CRASH.TXT` or `HANG.TXT` if there is one.
+
+Issues are public, so please remove location data from any photos first. This is a spare-time project: every request
+is welcome, but not all of them can be promised.
+
 ## Removing
 Camera: **Menu > Application > Application List > Application Management > Manage and Remove**.
 Leave Film Drawer normally (MENU > Exit application) first, so your camera settings are back. Converted photos in

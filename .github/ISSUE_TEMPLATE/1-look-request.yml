@@ -1,0 +1,28 @@
+name: Look request
+description: A film stock or look you would like in Film Drawer
+labels: ["look request"]
+body:
+  - type: markdown
+    attributes:
+      value: "Issues are public. Please remove location data from photos before attaching them, and leave out anything private."
+  - type: input
+    id: look
+    attributes:
+      label: Film stock or look
+      placeholder: "e.g. Kodak Portra 400 pushed +1"
+    validations:
+      required: true
+  - type: textarea
+    id: character
+    attributes:
+      label: What makes it special?
+      description: Colour, contrast, grain, the light you would use it in. Links to examples are very welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Scans or a LUT that could be used (optional)
+      description: >-
+        The app can only include looks that may be shared freely. Your own scans are ideal, best of all next to a digital
+        photo of the same scene. Please do not attach paid presets or LUTs.

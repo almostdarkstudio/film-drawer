@@ -1,0 +1,32 @@
+name: Bug report
+description: Something went wrong
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Issues are public. Please remove location data from photos before attaching them, and leave out anything private."
+  - type: input
+    id: camera
+    attributes:
+      label: Camera model
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Film Drawer version
+      description: Shown at the top of the app's MENU.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: Include the look, JPEG size and what you pressed, if you remember.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: CRASH.TXT or HANG.TXT (optional)
+      description: If the FILMLUT folder on your card has either file, paste or attach it. Check it before posting.

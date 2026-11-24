@@ -1,0 +1,30 @@
+name: Camera report
+description: Film Drawer works, or does not, on your camera
+labels: ["camera report"]
+body:
+  - type: markdown
+    attributes:
+      value: "Film Drawer has only been tested on an a7R II, so reports from other cameras help everyone. Issues are public. Please remove location data from photos before attaching them, and leave out anything private."
+  - type: input
+    id: camera
+    attributes:
+      label: Camera model
+      placeholder: "e.g. a6000 (ILCE-6000)"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Film Drawer version
+      description: Shown at the top of the app's MENU.
+    validations:
+      required: true
+  - type: textarea
+    id: works
+    attributes:
+      label: What works and what does not?
+      description: >-
+        For example: installing, live view, buttons and dials, converting (roughly how many seconds per photo?), and whether
+        your own camera settings were back after MENU > Exit application.
+    validations:
+      required: true
