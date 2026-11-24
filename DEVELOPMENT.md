@@ -171,3 +171,11 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 ## 0.37
 - Menu speed: camera values are read once when the menu opens (and after Focus / ISO change), not twice per key; the
   text size is fitted once; the exposure bar is not refreshed behind the menu.
+
+## 0.38
+- Browse opens on the newest photo. All photos are ordered by file number, so Adobe RGB (`_DSC`) ones are not last.
+- The back wheel sends 635/634 (dial 3) on the a7, 522/523 on the a7R II; both are the wheel now. (a7, 0.34: the wheel
+  moved the shutter instead.) The mode dial reports ISV_KEY_MODE_* there (540 = M), as assumed in 0.34.
+- `Controls.java`: dials follow the camera's own set-up via `ScalarInput.getKeyLogicCode(key, mode, 1)`, if it answers
+  with a known FUNC_* code; otherwise as before. What it answers is written to KEYS.TXT (with DEBUG.TXT).
+- Eye AF: `executeAutoFocusStartTrigger` (TRIGGER_EYE_START) exists from interface version 16; not used.

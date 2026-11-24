@@ -40,12 +40,12 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 ## Controls
 | | Shoot mode | Browse mode |
 |---|---|---|
-| Wheel / Up / Down | Change look (a card shows your last photo in that look) | Change look |
+| Wheel / Up / Down | Change look (a card shows your last photo in that look). The wheel can change ISO instead, see below | Change look |
 | Left / Right | Jump to the previous / next look group | Previous / next photo |
-| Front dial | Aperture (A/M/P) | Change look |
-| Rear dial | Shutter speed (S/M), else exposure compensation | Previous / next photo |
+| Front dial | As set on your camera if it says so, else aperture (A/M/P) | Change look |
+| Rear dial | As set on your camera if it says so, else shutter speed (S/M) or exposure compensation | Previous / next photo |
 | Focus area (Wide / Center / Flexible Spot) | MENU > Focus area. The box turns green when focus locks | |
-| ISO, swapped dials, wheel | MENU > ISO. MENU > Dials swaps front and rear. MENU > Wheel lets the wheel change ISO (looks stay on Up / Down) | |
+| ISO, dials, wheel | MENU > ISO. MENU > Dials: as camera, or choose which dial is shutter. MENU > Wheel: as camera, ISO or looks (with ISO, looks stay on Up / Down) | |
 | Fn | Base style: Standard / Neutral / Camera settings | Switch between all photos and converted photos |
 | C1 | JPEG size in the app: M / S / L, with your camera's megapixels | |
 | EV dial (a7R II) | Exposure compensation follows the dial | |
@@ -74,7 +74,7 @@ camera was switched off. Please check your settings the first time. Choose
 - If the app freezes or crashes it writes `FILMDRAW\HANG.TXT` or `FILMDRAW\CRASH.TXT` on the card.
   Please include that file, your camera model and the app version (shown in the help) in a bug report.
 - For detailed logs, create an empty file `FILMDRAW\DEBUG.TXT` on the card. The app then also writes
-  `LOG.TXT` (conversion timings), `FOCUS.TXT`, `TRACE.TXT` and `PARAMS.TXT`. Delete it to turn them off again.
+  `LOG.TXT` (conversion timings), `FOCUS.TXT`, `KEYS.TXT`, `TRACE.TXT` and `PARAMS.TXT`. Delete it to turn them off again.
 
 ## Removing
 Camera: **Menu > Application > Application List > Application Management > Manage and Remove**.

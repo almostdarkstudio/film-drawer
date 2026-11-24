@@ -49,6 +49,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private static final int K_MENU = 514, K_SK2 = 513, K_DELETE = 595, K_PLAY = 207;
     private static final int K_S1 = 516, K_S1_2 = 517, K_S2 = 518;
     private static final int D1_CW = 525, D1_CCW = 526, D2_CW = 528, D2_CCW = 529;
+    // The back wheel: 522/523 on the a7R II, 635/634 ("dial 3") on the a7. Both are the wheel here.
     private static final int WHEEL_CW = 522, WHEEL_CCW = 523, D3_CW = 635, D3_CCW = 634, K_FN = 520;
     // a7R II, found with 0.24's input diagnostics: EV dial (position from ScalarInput.getKeyStatus:
     // 1/3-stop clicks, 0x200 = negative), and the AF/MF-AEL button. Names from the camera (INPUT.TXT):
@@ -168,8 +169,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         baseIndex = Math.max(0, Math.min(BASES.length - 1, prefs.getInt("base", 0)));
         sizeIndex = Math.max(0, Math.min(SIZES.length - 1, prefs.getInt("size", 0)));
         sizeAuto = !prefs.contains("size");
-        dialIndex = prefs.getInt("dials", 0) == 1 ? 1 : 0;
-        wheelIndex = prefs.getInt("wheel", 0) == 1 ? 1 : 0;
+        dialIndex = Math.max(0, Math.min(DIAL_NAMES.length - 1, prefs.getInt("dials", 0)));
+        wheelIndex = Math.max(0, Math.min(WHEEL_NAMES.length - 1, prefs.getInt("wheel", 0)));
         grainIndex = Math.max(0, Math.min(GRAIN_NAMES.length - 1, prefs.getInt("grain", 0)));
         reviewIndex = Math.max(0, Math.min(REVIEW_NAMES.length - 1, prefs.getInt("review", 1)));
         if (Native.LOAD_ERROR != null) {
@@ -419,8 +420,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (!browsing) {
             text = helpVisible
                     ? "Film Drawer " + appVersion + "  (free, MIT licence)\n"
-                      + (wheelIndex == 1 ? "Up/Down: look   Wheel: ISO" : "Wheel/Up/Down: look") + "   Left/Right: group   Fn: base   C1: size   C2: grain\n"
-                      + (dialIndex == 1 ? "Front: shutter/EV   Rear: aperture" : "Front: aperture   Rear: shutter/EV") + "   Trash: focus point   PLAY: browse   MENU: menu"
+                      + (wheelIsIso(WHEEL_CW) || wheelIsIso(D3_CW) ? "Up/Down: look   Wheel: ISO" : "Wheel/Up/Down: look") + "   Left/Right: group   Fn: base   C1: size   C2: grain\n"
+                      + (dialIndex == 0 ? "Dials: as on the camera" : dialIndex == 1 ? "Front: shutter/EV   Rear: aperture" : "Front: aperture   Rear: shutter/EV") + "   Trash: focus point   PLAY: browse   MENU: menu"
                     : null;
         } else if (photos == null || photos.isEmpty()) {
             text = (showConverted ? "No converted photos yet    Fn: all photos" : "No JPEGs on the card    Fn: converted")
@@ -511,6 +512,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             applyBase();
             startLiveView();
             focus.open(camera);
+            Controls.dump(camera);
             applyEvDial(false);                            // match the EV dial's position
         } catch (Throwable t) {
             camera = null;
@@ -1050,26 +1052,51 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             if (shutterAdjustable()) {
                 if (dir > 0) camera.incrementShutterSpeed(); else camera.decrementShutterSpeed();
             } else {
+                stepEv(dir);
+                return;
+            }
+        } catch (Throwable t) { flash("Dial: " + t, 2000); }
+        updateExposureText();
+    }
+
+    /** Exposure compensation by a third of a stop. */
+    private void stepEv(int dir) {
+        if (camera == null || browsing) return;
+        try {
                 android.hardware.Camera.Parameters cur = camera.getNormalCamera().getParameters();
                 int ev = Math.max(cur.getMinExposureCompensation(), Math.min(cur.getMaxExposureCompensation(),
                         cur.getExposureCompensation() + dir));
                 android.hardware.Camera.Parameters p = camera.createEmptyParameters();
                 p.setExposureCompensation(ev);
                 camera.getNormalCamera().setParameters(p);
-            }
         } catch (Throwable t) { flash("Dial: " + t, 2000); }
         updateExposureText();
     }
 
     // ---- control options (menu), for other dial set-ups and bodies with a broken dial
-    private static final String[] DIAL_NAMES = {"Front f/, rear S", "Front S, rear f/"};
-    private static final String[] WHEEL_NAMES = {"Looks", "ISO"};
+    // 0 = what the camera itself is set to, where it says (Controls); else front aperture / rear shutter, wheel looks.
+    private static final String[] DIAL_NAMES = {"As camera", "Front S, rear f/", "Front f/, rear S"};
+    private static final String[] WHEEL_NAMES = {"As camera", "ISO", "Looks"};
     private int dialIndex, wheelIndex;
 
-    /** A dial turned while shooting: front (0) or rear (1), swapped by the menu's Dials option. */
+    /** A dial turned while shooting: front (0) or rear (1). */
     private void shootDial(int which, int dir) {
-        if (which == dialIndex) frontDial(dir); else rearDial(dir);
+        int f = Controls.UNKNOWN;
+        if (dialIndex == 0) f = Controls.function(which == 0 ? D1_CW : D2_CW, sceneMode);
+        if (f == Controls.UNKNOWN) f = which == (dialIndex == 1 ? 1 : 0) ? Controls.APERTURE : Controls.SHUTTER;
+        if (f == Controls.APERTURE) frontDial(dir);
+        else if (f == Controls.ISO) stepIso(dir);
+        else if (f == Controls.EV) stepEv(dir);
+        else rearDial(dir);                    // shutter speed; EV where the camera sets the shutter
     }
+
+    /** True if the wheel changes ISO while shooting (looks are then on Up/Down only). */
+    private boolean wheelIsIso(int key) {
+        if (wheelIndex == 0) return Controls.function(key, sceneMode) == Controls.ISO;
+        return wheelIndex == 1;
+    }
+
+    private static boolean isWheel(int sc) { return sc == WHEEL_CW || sc == WHEEL_CCW || sc == D3_CW || sc == D3_CCW; }
 
     /** Next / previous ISO the camera offers (0 = Auto, listed first). */
     private void stepIso(int dir) {
@@ -1216,7 +1243,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         updateDepth();
         photoView.setVisibility(View.VISIBLE);
         photos = showConverted ? Photos.allOutputs() : Photos.allJpegs();
-        if (photoIndex <= 0 || photoIndex >= photos.size()) photoIndex = Math.max(0, photos.size() - 1);
+        // Opened from shooting: the newest photo. Coming back to the app while browsing: stay on the same one.
+        if (wasShooting || photoIndex < 0 || photoIndex >= photos.size()) {
+            photoIndex = Math.max(0, photos.size() - 1);
+            lastDir = -1;
+            showOriginal = false;
+        }
         if (wasShooting) showHelp(); else updateTexts();
         requestPreview(true);
     }
@@ -1763,10 +1795,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 readMenuValues();
                 break;
             case M_DIALS:
-                dialIndex ^= 1;
+                dialIndex = (dialIndex + dir + DIAL_NAMES.length) % DIAL_NAMES.length;
                 break;
             case M_WHEEL:
-                wheelIndex ^= 1;
+                wheelIndex = (wheelIndex + dir + WHEEL_NAMES.length) % WHEEL_NAMES.length;
                 break;
             case M_REVIEW:
                 reviewIndex = ((reviewIndex + dir) % REVIEW_NAMES.length + REVIEW_NAMES.length) % REVIEW_NAMES.length;
@@ -1874,7 +1906,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case K_S1: case K_S2: endMoveSpot(); return false;
             case K_ENTER: case K_MENU: case K_PLAY: case K_FN: endMoveSpot(); return true;
             case K_DELETE: case K_SK2: cancelMoveSpot(); return true;
-            case K_S1_2: case K_EV_DIAL: case K_AEL: case D1_CW: case D1_CCW: case D2_CW: case D2_CCW: case D3_CW: case D3_CCW:
+            case K_S1_2: case K_EV_DIAL: case K_AEL: case D1_CW: case D1_CCW: case D2_CW: case D2_CCW:
                 return false;                               // exposure stays adjustable
             default: break;
         }
@@ -1943,7 +1975,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (menuOpen) {
             // The menu takes every key; its release is ignored (MENU would otherwise reopen it).
             int sc = event.getScanCode();
-            boolean scroll = sc == K_UP || sc == K_DOWN || sc == WHEEL_CW || sc == WHEEL_CCW;
+            boolean scroll = sc == K_UP || sc == K_DOWN || isWheel(sc);
             if (event.getRepeatCount() == 0 || scroll) menuKey(sc);
             swallowUp = sc;
             return true;
@@ -1953,15 +1985,15 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             return true;
         }
         boolean conv = browsing && showConverted;   // converted view: every scroll control changes photo
-        if (!browsing && wheelIndex == 1 && (event.getScanCode() == WHEEL_CW || event.getScanCode() == WHEEL_CCW)) {
-            stepIso(event.getScanCode() == WHEEL_CW ? 1 : -1);   // looks are still on Up/Down
+        if (!browsing && isWheel(event.getScanCode()) && wheelIsIso(event.getScanCode())) {
+            stepIso(event.getScanCode() == WHEEL_CW || event.getScanCode() == D3_CW ? 1 : -1);   // looks are still on Up/Down
             return true;
         }
         switch (event.getScanCode()) {
-            case K_UP: case WHEEL_CCW:
+            case K_UP: case WHEEL_CCW: case D3_CCW:
                 if (conv) changePhoto(-1); else changeLook(-1);
                 return true;
-            case K_DOWN: case WHEEL_CW:
+            case K_DOWN: case WHEEL_CW: case D3_CW:
                 if (conv) changePhoto(1); else changeLook(1);
                 return true;
             case D1_CW: case D1_CCW:
@@ -1974,11 +2006,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 // Shooting: rear dial = shutter (S/M) or EV (A/P). Browsing: change photo.
                 if (browsing) changePhoto(event.getScanCode() == D2_CW ? 1 : -1);
                 else shootDial(1, event.getScanCode() == D2_CW ? 1 : -1);
-                return true;
-            case D3_CW: case D3_CCW:
-                if (conv) changePhoto(event.getScanCode() == D3_CW ? 1 : -1);
-                else if (browsing) changeLook(event.getScanCode() == D3_CW ? 1 : -1);
-                else shootDial(1, event.getScanCode() == D3_CW ? 1 : -1);
                 return true;
             case K_LEFT:
                 if (browsing) changePhoto(-1); else changeGroup(-1);

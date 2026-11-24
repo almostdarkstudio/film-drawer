@@ -69,12 +69,32 @@ public final class Photos {
         return a;
     }
 
-    /** All JPEGs, oldest first (folder order, then file name). */
+    /**
+     * All JPEGs, oldest first: folder order, then file number. Not by full name: Adobe RGB photos are
+     * _DSC1234 among DSC01234, share one numbering with them, and would all sort last.
+     */
     public static List<File> allJpegs() {
         List<File> out = new ArrayList<File>();
-        for (File d : folders()) for (String n : jpegNamesIn(d)) out.add(new File(d, n));
+        for (File d : folders()) {
+            String[] names = jpegNamesIn(d);
+            Arrays.sort(names, BY_NUMBER);
+            for (String n : names) out.add(new File(d, n));
+        }
         return out;
     }
+
+    /** By the last 4 characters of the name (the DCF file number), then the whole name. */
+    private static final java.util.Comparator<String> BY_NUMBER = new java.util.Comparator<String>() {
+        public int compare(String a, String b) {
+            int c = number(a).compareTo(number(b));
+            return c != 0 ? c : a.compareTo(b);
+        }
+
+        private String number(String n) {
+            int dot = n.lastIndexOf('.');
+            return dot < 4 ? n : n.substring(dot - 4, dot);
+        }
+    };
 
     /**
      * Converted photos (FILMDRAW/<folder>/<TAG><last 5 of name>.JPG; _DSC1234 ends in C1234), oldest first by time written.
