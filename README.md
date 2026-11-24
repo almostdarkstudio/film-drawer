@@ -3,6 +3,8 @@
 Film looks for Sony cameras that run PlayMemories Camera Apps. Shoot as normal; each JPEG is
 converted in the background with the film look you picked. Your originals are never changed.
 
+By Almost Dark Studio: https://almostdarkstudio.com
+
 **Free and open source (MIT).** If you enjoy it, a donation is welcome:
 
 <a href='https://ko-fi.com/R6I02B7OBL' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>

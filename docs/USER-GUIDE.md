@@ -3,6 +3,8 @@
 Film looks for Sony cameras that run PlayMemories Camera Apps. Shoot as normal; each JPEG is
 converted in the background with the film look you picked. Your originals are never changed.
 
+By Almost Dark Studio: https://almostdarkstudio.com
+
 **Free and open source (MIT).** If you enjoy it, a donation is welcome: DONATION_LINK
 
 > Tested on the **Sony a7R II** only. Other bodies that run PlayMemories apps (a6000, a6300, a6500,
