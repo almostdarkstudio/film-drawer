@@ -44,12 +44,12 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 | Fn | Base style: Standard / Neutral / Camera settings | Switch between all photos and converted photos |
 | C1 | JPEG size in the app: M (default) / S / L | |
 | EV dial (a7R II) | Exposure compensation follows the dial | |
-| AF/MF-AEL button | Lever at AF/MF: toggle AF / MF. Lever at AEL: exposure locked while held | |
+| Focus mode (AF / MF / DMF) | MENU > Focus (the AF/MF-AEL button does not work in the app) | |
 | C2 | Grain: Auto (per look) / Off / Low / Medium / High | Same |
 | OK | Show / hide help | Convert this photo |
 | Trash | (nothing) | Before / after (all photos) |
 | PLAY | Browse | Back to shooting (or half-press) |
-| MENU | Menu: look, grain, base style, JPEG size, quick review, converted photos, help, about, **Exit application** | Same |
+| MENU | Menu: look, grain, base style, JPEG size, focus, quick review, converted photos, help, about, **Exit application** | Same |
 
 The camera's mode dial sets the exposure mode as usual (P/A/S/M). Everything on Fn, C1 and C2 is also
 in the menu, for bodies without those buttons. To leave the app: MENU > Exit application (photos still
