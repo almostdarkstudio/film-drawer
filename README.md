@@ -30,12 +30,9 @@ By Almost Dark Studio: https://almostdarkstudio.com
 ## Screenshots
 | | |
 |---|---|
-| ![Shooting, with help](docs/screenshots/1-shoot.jpg) | ![Changing look: your last shot in the new look](docs/screenshots/2-look-card.jpg) |
-| Shooting (help shows for a few seconds) | Changing look: the card shows your last shot in it |
-| ![Menu](docs/screenshots/3-menu.jpg) | ![Browsing, Almost Dark](docs/screenshots/4-browse.jpg) |
-| MENU | Browsing a photo converted with Almost Dark |
-| ![Converted photos, Aerochrome](docs/screenshots/5-converted.jpg) | |
-| Your converted photos (Aerochrome) | |
+| ![Shooting, with help](docs/screenshots/1-shoot.jpg)<br>Shooting (help shows for a few seconds) | ![Changing look](docs/screenshots/2-look-card.jpg)<br>Changing look: the card shows your last shot in it |
+| ![Menu](docs/screenshots/3-menu.jpg)<br>MENU | ![Browsing, Almost Dark](docs/screenshots/4-browse.jpg)<br>Browsing a photo converted with Almost Dark |
+| ![Quick review, Almost Dark](docs/screenshots/6-review.jpg)<br>Quick review: the shot you just took, in Almost Dark | ![Converted photos, Aerochrome](docs/screenshots/5-converted.jpg)<br>Your converted photos (Aerochrome) |
 
 *Recreated from the app's layout code with its own film engine; the camera has no screenshot function.*
 
