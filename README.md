@@ -21,6 +21,18 @@ converted in the background with the film look you picked. Your originals are ne
 - Converted files go to `FILMLUT\<folder>\<TAG><number>.JPG` (for example
   `FILMLUT\100MSDCF\P4002097.JPG` = DSC02097 in Portra 400). EXIF is kept.
 
+## Screenshots
+| | |
+|---|---|
+| ![Shooting, with help](docs/screenshots/1-shoot.jpg) | ![Changing look: your last shot in the new look](docs/screenshots/2-look-card.jpg) |
+| Shooting (help shows for a few seconds) | Changing look: the card shows your last shot in it |
+| ![Menu](docs/screenshots/3-menu.jpg) | ![Browsing, CineStill 800T](docs/screenshots/4-browse.jpg) |
+| MENU | Browsing a photo in CineStill 800T (note the halation) |
+| ![Converted photos, Aerochrome](docs/screenshots/5-converted.jpg) | |
+| Your converted photos (Aerochrome) | |
+
+*Recreated from the app's layout code with its own film engine; the camera has no screenshot function.*
+
 ## Download
 Get `FilmLUT-<version>.apk` and `SHA256SUMS.txt` from the [Releases](../../releases) page.
 
