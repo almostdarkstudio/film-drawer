@@ -167,3 +167,7 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 - The menu scrolls (15 rows, 11 shown).
 - Card folder FILMLUT -> FILMDRAW (8.3 names only); the old one is still read. The package name stays `dev.filmlut.app`,
   so updates install over earlier versions.
+
+## 0.37
+- Menu speed: camera values are read once when the menu opens (and after Focus / ISO change), not twice per key; the
+  text size is fitted once; the exposure bar is not refreshed behind the menu.

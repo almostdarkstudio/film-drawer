@@ -469,7 +469,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private final Runnable statusTick = new Runnable() {
         public void run() {
             updateStatus();
-            updateExposureText();
+            if (!menuOpen) updateExposureText();           // reads every camera parameter: not behind the menu
             ui.postDelayed(this, 500);
         }
     };
@@ -538,9 +538,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         try { return camera.getNormalCamera().getParameters().getFocusMode(); } catch (Throwable t) { return null; }
     }
 
-    private String focusName() {
-        if (camera == null) return "(shooting only)";
-        String m = currentFocusMode();
+    private static String focusName(String m) {
         for (int i = 0; i < FOCUS_MODES.length; i++) if (FOCUS_MODES[i].equals(m)) return FOCUS_NAMES[i];
         return m == null ? "?" : m;
     }
@@ -1093,12 +1091,24 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         updateExposureText();
     }
 
-    private String isoName() {
-        if (camera == null || browsing) return "-";
+    private String menuFocus = "-", menuIso = "-";
+
+    /**
+     * The menu's camera values, with ONE parameter read: when the menu opens and after one of them changes.
+     * (Up to 0.36 every menu key read all parameters twice, which made the menu slow.)
+     */
+    private void readMenuValues() {
+        menuFocus = browsing ? "(shooting only)" : "-";
+        menuIso = "-";
+        if (camera == null || browsing) return;
         try {
-            String iso = camera.getNormalCamera().getParameters().get("iso-sensitivity");
-            return iso == null ? "-" : "0".equals(iso.trim()) ? "Auto" : iso.trim();
-        } catch (Throwable t) { return "-"; }
+            android.hardware.Camera.Parameters p = camera.getNormalCamera().getParameters();
+            menuFocus = focusName(p.getFocusMode());
+            String iso = p.get("iso-sensitivity");
+            if (iso != null) menuIso = "0".equals(iso.trim()) ? "Auto" : iso.trim();
+        } catch (Throwable t) {
+            Diag.trace("menu values: " + t);
+        }
     }
 
     private void cycleBase() { cycleBase(1); }
@@ -1489,6 +1499,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     /** Look card: the newest photo through the current look, for CARD_MS after the last change. */
     private void showLookCard() {
+        if (menuOpen) return;                              // covered by the menu: do not render a preview for it
         Looks.Look lk = look();
         int[] pos = looks.posInGroup(lookIndex);
         cardGroup.setText("‹  " + lk.group + "  ›");
@@ -1616,9 +1627,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_GRAIN: return grainIndex == 0 ? "Auto (" + look().grain + ")" : GRAIN_NAMES[grainIndex];
             case M_BASE: return BASE_NAMES[baseIndex];
             case M_SIZE: return sizeName();
-            case M_FOCUS: return focusName();
+            case M_FOCUS: return menuFocus;
             case M_AREA: return browsing ? "-" : focus.areaName();
-            case M_ISO: return isoName();
+            case M_ISO: return menuIso;
             case M_DIALS: return DIAL_NAMES[dialIndex];
             case M_WHEEL: return WHEEL_NAMES[wheelIndex];
             case M_REVIEW: return REVIEW_NAMES[reviewIndex];
@@ -1655,17 +1666,32 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         sb.append(menuFooter != null ? menuFooter : "Up/Down: choose   Left/Right/OK: change   MENU: close");
         sb.setSpan(new android.text.style.ForegroundColorSpan(menuFooter != null ? ACCENT : 0xFF9A9A9A), f, sb.length(), 0);
         sb.setSpan(new android.text.style.RelativeSizeSpan(0.75f), f, sb.length(), 0);
-        menuView.setTypeface(android.graphics.Typeface.MONOSPACE);
+        if (menuView.getTypeface() != android.graphics.Typeface.MONOSPACE) menuView.setTypeface(android.graphics.Typeface.MONOSPACE);
+        if (menuSize > 0) menuTextSize(menuSize);          // before the text: one layout, not two
         menuView.setText(sb);
-        // Largest text that fits this screen (0.33's 13 rows did not at 18), measured on the camera itself.
+        if (menuSize > 0) return;
+        // Once: the largest text that fits this screen, measured on the camera itself. The number of rows never
+        // changes; for the width, room is kept for the widest row ("Move focus point" aside: 16 + a long look name).
         View root = (View) menuView.getParent();
         int maxW = root.getWidth(), maxH = root.getHeight();
+        if (maxH <= 0) return;                             // not laid out yet
+        StringBuilder wide = new StringBuilder();
+        for (int i = 0; i < 46; i++) wide.append('M');
         for (int size = 18; size >= 10; size--) {
-            menuView.setTextSize(size);
-            if (maxH <= 0) break;                          // not laid out yet
+            menuTextSize(size);
             menuView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-            if (menuView.getMeasuredHeight() <= maxH - 8 && menuView.getMeasuredWidth() <= maxW) break;
+            float w = menuView.getPaint().measureText(wide.toString()) + menuView.getPaddingLeft() + menuView.getPaddingRight();
+            menuSize = size;
+            if (menuView.getMeasuredHeight() <= maxH - 8 && w <= maxW) break;
         }
+    }
+
+    private int menuSize, menuSizeNow;                     // fitted once; 0 = not yet
+
+    private void menuTextSize(int size) {
+        if (size == menuSizeNow) return;
+        menuSizeNow = size;
+        menuView.setTextSize(size);
     }
 
     private void openMenu() {
@@ -1676,6 +1702,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         aboutOpen = false;
         menuFooter = null;
         exitArmedUntil = 0;
+        readMenuValues();
         renderMenu();
         menuView.setVisibility(View.VISIBLE);
     }
@@ -1685,12 +1712,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         aboutOpen = false;
         menuView.setVisibility(View.GONE);
         updateTexts();
+        updateExposureText();
     }
 
     private void showAbout() {
         aboutOpen = true;
         menuView.setTypeface(android.graphics.Typeface.DEFAULT);
-        menuView.setTextSize(18);
+        menuTextSize(18);
         menuView.setText("Film Drawer " + appVersion + "  by Almost Dark Studio\n"
                 + "almostdarkstudio.com   Donate: ko-fi.com/R6I02B7OBL\n\n"
                 + "Free software, MIT licence.\n"
@@ -1725,12 +1753,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 break;
             case M_FOCUS:
                 cycleFocus(dir);
+                readMenuValues();
                 break;
             case M_AREA:
                 setNote(focus.cycleArea(dir));
                 break;
             case M_ISO:
                 stepIso(dir);
+                readMenuValues();
                 break;
             case M_DIALS:
                 dialIndex ^= 1;
