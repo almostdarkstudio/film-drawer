@@ -17,16 +17,17 @@ By Almost Dark Studio: https://almostdarkstudio.com
 > [tell us](../../issues/new/choose). Use at your own risk.
 
 **Read about it:** [The Phoblographer tried Film Drawer on an original a7](https://www.thephoblographer.com/2026/11/25/sony-a7-cinestill-800t-hack-film-drawer/)
-(25 November 2026, versions up to 0.52). Since 0.53 the grain is more visible: see the
-[releases](../../releases) for what changed.
+(25 November 2026, versions up to 0.52). Since then the grain is more visible and, since 0.55, works
+differently, and several looks have changed: see the [releases](../../releases).
 
 ## What it does
 - 40 looks in 8 groups: Kodak negative, Cinema, Fuji & Agfa negative, Fuji simulations, Slide,
-  Instant, Specialty (Metropolis, Aerochrome-style infrared), Black & white. Film grain per look;
+  Instant, Specialty (Metropolis, Aerochrome-style infrared), Black & white. Film grain per look,
+  sized to the photo and with its own grain in each colour layer;
   CineStill 800T is tuned against real scans, with the red-orange halation around lights; 50D has a gentler one.
   **Almost Dark**, in Cinema, is the studio's own low-light look: deep blacks, rich lamplight, clean lights.
 - Shoot inside the app. A quick review shows each photo in its look, and the conversion runs in
-  the background (about 20-25 s per photo at JPEG size M on an a7R II).
+  the background (about 20-40 s per photo at JPEG size M on an a7R II, CineStill 800T the longest).
 - Mark your **favourites** (MENU > Favourites) and they become the first group.
 - Browse any photo on the card, preview a look, and convert it. Or view your converted photos
   (the camera's own playback cannot show them) and delete the ones you don't want: PLAY.
@@ -40,7 +41,7 @@ By Almost Dark Studio: https://almostdarkstudio.com
 | ![Garage shutter at night, camera JPEG](docs/examples/garage-camera.jpg) | ![The same photo in CineStill 800T](docs/examples/garage-cinestill-800t.jpg) |
 
 *Sony a7R II, with the app's own engine and settings for the look: colour, grain and the red halation around the
-lights. Resized for this page, no other editing. Photo: Almost Dark Studio.*
+lights. Made with 0.55 and resized for this page, no other editing. Photo: Almost Dark Studio.*
 
 ## Screenshots
 | | |
@@ -50,7 +51,7 @@ lights. Resized for this page, no other editing. Photo: Almost Dark Studio.*
 | ![Quick review, Almost Dark](docs/screenshots/6-review.jpg)<br>Quick review: the shot you just took, in Almost Dark | ![Converted photos, Aerochrome](docs/screenshots/5-converted.jpg)<br>PLAY: your converted photos (Aerochrome) |
 | ![Favourites](docs/screenshots/7-favourites.jpg)<br>MENU > Favourites: mark the looks you use | ![Controls](docs/screenshots/8-controls.jpg)<br>Controls: press Trash while shooting |
 
-*Drawn for 0.52 from the app's layout with its own film engine; the camera has no screenshot function, and its fonts may differ a little.*
+*Drawn for 0.55 from the app's layout with its own film engine; the camera has no screenshot function, and its fonts may differ a little.*
 
 ## Download
 Get `FilmDrawer-<version>.apk` and `SHA256SUMS.txt` from the [Releases](../../releases) page.
@@ -81,7 +82,7 @@ we have only used Windows. On a Mac, close anything that may grab the camera fir
 updater, service mode, `updatershell`, `serviceshell` or Zadig drivers, and those can change more than an app does.
 
 **What to expect:** there is no live film preview. You shoot as usual, and the camera renders the photo in the background:
-about 20-25 s at JPEG size M on an a7R II, about a minute at 24 MP on an original a7. Rendering uses battery, so carry a
+about 20-40 s at JPEG size M on an a7R II, a minute or more at 24 MP on an original a7. Rendering uses battery, so carry a
 spare. A smaller JPEG size (C1) is quicker.
 
 ## Controls
@@ -155,7 +156,7 @@ camera was switched off. Please check your settings the first time. Choose
 - Previews (on the camera and in the photo file) do not show the grain; the photo itself does.
 - If your camera keeps contrast, saturation and sharpness separately for each Creative Style, your own values for Standard
   and Neutral may be left at the app's (not confirmed). If you have changed those two styles, please check them.
-- On an original a7, a 24 MP photo takes about a minute to convert.
+- On an original a7, a 24 MP photo takes a minute or more to convert.
 
 ## Problems
 - If the app freezes or crashes it writes `FILMDRAW\HANG.TXT` or `FILMDRAW\CRASH.TXT` on the card.

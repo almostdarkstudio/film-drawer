@@ -304,3 +304,17 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 - Only the colours of these four looks changed.
 - Previews: area-weighted shrink (808 -> 640 is not a whole step, so whole-pixel boxes looked jagged) and smooth colour
   upsampling. Photos are byte-identical without their previews; the preview copy in the file also has smoother colour.
+
+## 0.55: the character of the grain
+- 0.53/0.54 added one noise to R, G and B alike: no colour variation, and grey-black dots on saturated colours. Now: a
+  shared noise plus own noise per layer (two lattices each, half a cell off), each layer scaled by its OWN tone, so a layer
+  with little dye has little grain. Larger, softer cells (1/1050 of the long side), a few stronger grains (GR_TAIL), less near
+  black. Strength per look as before. Black and white looks: one layer. GR_* in filmlut.c.
+- Measured in smooth areas at 1024 pixels wide, against real scans. Colour grain ONLY against scans saved 4:4:4, with ours
+  reduced but not re-saved: 4:2:0 hides most of it. (The first 0.55 was tuned through a 4:2:0 re-save and came out three times
+  too colourful and too fine, like digital noise; it was never released.) Colour against brightness variation: real 0.4-0.7,
+  0.54 0.25-0.4, now 0.45-0.56. Neighbour correlation of the colour: real 0.63, now 0.54-0.67. Brightness neighbour
+  correlation (Delta, mids) real 0.35, 0.54 0.20, now 0.35. Excess kurtosis real +0.3..0.6, 0.54 0..0.15, now 0.2..0.3.
+- Cost: the grain step for colour is about 1.8x as slow as before on one core (PC, no vectorisation), black and white the same.
+- CineStill 800T: camera sharpness -1 while shooting (was -3), a judgement, not measured. Checked with and without grain: grain does not blur (coarse and
+  medium detail keep 96-100%), it only hides detail, and the new grain hides less medium and fine detail than 0.31-0.54.

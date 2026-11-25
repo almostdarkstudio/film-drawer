@@ -13,11 +13,12 @@ By Almost Dark Studio: https://almostdarkstudio.com
 
 ## What it does
 - 40 looks in 8 groups: Kodak negative, Cinema, Fuji & Agfa negative, Fuji simulations, Slide,
-  Instant, Specialty (Metropolis, Aerochrome-style infrared), Black & white. Film grain per look;
+  Instant, Specialty (Metropolis, Aerochrome-style infrared), Black & white. Film grain per look,
+  sized to the photo and with its own grain in each colour layer;
   CineStill 800T is tuned against real scans, with the red-orange halation around lights; 50D has a gentler one.
   **Almost Dark**, in Cinema, is the studio's own low-light look: deep blacks, rich lamplight, clean lights.
 - Shoot inside the app. A quick review shows each photo in its look, and the conversion runs in
-  the background (about 20-25 s per photo at JPEG size M on an a7R II).
+  the background (about 20-40 s per photo at JPEG size M on an a7R II, CineStill 800T the longest).
 - Mark your **favourites** (MENU > Favourites) and they become the first group.
 - Browse any photo on the card, preview a look, and convert it. Or view your converted photos
   (the camera's own playback cannot show them) and delete the ones you don't want: PLAY.
@@ -109,7 +110,7 @@ camera was switched off. Please check your settings the first time. Choose
 - Previews (on the camera and in the photo file) do not show the grain; the photo itself does.
 - If your camera keeps contrast, saturation and sharpness separately for each Creative Style, your own values for Standard
   and Neutral may be left at the app's (not confirmed). If you have changed those two styles, please check them.
-- On an original a7, a 24 MP photo takes about a minute to convert.
+- On an original a7, a 24 MP photo takes a minute or more to convert.
 
 ## Problems
 - If the app freezes or crashes it writes `FILMDRAW\HANG.TXT` or `FILMDRAW\CRASH.TXT` on the card.

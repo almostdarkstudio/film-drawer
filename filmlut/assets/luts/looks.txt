@@ -8,7 +8,7 @@ ektar100|EKT|Ektar 100|15|0|Kodak negative;Kodak|0
 almostdark|ALD|Almost Dark|45|0|Cinema;Cine|0
 vision500t|V5T|Vision3 500T|45|0|Cinema;Cine|0
 vision250d|V25|Vision3 250D|30|0|Cinema;Cine|0
-cs800t|C8T|CineStill 800T|50|80|Cinema;Cine|-3
+cs800t|C8T|CineStill 800T|50|80|Cinema;Cine|-1
 cs50d|C5D|CineStill 50D|20|50|Cinema;Cine|-2
 k2383|K23|Kodak 2383 Print|30|0|Cinema;Cine|0
 eterna|ETR|Fujifilm Eterna|30|0|Cinema;Cine|0

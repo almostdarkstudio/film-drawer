@@ -232,7 +232,7 @@ static void markers_to_srgb(jpeg_saved_marker_ptr m)
 /* ---- film grain ------------------------------------------------------ */
 
 static int g_grain = 0;
-static int g_gtab[2][256];       /* strength x tone weight per luma value: colour looks, black and white looks */
+static int g_gtab[2][256];       /* strength x tone weight per value: colour looks, black and white looks */
 
 /* Black and white, from real Tri-X and Delta 3200 scans: full grain in the mids AND the light tones, less in the darks. */
 static float mono_weight(float L)
@@ -253,8 +253,9 @@ void filmlut_set_grain(int strength)
          * 0.45 + 0.55 / (1 + x^2 + x^4/2), x = (L - 0.3) / 0.28. */
         float x = (v / 255.0f - 0.30f) / 0.28f, x2 = x * x;
         float w = 0.45f + 0.55f / (1.0f + x2 + 0.5f * x2 * x2);
-        g_gtab[0][v] = (int)(g_grain * w * 378.0f + 0.5f);                          /* <= 100 * 378 */
-        g_gtab[1][v] = (int)(g_grain * mono_weight(v / 255.0f) * 378.0f + 0.5f);
+        float k = v < 4 ? 0.55f : v > 26 ? 1.0f : 0.55f + 0.45f * (v - 4) / 22;     /* near black: scans have less (0.55) */
+        g_gtab[0][v] = (int)(g_grain * w * k * 378.0f + 0.5f);                      /* <= 100 * 378 */
+        g_gtab[1][v] = (int)(g_grain * mono_weight(v / 255.0f) * k * 378.0f + 0.5f);
     }
 }
 
@@ -271,45 +272,95 @@ static inline int grain_cell(unsigned int cx, unsigned int cy, int fy, unsigned 
     return (tri_noise(cx, cy, seed) * (256 - fy) + tri_noise(cx, cy + 1, seed) * fy) >> 8;
 }
 
-/* Adds grain to one row of RGB pixels at absolute row y (same noise wherever the row is processed). Luminance only.
- * 0.53: the size follows the photo, as on film: smooth clumps of 1/1988 of the long side (4 pixels at 42 MP, 3 at 24 MP,
- * at least 1.5), from two offset grids of interpolated noise, plus fine per-pixel noise. Before, 2-3 pixels whatever the
- * size, which vanished in a 42 MP photo seen on a screen. */
+/* Two independent values (-32768..32767) from one hash, for the colour of the grain. */
+static inline void grain_cell2(unsigned int cx, unsigned int cy, int fy, unsigned int seed, int *u, int *v)
+{
+    unsigned int h[2];
+    int k;
+    for (k = 0; k < 2; k++) {
+        h[k] = cx * 0x8da6b343u ^ (cy + k) * 0xd8163841u ^ seed;
+        h[k] ^= h[k] >> 13; h[k] *= 0x5bd1e995u; h[k] ^= h[k] >> 15;
+    }
+    *u = (((int)(h[0] & 0xFFFF) - 32768) * (256 - fy) + ((int)(h[1] & 0xFFFF) - 32768) * fy) >> 8;
+    *v = (((int)(h[0] >> 16) - 32768) * (256 - fy) + ((int)(h[1] >> 16) - 32768) * fy) >> 8;
+}
+
+#ifndef GR_CELLS
+#define GR_CELLS 1050    /* grain cells along the long side */
+#endif
+#ifndef GR_LUMA
+#define GR_LUMA 70       /* shared by the three layers (1/256) */
+#endif
+#ifndef GR_FINE
+#define GR_FINE 30       /* per pixel */
+#endif
+#ifndef GR_CW
+#define GR_CW 3         /* colour cells, in eighths of the shared ones */
+#endif
+#ifndef GR_TAIL
+#define GR_TAIL 160
+#endif
+#ifndef GR_CHROMA
+#define GR_CHROMA 50     /* own grain of each layer */
+#endif
+
+/* Adds grain to one row of RGB pixels at absolute row y (same noise wherever the row is processed).
+ * The size follows the photo, as on film: smooth clumps from two offset grids of interpolated noise, plus a little fine
+ * noise (0.53). 0.55, from real scans: each colour layer also has grain of its own, and each layer's grain depends on that
+ * layer's own tone (a layer with little dye has little grain). Before, the same amount was added to R, G and B: no colour
+ * variation, and dark grey dots on saturated colours. Black and white looks: one layer. */
 static void grain_row(const lut3d *lut, unsigned char *px, unsigned int width, unsigned int height, unsigned int y)
 {
-    const unsigned int s0 = 0x5bd1e995u, s1 = 0x27d4eb2fu;
-    const int *tab = g_gtab[lut->mono];
+    const unsigned int s0 = 0x5bd1e995u, s1 = 0x27d4eb2fu, s2 = 0x3c6ef372u, s3 = 0x1b873593u, half = 0x8000u;
+    const int *tab = g_gtab[lut->mono], mono = lut->mono;
     unsigned int x = 0, step, size = width > height ? width : height;
-    unsigned int v0, v1, u, half = 0x8000u, c0 = 0, c1 = 0, y0, y1;
-    int f0, f1, a0, b0, a1, b1;
+    unsigned int v0, v1, v2, v3, u = 0, w = 0, wstep, c0 = 0, c1 = 0, c2 = 0, c3 = 0, y0, y1, y2, y3;
+    int f0, f1, f2, f3, a0, b0, a1, b1, ua = 0, ub = 0, va = 0, vb = 0, pa = 0, pb = 0, qa = 0, qb = 0;
     if (!g_grain) return;
-    step = size > 2982 ? (1988u << 16) / size : 43690;           /* cells per pixel, 16.16 */
+    step = size > GR_CELLS * 3 / 2 ? ((unsigned)GR_CELLS << 16) / size : 43690;   /* cells per pixel, 16.16; a cell is at least 1.5 pixels */
+    wstep = step * GR_CW / 8;
     v0 = y * step;
     v1 = v0 + half;                                              /* the second grid, half a cell off both ways */
+    v2 = y * wstep;
+    v3 = v2 + half;
     y0 = v0 >> 16; f0 = (v0 >> 8) & 255;
     y1 = v1 >> 16; f1 = (v1 >> 8) & 255;
+    y2 = v2 >> 16; f2 = (v2 >> 8) & 255;
+    y3 = v3 >> 16; f3 = (v3 >> 8) & 255;
     a0 = grain_cell(0, y0, f0, s0); b0 = grain_cell(1, y0, f0, s0);
     a1 = grain_cell(0, y1, f1, s1); b1 = grain_cell(1, y1, f1, s1);
-    u = 0;
+    if (!mono) {
+        grain_cell2(0, y2, f2, s2, &ua, &va); grain_cell2(1, y2, f2, s2, &ub, &vb);
+        grain_cell2(0, y3, f3, s3, &pa, &qa); grain_cell2(1, y3, f3, s3, &pb, &qb);
+    }
     while (x < width) {
-        /* The run of pixels to the next cell border of either grid. */
-        unsigned int e0 = ((c0 + 1) << 16) - u, e1 = ((c1 + 1) << 16) - (u + half);
-        unsigned int e = e0 < e1 ? e0 : e1;
+        /* The run of pixels to the next cell border of any grid. */
+        unsigned int e0 = ((c0 + 1) << 16) - u, e1 = ((c1 + 1) << 16) - (u + half), e = e0 < e1 ? e0 : e1, stop = u + e;
         int d0 = b0 - a0, d1 = b1 - a1;
-        unsigned int stop = u + e;
         for (; x < width && u < stop; x++, px += 3, u += step) {
-            int L = (px[0] * 77 + px[1] * 150 + px[2] * 29) >> 8;
             int n = a0 + a1 + ((d0 * (int)((u >> 8) & 255)) >> 8) + ((d1 * (int)(((u + half) >> 8) & 255)) >> 8);
-            int d, r, g, b;
-            n = (n * 143 + tri_noise(x, y, 0x165667b1u) * 72) >> 12;   /* sd ~1000 */
-            d = (n * tab[L] + (1 << 20)) >> 21;                        /* sd ~18 levels at peak, strength 100 */
-            r = px[0] + d; g = px[1] + d; b = px[2] + d;
-            if ((r | g | b) & ~255) {
-                r = r < 0 ? 0 : r > 255 ? 255 : r;
-                g = g < 0 ? 0 : g > 255 ? 255 : g;
-                b = b < 0 ? 0 : b > 255 ? 255 : b;
+            n = (n * GR_LUMA + tri_noise(x, y, 0x165667b1u) * GR_FINE) >> 12;
+            n += (n * (n < 0 ? -n : n) >> 10) * GR_TAIL >> 8;     /* some grains stand out, as on film */
+            if (mono) {
+                int r = px[0] + ((n * tab[px[0]] + (1 << 20)) >> 21);
+                px[0] = px[1] = px[2] = (unsigned char)(r < 0 ? 0 : r > 255 ? 255 : r);
+            } else {
+                int fx = (w >> 8) & 255, fz = ((w + half) >> 8) & 255;
+                int cu = (ua + pa + (((ub - ua) * fx) >> 8) + (((pb - pa) * fz) >> 8)) * GR_CHROMA >> 12;
+                int cv = (va + qa + (((vb - va) * fx) >> 8) + (((qb - qa) * fz) >> 8)) * GR_CHROMA >> 12;
+                int r = px[0] + (((n + cu) * tab[px[0]] + (1 << 20)) >> 21);
+                int g = px[1] + (((n - ((cu + cv) >> 1)) * tab[px[1]] + (1 << 20)) >> 21);
+                int b = px[2] + (((n + cv) * tab[px[2]] + (1 << 20)) >> 21);
+                if ((r | g | b) & ~255) {
+                    r = r < 0 ? 0 : r > 255 ? 255 : r;
+                    g = g < 0 ? 0 : g > 255 ? 255 : g;
+                    b = b < 0 ? 0 : b > 255 ? 255 : b;
+                }
+                px[0] = (unsigned char)r; px[1] = (unsigned char)g; px[2] = (unsigned char)b;
+                w += wstep;
+                if (w >> 16 != c2) { c2++; ua = ub; va = vb; grain_cell2(c2 + 1, y2, f2, s2, &ub, &vb); }
+                if ((w + half) >> 16 != c3) { c3++; pa = pb; qa = qb; grain_cell2(c3 + 1, y3, f3, s3, &pb, &qb); }
             }
-            px[0] = (unsigned char)r; px[1] = (unsigned char)g; px[2] = (unsigned char)b;
         }
         if (u >> 16 != c0) { c0++; a0 = b0; b0 = grain_cell(c0 + 1, y0, f0, s0); }
         if ((u + half) >> 16 != c1) { c1++; a1 = b1; b1 = grain_cell(c1 + 1, y1, f1, s1); }
