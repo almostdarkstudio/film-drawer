@@ -20,10 +20,10 @@ ultramax    45
 colorplus   40
 ektar100    15
 ## Cinema | Cine
-almostdark  55
+almostdark  45
 vision500t  45
 vision250d  30
-cs800t      75   100  80   -3
+cs800t      50   100  80   -3
 cs50d       20   100  50   -2
 k2383       30   80
 eterna      30
@@ -32,7 +32,7 @@ fuji400h    35
 pro160ns    25
 reala100    25
 superia400  40   70
-superia1600 70
+superia1600 60
 fujic200    35
 vista200    35
 ## Fuji simulations | Sims
@@ -53,9 +53,9 @@ fp100c      30
 metropolis  45   85
 aerochrome  35
 ## Black & white | B&W
-trix400     55
-hp5std      55
-tmax400     40
-delta3200   80
+trix400     65
+hp5std      65
+tmax400     45
+delta3200   85
 acros100    25
 panf50      10

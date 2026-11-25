@@ -106,7 +106,7 @@ camera was switched off. Please check your settings the first time. Choose
 - RAW files already on the card without a JPEG cannot be converted.
 - The looks work on the camera's JPEG, after its own white balance. CineStill 800T therefore goes less blue in daylight
   than real film.
-- Grain has a fixed pixel size: coarser in small photos, finer in large ones.
+- Previews (on the camera and in the photo file) do not show the grain; the photo itself does.
 - If your camera keeps contrast, saturation and sharpness separately for each Creative Style, your own values for Standard
   and Neutral may be left at the app's (not confirmed). If you have changed those two styles, please check them.
 - On an original a7, a 24 MP photo takes about a minute to convert.

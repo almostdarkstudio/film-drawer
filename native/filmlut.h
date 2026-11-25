@@ -8,6 +8,7 @@ typedef struct {
     int idx[256];             /* lower grid index per 8-bit input */
     int frac[256];            /* 0..256 weight toward the next grid point */
     int roff[256], goff[256], boff[256];   /* idx * byte stride per axis (precomputed) */
+    int mono;                 /* 1: a black and white look */
 } lut3d;
 
 /* Stage timings of the last filmlut_apply(), for tuning (text, e.g. "cpus=4 dec=12.1s ..."). */

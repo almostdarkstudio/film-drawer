@@ -97,6 +97,36 @@ def mid_pull(cube, mid):
     return np.clip(np.rint(out), 0, 255).astype(np.uint8)
 
 
+def mute(cube, warm=1.0, blue=1.0, leaf=1.0):
+    """Less (or more) saturation by the hue of the INPUT colour, luma kept: warm (skin, orange, yellow), leaf (greens),
+    blue. Factors from measurements against real scans (0.53)."""
+    n = cube.shape[0]
+    c = cube.astype(np.float64) / 255
+    g = np.linspace(0, 1, n)
+    b_, g_, r_ = np.meshgrid(g, g, g, indexing="ij")
+    mx, mn = np.maximum(np.maximum(r_, g_), b_), np.minimum(np.minimum(r_, g_), b_)
+    d = np.maximum(mx - mn, 1e-9)
+    h = np.where(mx == r_, ((g_ - b_) / d) % 6, np.where(mx == g_, (b_ - r_) / d + 2, (r_ - g_) / d + 4)) * 60
+
+    def band(a0, a1, b0, b1):
+        x = (h - a0) % 360
+        w1, w2, w3 = (a1 - a0) % 360, (b0 - a0) % 360, (b1 - a0) % 360
+        return np.where(x < w1, x / w1, np.where(x < w2, 1, np.where(x < w3, 1 - (x - w2) / (w3 - w2), 0)))
+
+    def ss(x, a, z):
+        u = np.clip((x - a) / (z - a), 0, 1)
+        return u * u * (3 - 2 * u)
+
+    cx, cn = c.max(-1), c.min(-1)
+    s = np.where(cx > 0, (cx - cn) / np.maximum(cx, 1e-9), 0)
+    guard = (1 - ss(s, 0.42, 0.75)) * (1 - ss(cx, 0.80, 0.97))   # gains stop at strong or very bright colours
+    k = 1
+    for f, w in ((warm, band(340, 5, 62, 80)), (leaf, band(65, 90, 150, 175)), (blue, band(175, 200, 260, 290))):
+        k = k + (f - 1) * w * (guard if f > 1 else 1)
+    y = (c @ np.array([0.299, 0.587, 0.114]))[..., None]
+    return np.clip(np.rint((y + (c - y) * k[..., None]) * 255), 0, 255).astype(np.uint8)
+
+
 def scan800t(cube):
     """CineStill 800T (0.52): measured against 64 real scans and checked on 584 photos not used for tuning. On the
     tweaked cube: warm colours less saturated and no longer pushed to red, greens to teal, light blues to cyan, cooler
@@ -180,6 +210,9 @@ def apply_tweaks(cube, t):
         cube = mid_pull(cube, t["mid"])
     if t.get("scan800t"):
         cube = scan800t(cube)
+    mu = {k: v for k, v in t.items() if k in ("warm", "blue", "leaf")}
+    if mu:
+        cube = mute(cube, **mu)
     return cube
 
 

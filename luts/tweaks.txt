@@ -14,3 +14,11 @@
 # 0.31: mute halved after indoor shots 02190-02192 (amber lampshades and stained glass went grey).
 # 0.52: cs800t is matched to real scans on top (scan800t in assemble.py).
 cs800t   keep_hue=0.8  yellow=0.80  green=0.81  toe_r=18  toe_g=22.5  toe_b=27  toe_p=2.5  mid=18  scan800t=1
+# 0.53: Portra 400 was too strong against 78 real scans (skin saturation 43, real 35-40): less in warm colours, some in
+# blues and greens. Better on every held-out split of the photographers.
+portra400  warm=0.80  blue=0.92  leaf=0.90
+portra160  warm=0.78  blue=0.92  leaf=0.88
+colorplus  warm=0.74  blue=0.97  leaf=0.88
+ultramax   warm=0.85
+# Real Velvia has far stronger blues (saturation 40, ours 32).
+velvia50   blue=1.50

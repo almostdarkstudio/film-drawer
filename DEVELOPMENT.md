@@ -141,7 +141,7 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
   `closeCamera`). If refused, the app says so and queues nothing. Not yet tried on a camera.
 - JPEG size labels come from `image-pixel-size-<l|m|s>-<aspect>`; letter only if missing or in APS-C crop.
 - Engine checked on the PC at 12 sizes from 1920x1080 to 7952x5304 in 4:2:0, 4:2:2 and 4:4:4 (parallel == serial).
-- Grain is a fixed size in pixels (tuned at 18 MP), so it looks coarser in small photos and finer in large ones.
+- Grain was a fixed size in pixels until 0.52; since 0.53 it follows the photo size (below).
 
 ## 0.33 (first report from another camera: ILCE-7, firmware 3.20, app 0.31)
 - It ran and converted: M 10 MP in 26 s, L 24 MP in 58 s (4 CPUs, no NEON), about half the a7R II's speed per pixel.
@@ -283,3 +283,15 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 - Discs fade where the surroundings (sources left out) are bright, DISC_DARK..DISC_BRIGHT: without it a nearly white woven
   cloth went pink and white objects in daylight got red edges.
 - Two photos converted on the a7R II: byte-identical to the PC. Red round blown-out windows: as in a real scan of the same kind of scene.
+
+## 0.53: grain like film, and colours against real scans
+- Reference scans (openly licensed, private, nothing from them is in the app): Openverse and Wikimedia Commons, 10 colour
+  films and Tri-X / Delta 3200. Scores are on held-out photographers. Changed only where better on nearly every split:
+  Portra 400, Portra 160, ColorPlus, UltraMax (warm colours too saturated), Velvia 50 (blues too weak). `mute` in assemble.py
+  (keys warm, blue, leaf in tweaks.txt). Checked and kept: Ektar, Gold 200, C200, CineStill 50D, Provia 100F.
+  Too few scans: Vision3 500T, Portra 800. Not checked: the other Fuji negatives, Reala, Astia, Kodachrome, Ektachromes.
+- Grain: until 0.52 2-3 pixels whatever the photo size, nearly invisible at 42 MP. Now 1/1988 of the long side (4 pixels at
+  42 MP), interpolated noise, strength 100 = sd ~18. Black and white looks (neutral LUT) have their own tone curve: full
+  grain in mids and light tones. At 1024 pixels wide, residual in smooth areas (dark / mid / light), real and app:
+  Delta 3200 4.5/8.2/8.3 and 4.5/7.5/7.0 at strength 80 (now 85; was 2.1/3.0/1.3), Portra 400 4.0/4.2/2.0 and 3.2/3.7/1.9.
+  Defaults changed: 800T 50 (75), Tri-X, HP5 65 (55), T-Max 45 (40), Delta 85 (80), Superia 1600 60 (70), Almost Dark 45 (55).

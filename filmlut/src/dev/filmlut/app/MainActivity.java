@@ -1641,8 +1641,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         return adobeBytes != null ? adobeBytes : lut;
     }
 
-    /** The look applied to a small decode: LUT, then halation (as the conversion; grain is left out,
-     *  since at screen size the real grain averages away). Returns [w, h, argb...] or null. */
+    /** The look applied to a small decode: LUT, then halation (as the conversion; grain is left out
+     *  for speed). Returns [w, h, argb...] or null. */
     private int[] withLook(File photo, int[] src, Looks.Look lk) {
         int w = src[0], h = src[1];
         int[] px = new int[2 + w * h];
