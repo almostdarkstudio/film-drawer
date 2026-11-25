@@ -11,9 +11,14 @@ By Almost Dark Studio: https://almostdarkstudio.com
 
 <a href='https://ko-fi.com/R6I02B7OBL' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
 
-> Developed and tested on the **Sony a7R II**. One user has run it on the original **a7** (slower there). Other
-> bodies that run PlayMemories apps (a6000, a6300, a6500, a7 II, a7S II, RX100 III-V and others) may work but have
-> not been tested. Use at your own risk.
+> **Tested cameras:** the **Sony a7R II** (developed on it) and the original **a7** (one user, up to 0.52; slower there).
+> Every other body that runs PlayMemories apps (a7R, a7S, a7 II, a7S II, a5100, a6000, a6300, a6500, NEX-5T, NEX-6,
+> RX100 III-V, RX10 III and others) is **untested**: it may work, partly work, or not at all. If you try one, please
+> [tell us](../../issues/new/choose). Use at your own risk.
+
+**Read about it:** [The Phoblographer tried Film Drawer on an original a7](https://www.thephoblographer.com/2026/11/25/sony-a7-cinestill-800t-hack-film-drawer/)
+(25 November 2026, versions up to 0.52). Since 0.53 the grain is more visible: see the
+[releases](../../releases) for what changed.
 
 ## What it does
 - 40 looks in 8 groups: Kodak negative, Cinema, Fuji & Agfa negative, Fuji simulations, Slide,
@@ -62,6 +67,22 @@ Film Drawer is installed the same way as any other PlayMemories app on these cam
 4. On the camera: **Menu > Application > Application List > Film Drawer**.
 
 Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
+
+**macOS and Linux:** Sony-PMCA-RE runs there too, see its
+[instructions](https://github.com/ma1co/Sony-PMCA-RE#installation). The Phoblographer installed Film Drawer from a Mac;
+we have only used Windows. On a Mac, close anything that may grab the camera first (Photos, Dropbox, Google Drive).
+
+**While it installs**
+- Start with a full battery, and use a cable that carries data.
+- Do not touch the camera or the cable until it says the task completed.
+- If something fails, stop and read the message rather than trying again and again.
+
+**If an AI assistant helps you:** only the app installer is needed (`install`). Film Drawer never needs the firmware
+updater, service mode, `updatershell`, `serviceshell` or Zadig drivers, and those can change more than an app does.
+
+**What to expect:** there is no live film preview. You shoot as usual, and the camera renders the photo in the background:
+about 20-25 s at JPEG size M on an a7R II, about a minute at 24 MP on an original a7. Rendering uses battery, so carry a
+spare. A smaller JPEG size (C1) is quicker.
 
 ## Controls
 | | Shoot mode | Browse mode |
