@@ -259,3 +259,12 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
   switched) is dropped by `listGen`. The dates of converted photos are read once per file and at the start of the app.
 - TRACE / HANG.TXT: how long the list and the change of colour depth took, to see what froze PLAY after two shots.
 - a7R II: four RAW+JPEG shots in 6 s, then PLAY: nothing in HANG.TXT (it records 3 s and more). The cause of the freeze is not proven.
+
+## 0.50
+- Favourites: marked in MENU > Favourites only (no new buttons). `Looks.nav` = copies of the favourites (group "Favourites",
+  same id / tag / LUT) + all; the wheel and left / right go through it. Saved by id (`favourites`, unknown ids are kept);
+  `lookFav` = the look in use is the one in Favourites. `current` is what the shot watcher reads, not an index.
+
+## 0.51
+- Favourites after Controls in the menu (0.50, not published: under Look).
+- 0.50 checked on the a7R II: marking, the group, reopening, converting. 0.51 itself was not installed before publishing.

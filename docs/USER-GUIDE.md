@@ -51,7 +51,7 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 | OK | Show / hide help | Convert this photo |
 | Trash | **Controls**: the list below, with Move focus point first | All photos: before / after. Converted photos: delete (asks first; only the converted copy, never the original) |
 | PLAY | Your converted photos, newest first (Fn: all photos) | Back to shooting (or half-press) |
-| MENU | Menu: look, grain, base style, JPEG size, quick review, **Controls**, photos, about, **Exit application** | Same |
+| MENU | Menu: look, grain, base style, JPEG size, quick review, **Controls**, **Favourites**, photos, about, **Exit application** | Same |
 
 **Controls** (Trash while shooting, or MENU > Controls):
 - **Move focus point**: the arrows move it, OK or half-press keeps it, Trash goes back to the earlier focus area.
@@ -60,6 +60,10 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
   own choice is put back when you leave. Lock-on AF and Eye AF are not available.
 - **ISO**, **Dials** (which one is shutter speed) and **Wheel** (looks or ISO; with ISO, looks stay on Up / Down).
 - **What buttons do**.
+
+**Favourites** (MENU > Favourites): Left / Right for the group, Up / Down for the look, OK to mark or unmark it. Once
+you have marked one, Favourites is the first group, so Left / Right reaches it while shooting; after your last favourite
+the wheel carries on into Kodak. Each look also stays in its own group.
 
 **Deleting a converted photo** (PLAY, then Trash): the app asks first, with Cancel chosen. Up, then OK, deletes it. Trash
 again, MENU, PLAY or a half-press cancels. Only the converted copy is deleted, and the app warns you if the original is
@@ -71,7 +75,7 @@ in the menu, for bodies without those buttons. To leave the app: MENU > Exit app
 converting carry on next time).
 
 ## The looks
-In menu order. The app opens on Portra 400 the first time, then on the look you used last.
+In menu order (your favourites, if you mark any, come first). The app opens on Portra 400 the first time, then on the look you used last.
 
 | Group | Looks |
 |---|---|

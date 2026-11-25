@@ -105,7 +105,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private SharedPreferences prefs;
     private Looks looks;
     private JobQueue jobs;
-    private volatile int lookIndex;   // read by the shot watcher thread
+    private int lookIndex;                        // in looks.nav
+    private volatile Looks.Look current;          // that look (read by the shot watcher thread)
+    private final java.util.Set<String> favourites = new java.util.LinkedHashSet<String>();   // look ids
     private int baseIndex;
 
     // views
@@ -167,7 +169,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             centre.setText("Cannot load looks: " + e);
             return;
         }
+        for (String id : prefs.getString("favourites", "").split(",")) if (id.length() > 0) favourites.add(id);
+        looks.setFavourites(favourites);
         lookIndex = savedLook();
+        current = looks.nav.get(lookIndex);
         baseIndex = Math.max(0, Math.min(BASES.length - 1, prefs.getInt("base", 0)));
         sizeIndex = Math.max(0, Math.min(SIZES.length - 1, prefs.getInt("size", 0)));
         sizeAuto = !prefs.contains("size");
@@ -224,7 +229,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (deleteFile != null) closeDelete();
         Diag.dumpTrace("left the app (pause)");
         closeCamera();
-        if (prefs != null) prefs.edit().putString("lookId", looks == null ? null : look().id).remove("look").putInt("base", baseIndex).putInt("grain", grainIndex).putInt("review", reviewIndex)
+        if (prefs != null) prefs.edit().putString("lookId", looks == null ? null : look().id).putBoolean("lookFav", looks != null && look().isFavourite()).remove("look").putInt("base", baseIndex).putInt("grain", grainIndex).putInt("review", reviewIndex)
                 .putInt("dials", dialIndex).putInt("wheel", wheelIndex).commit();
         if (prefs != null && !sizeAuto) prefs.edit().putInt("size", sizeIndex).commit();
     }
@@ -239,8 +244,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             int old = prefs.getInt("look", -1);
             id = old >= 0 && old < OLD_ORDER.length ? OLD_ORDER[old] : "portra400";
         }
-        Looks.Look lk = looks.byId(id);
-        return lk == null ? 0 : looks.all.indexOf(lk);
+        return looks.navIndex(looks.byId(id) == null ? "portra400" : id, prefs.getBoolean("lookFav", false));
     }
 
     private static final String[] OLD_ORDER = ("gold200 ultramax colorplus portra160 portra400 portra800 ektar100 vision250d vision500t almostdark cs50d cs800t k2383 eterna fujic200 superia400 superia1600 reala100 fuji400h vista200 pro160ns classicchrome classicneg kchrome64 ekta100vs e100 velvia50 provia100f astia100f pola669 sx70 fp100c metropolis aerochrome trix400 hp5std tmax400 acros100 delta3200 panf50").split(" ");
@@ -430,7 +434,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (millis > 0) ui.postDelayed(hideCentre, millis);
     }
 
-    private Looks.Look look() { return looks.all.get(lookIndex); }
+    private Looks.Look look() { return current; }
 
     private static final String[] BASE_SHORT = {"Std", "Neutral", "Cam"};
     private static final String[] SIZE_SHORT = {"M", "S", "L"};
@@ -446,7 +450,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             Looks.Look lk = photos == null || photos.isEmpty() ? null : lookOf(photos.get(photoIndex));
             topLeft.setText("Converted" + (lk == null ? "" : SEP + lk.name));
         } else {
-            topLeft.setText(look().name + SEP + grainShort()
+            topLeft.setText((browsing && look().isFavourite() ? "Fav" + SEP : "") + look().name + SEP + grainShort()
                     + (browsing ? "" : SEP + SIZE_SHORT[sizeIndex] + SEP + BASE_SHORT[baseIndex]));
         }
         if (reviewing) {
@@ -1416,7 +1420,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 Shot shot;
                 synchronized (shotLooks) { shot = shotLooks.isEmpty() ? null : shotLooks.removeFirst(); }
                 if (shot == null) {                                // e.g. burst: more files than presses
-                    Looks.Look cur = looks.all.get(lookIndex);
+                    Looks.Look cur = current;
                     shot = new Shot(cur, grainFor(cur), 0);
                 }
                 jobs.add(new JobQueue.Job(f, Photos.outputFor(f, shot.look.tag), shot.look, shot.grain));
@@ -1866,9 +1870,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     // ---------------------------------------------------------------- menu (MENU key, as in Sony's own apps)
 
     private static final int M_LOOK = 0, M_GRAIN = 1, M_BASE = 2, M_SIZE = 3, M_FOCUS = 4, M_AREA = 5, M_POINT = 6, M_ISO = 7,
-            M_DIALS = 8, M_WHEEL = 9, M_REVIEW = 10, M_CONVERTED = 11, M_HELP = 12, M_ABOUT = 13, M_EXIT = 14, M_CONTROLS = 15;
+            M_DIALS = 8, M_WHEEL = 9, M_REVIEW = 10, M_CONVERTED = 11, M_HELP = 12, M_ABOUT = 13, M_EXIT = 14, M_CONTROLS = 15,
+            M_FAV = 16;
     /** The menu, and the Controls menu inside it. */
-    private static final int[] MENU_MAIN = {M_LOOK, M_GRAIN, M_BASE, M_SIZE, M_REVIEW, M_CONTROLS, M_CONVERTED, M_ABOUT, M_EXIT};
+    private static final int[] MENU_MAIN = {M_LOOK, M_GRAIN, M_BASE, M_SIZE, M_REVIEW, M_CONTROLS, M_FAV, M_CONVERTED, M_ABOUT, M_EXIT};
     private static final int[] MENU_CONTROLS = {M_POINT, M_AREA, M_FOCUS, M_ISO, M_DIALS, M_WHEEL, M_HELP};
     private int[] menuRows = MENU_MAIN;
     private int menuMainSel;                      // row to come back to from Controls
@@ -1932,6 +1937,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_REVIEW: return "Quick review";
             case M_CONVERTED: return !browsing || showConverted ? "All photos" : "Converted photos";
             case M_CONTROLS: return "Controls";
+            case M_FAV: return "Favourites";
             case M_HELP: return "What buttons do";
             case M_ABOUT: return "About & licences";
             default: return "Exit application";
@@ -1945,6 +1951,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_BASE: return BASE_NAMES[baseIndex];
             case M_SIZE: return sizeName();
             case M_CONTROLS: return "";
+            case M_FAV: return "";
             case M_FOCUS: return menuFocus;
             case M_AREA: return browsing ? "-" : focus.areaName();
             case M_ISO: return menuIso;
@@ -1953,6 +1960,93 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_REVIEW: return REVIEW_NAMES[reviewIndex];
             default: return null;
         }
+    }
+
+    // ---- MENU > Favourites: one group at a time, OK marks. Never changes the look in use.
+
+    private boolean favOpen;
+    private int favGroup, favSel;
+    private long favClosed;
+
+    private int favCount() { return looks.nav.size() - looks.all.size(); }
+
+    /** Opens on the look in use. */
+    private void openFavourites() {
+        favOpen = true;
+        List<Looks.Look> heads = looks.ownGroupHeads();
+        for (favGroup = heads.size() - 1; favGroup > 0; favGroup--) {
+            favSel = favRow(heads.get(favGroup));
+            if (favSel >= 0) break;
+        }
+        if (favGroup == 0) favSel = Math.max(0, favRow(heads.get(0)));
+        renderFavourites();
+    }
+
+    private int favRow(Looks.Look head) {
+        List<Looks.Look> g = looks.inGroup(head);
+        for (int i = 0; i < g.size(); i++) if (g.get(i).id.equals(look().id)) return i;
+        return -1;
+    }
+
+    private void renderFavourites() {
+        android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
+        List<Looks.Look> heads = looks.ownGroupHeads();
+        sb.append("Film Drawer");
+        sb.setSpan(new android.text.style.ForegroundColorSpan(ACCENT), 0, sb.length(), 0);
+        sb.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, sb.length(), 0);
+        sb.append("  \u203a  Favourites     ").append("" + favCount()).append(" marked\n   \u2039 ").append(heads.get(favGroup).group)
+                .append(" \u203a   " + (favGroup + 1) + "/" + heads.size());
+        List<Looks.Look> g = looks.inGroup(heads.get(favGroup));
+        for (int i = 0; i < g.size(); i++) {
+            sb.append('\n');
+            int s = sb.length();
+            sb.append(favourites.contains(g.get(i).id) ? "  [x] " : "  [ ] ").append(g.get(i).name);
+            for (int pad = g.get(i).name.length(); pad < 18; pad++) sb.append(' ');
+            if (i == favSel) {
+                sb.setSpan(new android.text.style.BackgroundColorSpan(ACCENT), s, sb.length(), 0);
+                sb.setSpan(new android.text.style.ForegroundColorSpan(Color.BLACK), s, sb.length(), 0);
+            }
+        }
+        sb.append("\n");
+        int f = sb.length();
+        sb.append("Up/Down: look   Left/Right: group   OK: mark   MENU: back");
+        sb.setSpan(new android.text.style.ForegroundColorSpan(0xFF9A9A9A), f, sb.length(), 0);
+        sb.setSpan(new android.text.style.RelativeSizeSpan(0.75f), f, sb.length(), 0);
+        if (menuSize > 0) menuTextSize(menuSize);
+        menuView.setText(sb);
+    }
+
+    private void favouriteKey(int sc) {
+        List<Looks.Look> heads = looks.ownGroupHeads();
+        List<Looks.Look> g = looks.inGroup(heads.get(favGroup));
+        switch (sc) {
+            case K_UP: case WHEEL_CCW: case D1_CCW: case D2_CCW: case D3_CCW: favSel = (favSel + g.size() - 1) % g.size(); break;
+            case K_DOWN: case WHEEL_CW: case D1_CW: case D2_CW: case D3_CW: favSel = (favSel + 1) % g.size(); break;
+            case K_LEFT: favGroup = (favGroup + heads.size() - 1) % heads.size(); favSel = 0; break;
+            case K_RIGHT: favGroup = (favGroup + 1) % heads.size(); favSel = 0; break;
+            case K_ENTER: toggleFavourite(g.get(favSel).id); break;
+            case K_MENU: case K_SK2: case K_DELETE:
+                favOpen = false;
+                favClosed = System.currentTimeMillis();
+                renderMenu();
+                return;
+            case K_S1: case K_PLAY: closeMenu(); return;
+            default: return;
+        }
+        renderFavourites();
+    }
+
+    private void toggleFavourite(String id) {
+        if (!favourites.remove(id)) favourites.add(id);
+        StringBuilder sb = new StringBuilder();
+        for (String f : favourites) sb.append(sb.length() > 0 ? "," : "").append(f);
+        prefs.edit().putString("favourites", sb.toString()).apply();
+        Diag.trace("favourites " + sb);
+        // Stays on the same look: in Favourites if it was there and still is, else in its own group.
+        Looks.Look was = look();
+        looks.setFavourites(favourites);
+        lookIndex = looks.navIndex(was.id, was.isFavourite());
+        current = looks.nav.get(lookIndex);
     }
 
     private void renderMenu() {
@@ -1970,7 +2064,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             sb.append("  ").append(menuLabel(i));
             if (v != null) {
                 for (int pad = menuLabel(i).length(); pad < 16; pad++) sb.append(' ');
-                if (v.length() == 0) sb.append("  ›"); else sb.append("‹ ").append(v).append(" ›");
+                if (v.length() == 0) sb.append("  ").append(i == M_FAV && favCount() > 0 ? favCount() + " marked " : "").append("›"); else sb.append("‹ ").append(v).append(" ›");
             }
             sb.append("  ");
             if (row == menuSel) {
@@ -2019,6 +2113,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         hideCardNow();
         menuOpen = true;
         aboutOpen = false;
+        favOpen = false;
         menuFooter = null;
         exitArmedUntil = 0;
         if (menuRows != MENU_MAIN) { menuRows = MENU_MAIN; menuSel = menuMainSel; }
@@ -2114,6 +2209,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void closeMenu() {
         menuOpen = false;
         aboutOpen = false;
+        favOpen = false;
         menuView.setVisibility(View.GONE);
         updateTexts();
         updateExposureText();
@@ -2210,6 +2306,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_CONTROLS:
                 openControls();
                 return;
+            case M_FAV:
+                openFavourites();
+                return;
             case M_CONVERTED:
                 closeMenu();
                 if (browsing) toggleConverted();
@@ -2240,6 +2339,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     /** All keys while the menu is open (key-down). */
     private void menuKey(int sc) {
         if (aboutOpen) { renderMenu(); aboutOpen = false; return; }
+        if (favOpen) { favouriteKey(sc); return; }
         switch (sc) {
             case K_UP: case WHEEL_CCW: case D1_CCW: case D2_CCW: case D3_CCW:
                 menuSel = (menuSel + menuRows.length - 1) % menuRows.length; menuFooter = null; break;
@@ -2248,12 +2348,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case K_LEFT: menuChange(menuRows[menuSel], -1); break;
             case K_RIGHT:
                 if (menuRows[menuSel] == M_CONTROLS) { openControls(); return; }
+                if (menuRows[menuSel] == M_FAV) { openFavourites(); return; }
                 menuChange(menuRows[menuSel], 1);
                 break;
             case K_ENTER: menuActivate(menuRows[menuSel]); return;
             case K_MENU: case K_SK2: case K_DELETE:
                 // Trash may send two codes per press: the second must not close what the first opened.
                 if (menuDirect && sc != K_MENU && System.currentTimeMillis() - menuDirectAt < 400) return;
+                if (sc != K_MENU && System.currentTimeMillis() - favClosed < 400) return;
                 if (menuRows == MENU_CONTROLS) { closeControls(); return; }
                 closeMenu();
                 return;
@@ -2320,13 +2422,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     }
 
     private void changeLook(int delta) {
-        int n = looks.all.size();
+        int n = looks.nav.size();
         setLook(((lookIndex + delta) % n + n) % n);
     }
 
     private void setLook(int index) {
         lookIndex = index;
-        Diag.trace("look " + look().id);
+        current = looks.nav.get(index);
+        Diag.trace("look " + look().id + (look().isFavourite() ? " (favourite)" : ""));
         hideReview();
         updateTexts();
         if (browsing) requestPreview(false);

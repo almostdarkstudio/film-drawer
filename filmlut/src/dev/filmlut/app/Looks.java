@@ -19,6 +19,17 @@ public final class Looks {
         public final String groupShort;  // e.g. "Kodak", for the group strip on the look card
         public int sharpness;            // camera sharpness -3..3 while shooting this look (0 = Standard)
         private byte[] lut;
+        private Look original;           // in Favourites: the look in its own group
+
+        public boolean isFavourite() { return original != null; }
+
+        /** The same look, as a member of Favourites. */
+        private Look asFavourite() {
+            Look f = new Look(id, tag, name, grain, halation, FAVOURITES, "Fav");
+            f.sharpness = sharpness;
+            f.original = this;
+            return f;
+        }
 
         Look(String id, String tag, String name, int grain, int halation, String group, String groupShort) {
             this.id = id;
@@ -32,7 +43,33 @@ public final class Looks {
     }
 
     private final AssetManager assets;
+    public static final String FAVOURITES = "Favourites";
+
+    /** Every look once, in menu order. */
     public final List<Look> all = new ArrayList<Look>();
+
+    /** What the wheel and left / right go through: the favourites (if any), then all. Replaced, never changed. */
+    public volatile List<Look> nav = all;
+
+    /** Marks the favourites, by id (unknown ones are ignored): nav starts with them, in menu order. */
+    public void setFavourites(java.util.Collection<String> ids) {
+        List<Look> out = new ArrayList<Look>();
+        for (Look l : all) if (ids.contains(l.id)) out.add(l.asFavourite());
+        out.addAll(all);
+        nav = out;
+    }
+
+    /** Where this look is in nav: among the favourites if asked for and it is one, else in its own group. */
+    public int navIndex(String id, boolean favourite) {
+        int found = 0;
+        for (int i = nav.size() - 1; i >= 0; i--) {
+            Look l = nav.get(i);
+            if (!l.id.equals(id)) continue;
+            if (l.isFavourite() == favourite) return i;
+            if (!l.isFavourite()) found = i;
+        }
+        return found;
+    }
 
     public Looks(AssetManager assets) throws Exception {
         this.assets = assets;
@@ -67,8 +104,20 @@ public final class Looks {
         return null;
     }
 
-    /** Groups in menu order (one Look per group: its first). */
-    public List<Look> groupHeads() {
+    /** Groups in the order of nav (one Look per group: its first). */
+    public List<Look> groupHeads() { return heads(nav); }
+
+    /** The same without Favourites. */
+    public List<Look> ownGroupHeads() { return heads(all); }
+
+    /** The looks of this head's own group. */
+    public List<Look> inGroup(Look head) {
+        List<Look> out = new ArrayList<Look>();
+        for (Look l : all) if (l.group.equals(head.group)) out.add(l);
+        return out;
+    }
+
+    private static List<Look> heads(List<Look> all) {
         List<Look> out = new ArrayList<Look>();
         for (int i = 0; i < all.size(); i++)
             if (i == 0 || !all.get(i).group.equals(all.get(i - 1).group)) out.add(all.get(i));
@@ -77,6 +126,7 @@ public final class Looks {
 
     /** {position within its group (1-based), group size} for the look at index i. */
     public int[] posInGroup(int i) {
+        List<Look> all = nav;
         String g = all.get(i).group;
         int start = i, end = i;
         while (start > 0 && all.get(start - 1).group.equals(g)) start--;
@@ -86,6 +136,7 @@ public final class Looks {
 
     /** Index of the first look of the next (dir 1) or previous (dir -1) group, wrapping around. */
     public int groupJump(int from, int dir) {
+        List<Look> all = nav;
         int n = all.size(), i = from;
         String g = all.get(from).group;
         if (dir > 0) {
@@ -109,6 +160,7 @@ public final class Looks {
 
     /** LUT bytes (~108 KB), loaded on first use and kept. */
     public synchronized byte[] lut(Look look) throws Exception {
+        if (look.original != null) look = look.original;
         if (look.lut == null) {
             InputStream in = assets.open("luts/" + look.id + ".lut");
             ByteArrayOutputStream bo = new ByteArrayOutputStream(110000);
