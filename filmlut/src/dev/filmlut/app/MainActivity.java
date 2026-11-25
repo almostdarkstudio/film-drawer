@@ -194,6 +194,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 synchronized (knownJpegs) { knownJpegs.addAll(s); }
                 if (lastShot == null && !all.isEmpty()) lastShot = all.get(all.size() - 1);
                 knownLoaded = true;
+                try { Photos.allOutputs(); } catch (Throwable ignored) {}      // so PLAY is quick later: the dates are kept
                 Diag.trace("scan done: " + all.size() + " JPEGs, newest " + (lastShot == null ? "none" : lastShot.getName()));
             }
         }, "filmlut-scan").start();
@@ -392,13 +393,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void setColorDepth(boolean high) {
         if (depthHigh != null && depthHigh == high) return;
         depthHigh = high;
-        Diag.trace("colour depth " + (high ? "8888" : "4444"));
+        long t0 = System.currentTimeMillis();
         try {
             Gpelibrary.changeFrameBufferPixel(high ? Gpelibrary.GS_FRAMEBUFFER_TYPE.ABGR8888
                     : Gpelibrary.GS_FRAMEBUFFER_TYPE.RGBA4444);
         } catch (Throwable ignored) {
             // Not fatal: only affects how the overlay blends with the live view.
         }
+        Diag.trace("colour depth " + (high ? "8888" : "4444") + ", " + (System.currentTimeMillis() - t0) + " ms");
     }
 
     private final Runnable hideCentre = new Runnable() {
@@ -459,6 +461,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                       + (wheelIsIso() ? "Up/Down: look   Wheel: ISO" : "Wheel/Up/Down: look") + "   Left/Right: group   Fn: base   C1: size   C2: grain\n"
                       + (dialIndex == 1 ? "Front: shutter/EV   Rear: aperture" : "Front: aperture   Rear: shutter/EV") + "   Trash: controls   PLAY: photos   MENU"
                     : null;
+        } else if (listing) {
+            text = helpVisible ? "PLAY: shoot" : null;
         } else if (photos == null || photos.isEmpty()) {
             text = (showConverted ? "No converted photos yet    Fn: all photos" : "No JPEGs on the card    Fn: converted")
                     + "    PLAY: shoot    MENU: menu";
@@ -518,6 +522,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         synchronized (previewLock) { convCache.clear(); prefetchTask = null; previewRequest = null; previewGen++; }   // free ~4 MB of browse cache
         Native.previewAbort();         // a 24 MP decode takes seconds on an a7, just as the live view starts
         hideLoading();                 // left before the photo appeared: it never will now
+        listGen++;                     // a list still being read is not wanted any more
+        listing = false;
         clearLiveFailure();
         boolean wasBrowsing = browsing;
         browsing = false;
@@ -1438,19 +1444,64 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         hideCardNow();
         updateDepth();
         photoView.setVisibility(View.VISIBLE);
-        photos = showConverted ? Photos.allOutputs() : Photos.allJpegs();
-        if (wasShooting && showConverted && photos.isEmpty()) {          // nothing converted yet
-            showConverted = false;
-            photos = Photos.allJpegs();
-        }
         // Opened from shooting: the newest photo. Coming back to the app while browsing: stay on the same one.
-        if (wasShooting || photoIndex < 0 || photoIndex >= photos.size()) {
-            photoIndex = Math.max(0, photos.size() - 1);
-            lastDir = -1;
-            showOriginal = false;
-        }
+        loadPhotos(wasShooting, wasShooting, false);
         if (wasShooting) showHelp(); else updateTexts();
-        requestPreview(true);
+    }
+
+    private int listGen;
+    private boolean listing;                      // the list of photos is being read: photos is null
+
+    /**
+     * Reads the list of photos in the background (reading the card can take seconds while the camera is saving), then
+     * shows one: the newest, or the same as before. allIfNone: all photos if nothing has been converted yet.
+     */
+    private void loadPhotos(final boolean newest, final boolean allIfNone, final boolean say) {
+        final int gen = ++listGen;
+        final boolean want = showConverted;
+        listing = true;
+        photos = null;
+        photoView.setImageBitmap(null);
+        synchronized (previewLock) { previewRequest = null; prefetchTask = null; previewGen++; }
+        showLoading();
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                boolean c = want;
+                List<File> found;
+                long t0 = System.currentTimeMillis();
+                try {
+                    found = c ? Photos.allOutputs() : Photos.allJpegs();
+                    if (c && allIfNone && found.isEmpty()) {
+                        c = false;
+                        found = Photos.allJpegs();
+                    }
+                } catch (Throwable e) {
+                    Diag.trace("list failed " + e);
+                    found = new java.util.ArrayList<File>();
+                }
+                Diag.trace("list of " + found.size() + " read, " + (System.currentTimeMillis() - t0) + " ms");
+                final boolean conv = c;
+                final List<File> list = found;
+                ui.post(new Runnable() {
+                    public void run() {
+                        if (gen != listGen || !browsing) return;
+                        listing = false;
+                        showConverted = conv;
+                        photos = list;
+                        if (newest || photoIndex < 0 || photoIndex >= photos.size()) {
+                            photoIndex = Math.max(0, photos.size() - 1);
+                            lastDir = -1;
+                            showOriginal = false;
+                        }
+                        if (say) setNote(conv ? "Converted photos (" + photos.size() + ")" : "All photos");
+                        updateTexts();
+                        requestPreview(true);
+                    }
+                });
+            }
+        }, "filmlut-list");
+        t.setDaemon(true);
+        t.start();
     }
 
     /** Fn in browse: all photos <-> converted photos (which the camera's own playback cannot show). */
@@ -1459,13 +1510,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void toggleConverted() {
         showConverted = !showConverted;
         Diag.trace("browse " + (showConverted ? "converted" : "all photos"));
-        photos = showConverted ? Photos.allOutputs() : Photos.allJpegs();
-        photoIndex = Math.max(0, photos.size() - 1);      // newest
-        lastDir = -1;
-        showOriginal = false;
-        setNote(showConverted ? "Converted photos (" + photos.size() + ")" : "All photos");
+        loadPhotos(true, false, true);                    // newest
         updateTexts();
-        requestPreview(true);
     }
 
     /** Look of a converted photo, from its file tag (null if unknown, e.g. a look since removed). */
@@ -1512,6 +1558,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     /** Latest request wins, so scrolling quickly doesn't pile up decodes. */
     private void requestPreview(boolean newPhoto) {
+        if (listing) return;                               // it comes when the list is read
         if (photos == null || photos.isEmpty()) { photoView.setImageBitmap(null); hideLoading(); return; }
         final File photo = photos.get(photoIndex);
         final Looks.Look lk = look();
@@ -2491,6 +2538,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     public void onJobDone(final JobQueue.Job job, final String error, final long millis) {
         Diag.trace("job done " + job.in.getName() + " " + job.look.tag + " " + millis + " ms" + (error == null ? "" : " FAILED " + error));
         synchronized (previewLock) { convCache.remove(job.out.getAbsolutePath()); }   // a redo replaces the file
+        Photos.outputChanged(job.out);
         ui.post(new Runnable() {
             public void run() {
                 if (error == null) {

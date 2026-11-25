@@ -114,7 +114,15 @@ public final class Photos {
             }
         }
         final java.util.Map<File, Long> t = new java.util.HashMap<File, Long>();
-        for (File f : out) t.put(f, f.lastModified());
+        for (File f : out) {
+            Long m;
+            synchronized (written) { m = written.get(f.getPath()); }
+            if (m == null) {
+                m = f.lastModified();                  // slow while the camera writes to the card: once per file
+                synchronized (written) { written.put(f.getPath(), m); }
+            }
+            t.put(f, m);
+        }
         java.util.Collections.sort(out, new java.util.Comparator<File>() {
             public int compare(File a, File b) {
                 int c = t.get(a).compareTo(t.get(b));
@@ -122,6 +130,14 @@ public final class Photos {
             }
         });
         return out;
+    }
+
+    /** When each converted photo was written, as read so far. */
+    private static final java.util.Map<String, Long> written = new java.util.HashMap<String, Long>();
+
+    /** This converted photo was written again or deleted. */
+    public static void outputChanged(File f) {
+        synchronized (written) { written.remove(f.getPath()); }
     }
 
     /** The look tag of a converted photo (first 3 letters of its name). */
@@ -141,7 +157,9 @@ public final class Photos {
 
     /** Deletes a converted photo; false if it is not one, or the camera refused. */
     public static boolean deleteOutput(File f) {
-        return isOutput(f) && f.delete() && !f.exists();
+        if (!isOutput(f) || !f.delete() || f.exists()) return false;
+        outputChanged(f);
+        return true;
     }
 
     /** The name of the photo (JPEG, else RAW) a converted photo was made from, or null if it is not on the card. */

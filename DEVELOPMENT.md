@@ -253,3 +253,9 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 - a7R II (Android 4.1; the a7 is 2.3): 6 live view starts of 6, 8-23 ms each. One 4 s freeze on PLAY 1.6 s after two shots:
   probably `Photos.allOutputs()` (a stat per file) on the UI thread while the camera saves RAWs. To move off it.
 - KEYS.TXT (a7R II): no order of getKeyLogicCode's arguments gives the user's dial settings. "As camera" is dropped.
+
+## 0.49
+- The photo lists (PLAY, Fn) are read in the background, with "Loading..." until then; a list no longer wanted (left,
+  switched) is dropped by `listGen`. The dates of converted photos are read once per file and at the start of the app.
+- TRACE / HANG.TXT: how long the list and the change of colour depth took, to see what froze PLAY after two shots.
+- a7R II: four RAW+JPEG shots in 6 s, then PLAY: nothing in HANG.TXT (it records 3 s and more). The cause of the freeze is not proven.
