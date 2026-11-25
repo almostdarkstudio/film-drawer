@@ -268,3 +268,18 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 ## 0.51
 - Favourites after Controls in the menu (0.50, not published: under Look).
 - 0.50 checked on the a7R II: marking, the group, reopening, converting. 0.51 itself was not installed before publishing.
+
+## 0.52: CineStill 800T against real scans
+- Compared with 64 openly licensed real 800T photos (kept private, nothing from them is in the app). `scan800t` in
+  assemble.py: warm colours less saturated and less red, greens to teal, cooler shadows and mids, white 225 -> 245.
+  Checked on 584 photos not used for tuning (colour statistics, distance in spreads of the real scans): by day 0.52
+  camera, 0.49 before, 0.32 now; by night 0.86, 0.79, 0.68. It replaces the earlier colours.
+- Halation (800T and 50D): discs (DISC_*): a small lamp in the dark gets a red-orange disc, as on film. Large bright areas
+  get far less. The wide glow is at 0.60 of before. The same in previews.
+- Known: a lamp with a big lens bloom gets little red (the bloom is bright in the JPEG). Daylight scenes are bluer on film
+  than here: the camera has already balanced the white.
+- Cross-check of warm surfaces in dark photos (hue, 0 = red; real 22 in shadow, 26 lit): 0.51 15 / 26, 0.52 18 / 26. Lit brick and
+  wood given back a little saturation (`lit` in scan800t); more would overdo night oranges.
+- Discs fade where the surroundings (sources left out) are bright, DISC_DARK..DISC_BRIGHT: without it a nearly white woven
+  cloth went pink and white objects in daylight got red edges.
+- Two photos converted on the a7R II: byte-identical to the PC. Red round blown-out windows: as in a real scan of the same kind of scene.

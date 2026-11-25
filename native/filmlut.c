@@ -382,6 +382,16 @@ typedef struct { struct jpeg_error_mgr pub; jmp_buf jump; } halo_err;
 static void on_error_halo(j_common_ptr c) { longjmp(((halo_err *)c->err)->jump, 1); }
 static void on_message_halo(j_common_ptr c) { (void)c; }
 
+/* 0.52: discs, from real CineStill 800T scans. Film sees a lamp hundreds of times brighter than paper white, but the JPEG
+ * clips it, so blurring the mask spread a small lamp so thin that it vanished. Here the light of a source counts by its
+ * size and saturates (1 - exp): even a small lamp in the dark gets a full red-orange disc, about 1% of the width. */
+#define DISC_Q 0.35f        /* light of one map pixel of source, at 646 map pixels across */
+#define DISC_COLOURED 0.45f /* sources not clipped in all channels (coloured lights) count less */
+#define DISC_SPREAD 215.0f  /* blur radius per pass = width / this */
+#define DISC_DARK 0.32f     /* surroundings (without the sources, 0..1) up to here: a full disc */
+#define DISC_BRIGHT 0.62f   /* ... from here on: almost none. Bright cloth, a sunlit table are not lamps */
+#define WIDE_GLOW 0.60f     /* what is left of the earlier, wide glow */
+
 /* Pre-pass: 1/8-scale decode -> highlight mask -> blur. Returns 1 if built (H->g set).
  * Any failure just means no halation for this photo. */
 /* use_preview: build the map from the embedded preview instead (fast; for screen previews only). */
@@ -393,6 +403,7 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
     JSAMPARRAY row;
     float *volatile m = NULL;
     float *volatile km = NULL;
+    float *volatile lm = NULL;               /* brightness of the surroundings */
     float *tmp;
     int x, y, r;
     memset(H, 0, sizeof *H);
@@ -401,7 +412,7 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
     e.pub.error_exit = on_error_halo;
     e.pub.output_message = on_message_halo;
     d.err = &e.pub;
-    if (setjmp(e.jump)) { jpeg_destroy_decompress(&d); fclose(f); free(m); free(km); return 0; }
+    if (setjmp(e.jump)) { jpeg_destroy_decompress(&d); fclose(f); free(m); free(km); free(lm); return 0; }
     {
         long off = use_preview ? mpf_preview_offset(f) : 0;
         if (fseek(f, off, SEEK_SET)) off = -1;
@@ -423,12 +434,14 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
     H->h = (int)(d.output_height + 1) / 2;
     m = (float *)calloc((size_t)H->w * H->h, sizeof(float));
     km = (float *)calloc((size_t)H->w * H->h, sizeof(float));
-    if (!m || !km) longjmp(e.jump, 1);
+    lm = (float *)calloc((size_t)H->w * H->h, sizeof(float));
+    if (!m || !km || !lm) longjmp(e.jump, 1);
     row = (*d.mem->alloc_sarray)((j_common_ptr)&d, JPOOL_IMAGE, d.output_width * 3, 1);
     for (y = 0; d.output_scanline < d.output_height; y++) {
         const JSAMPLE *p;
         float *cell = m + (size_t)(y / 2) * H->w;
         float *kcell = km + (size_t)(y / 2) * H->w;
+        float *lcell = lm + (size_t)(y / 2) * H->w;
         jpeg_read_scanlines(&d, row, 1);
         p = row[0];
         for (x = 0; x < (int)d.output_width; x++, p += 3) {
@@ -440,6 +453,7 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
             mx = mx > p[2] ? mx : p[2];
             mn = mn < p[2] ? mn : p[2];
             v = mx / 255.0f;
+            lcell[x / 2] += 0.25f * v;
             t = (v - 0.86f) / 0.13f;
             t = t < 0 ? 0 : t > 1 ? 1 : t;
             t = t * t * (3 - 2 * t);
@@ -463,14 +477,31 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
         float *tight = (float *)malloc(n * sizeof(float));
         float *wide = (float *)malloc(n * sizeof(float));
         float *area = (float *)malloc(n * sizeof(float));
+        float *disc = (float *)malloc(n * sizeof(float));
+        float *rest = (float *)malloc(n * sizeof(float));
         tmp = (float *)malloc((size_t)(H->w > H->h ? H->w : H->h) * sizeof(float));
-        if (!tmp || !wide || !tight || !area) { free(tmp); free(wide); free(tight); free(area); free(m); free(km); return 0; }
+        if (!tmp || !wide || !tight || !area || !disc || !rest) { free(tmp); free(wide); free(tight); free(area); free(disc); free(rest); free(m); free(km); free(lm); return 0; }
         memcpy(area, m, n * sizeof(float));
         memcpy(tight, m, n * sizeof(float));
         memcpy(wide, m, n * sizeof(float));
         r = H->w / 400; if (r < 1) r = 1;      /* tight: ~0.25% of width per pass */
         box_blur(tight, tmp, H->w, H->h, r);
+        for (i = 0; i < n; i++) disc[i] = km[i] > DISC_COLOURED * m[i] ? km[i] : DISC_COLOURED * m[i];
         box_blur(km, tmp, H->w, H->h, r);      /* white-hot cores, softened the same way */
+        {
+            int rd = (int)(H->w / DISC_SPREAD + 0.5f);
+            float var, q, sc = 646.0f / H->w;   /* the same for the conversion's map and the preview's smaller one */
+            if (rd < 1) rd = 1;
+            var = 3.0f * ((2 * rd + 1) * (2 * rd + 1) - 1) / 12.0f;
+            q = DISC_Q * sc * sc * 6.2832f * var;
+            box_blur(disc, tmp, H->w, H->h, rd);
+            for (i = 0; i < n; i++) disc[i] = 1.0f - (float)exp(-q * disc[i]);
+        }
+        /* The surroundings, sources left out: blurred brightness over blurred share of non-source. */
+        for (i = 0; i < n; i++) { rest[i] = 1.0f - m[i] + 0.01f; lm[i] *= rest[i]; }
+        r = H->w / 60; if (r < 2) r = 2;
+        box_blur(lm, tmp, H->w, H->h, r);
+        box_blur(rest, tmp, H->w, H->h, r);
         r = H->w / 70; if (r < 2) r = 2;       /* wide: ~1.4% of width per pass (0.13: 0.9%) */
         box_blur(wide, tmp, H->w, H->h, r);
         r = H->w / 24; if (r < 3) r = 3;       /* area: ~4% of width per pass */
@@ -485,7 +516,19 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
              * them turn red all over: area = share of near-clipped pixels in a wide neighbourhood. */
             b = (area[i] - 0.12f) / 0.35f;
             b = b < 0 ? 0 : b > 1 ? 1 : b;
-            m[i] = g * (1.0f - 0.65f * b * b * (3 - 2 * b));
+            {
+                /* Windows and lit walls (large areas) are not much over white: they get far less of a disc. */
+                float big = (area[i] - 0.10f) / 0.35f, d;
+                big = big < 0 ? 0 : big > 1 ? 1 : big;
+                d = disc[i] * (1.0f - m[i]) * (1.0f - 0.75f * big * (2 - big));
+                big = (lm[i] / rest[i] - DISC_DARK) / (DISC_BRIGHT - DISC_DARK);
+                big = big < 0 ? 0 : big > 1 ? 1 : big;
+                big = 1.0f - 0.85f * big * big * (3 - 2 * big);
+                d *= big;
+                g *= big;
+                g *= WIDE_GLOW * (1.0f - 0.65f * b * b * (3 - 2 * b));
+                m[i] = 1.0f - (1.0f - g) * (1.0f - d);
+            }
             wide[i] = wide[i] > 1 ? 1 : wide[i];      /* cores: the source, widely softened */
             /* 0.29: white-hot cores (km) get lifted back to white in halo_row. The 800T LUT maps
              * white to ~224 grey and the glow brightened the surroundings above that, so lamp
@@ -495,6 +538,9 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
         free(tmp);
         free(tight);
         free(area);
+        free(disc);
+        free(rest);
+        free(lm);
         H->c = wide;
         H->k = km;
     }
@@ -533,8 +579,8 @@ static void halo_row(const halo_t *H, unsigned char *px, unsigned int width, uns
          * the cores directly: a clipped white core turned khaki.) */
         if (c0) {
             float c = (c0[x0] * (1 - wx) + c0[x1] * wx) * (1 - wy) + (c1[x0] * (1 - wx) + c1[x1] * wx) * wy;
-            tg = 0.22f + 0.40f * c;
-            tb = 0.06f + 0.12f * c;
+            tg = 0.24f + 0.34f * c;
+            tb = 0.12f + 0.16f * c;
         }
         if (H->k) {
             /* Light-source cores back to neutral white (no tint: tinted cores went khaki). */
@@ -556,7 +602,7 @@ static void halo_row(const halo_t *H, unsigned char *px, unsigned int width, uns
             int mx = px[0] > px[1] ? px[0] : px[1];
             float u;
             mx = mx > px[2] ? mx : px[2];
-            u = (mx - 110) / 110.0f;
+            u = (mx - 150) / 100.0f;
             u = u < 0 ? 0 : u > 1 ? 1 : u;
             a *= 1.0f - u * u * (3 - 2 * u);
         }

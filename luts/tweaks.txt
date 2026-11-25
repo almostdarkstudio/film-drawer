@@ -12,4 +12,5 @@
 # 0.30 (camera shots 02183/02185): the capped red turned orange walls khaki and daylight mids were bright;
 # mid fitted to the same edits (125->114, 155->138, 185->164).
 # 0.31: mute halved after indoor shots 02190-02192 (amber lampshades and stained glass went grey).
-cs800t   keep_hue=0.8  yellow=0.80  green=0.81  toe_r=18  toe_g=22.5  toe_b=27  toe_p=2.5  mid=18
+# 0.52: cs800t is matched to real scans on top (scan800t in assemble.py).
+cs800t   keep_hue=0.8  yellow=0.80  green=0.81  toe_r=18  toe_g=22.5  toe_b=27  toe_p=2.5  mid=18  scan800t=1

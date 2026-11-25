@@ -97,6 +97,73 @@ def mid_pull(cube, mid):
     return np.clip(np.rint(out), 0, 255).astype(np.uint8)
 
 
+def scan800t(cube):
+    """CineStill 800T (0.52): measured against 64 real scans and checked on 584 photos not used for tuning. On the
+    tweaked cube: warm colours less saturated and no longer pushed to red, greens to teal, light blues to cyan, cooler
+    shadows and mids, white up to ~245 (the bake caps it at 225)."""
+    n = cube.shape[0]
+    c = cube.astype(np.float64) / 255
+    g = np.linspace(0, 1, n)
+    b_, g_, r_ = np.meshgrid(g, g, g, indexing="ij")
+    src = np.stack([r_, g_, b_], -1)
+    w = np.array([0.299, 0.587, 0.114])
+
+    def hsv(a):
+        mx, mn = a.max(-1), a.min(-1)
+        d = np.maximum(mx - mn, 1e-9)
+        r, gg, bb = a[..., 0], a[..., 1], a[..., 2]
+        h = np.where(mx == r, ((gg - bb) / d) % 6, np.where(mx == gg, (bb - r) / d + 2, (r - gg) / d + 4)) * 60
+        return h, np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-9), 0), mx
+
+    def rgb(h, s, v):
+        h = (h % 360) / 60
+        i = np.floor(h)
+        f = h - i
+        p, q, t = v * (1 - s), v * (1 - s * f), v * (1 - s * (1 - f))
+        i = i.astype(int) % 6
+        return np.stack([np.choose(i, [v, q, p, p, t, v]), np.choose(i, [t, v, v, q, p, p]), np.choose(i, [p, p, t, v, v, q])], -1)
+
+    def ss(x, a, z):
+        t = np.clip((x - a) / (z - a), 0, 1)
+        return t * t * (3 - 2 * t)
+
+    def band(h, a0, a1, b0, b1):                     # 1 between a1 and b0, fading to 0 at a0 and b1 (may cross 0)
+        x = (h - a0) % 360
+        w1, w2, w3 = (a1 - a0) % 360, (b0 - a0) % 360, (b1 - a0) % 360
+        return np.where(x < w1, x / w1, np.where(x < w2, 1, np.where(x < w3, 1 - (x - w2) / (w3 - w2), 0)))
+
+    hs, ssat, vs = hsv(src)
+    h, s, v = hsv(c)
+    y0 = c @ w
+    chroma = np.clip(ssat * 4, 0, 1)                 # near-greys are left to the neutral curve
+    warm = band(hs, 345, 8, 48, 70) * chroma
+    lit = ss(v, .33, .55) * band(hs, 12, 22, 46, 60)  # lit brick, wood: real scans keep more (0.50 against 0.44)
+    s = s - (.42 - .12 * lit) * np.maximum(s - .26, 0) * warm * ss(v, .2, .5) * (1 - .45 * ss(v, .8, 1))
+    dh = ((hs - h + 180) % 360) - 180
+    h = h + np.clip(dh + 1, -10, 10) * band(hs, 6, 14, 48, 62) * chroma
+    green = band(hs, 62, 95, 150, 178) * chroma
+    h = h + 38 * green * band(hs, 62, 100, 130, 178)
+    s, v = s * (1 - .10 * green), v * (1 - .05 * green)
+    blue = band(hs, 195, 208, 232, 248) * chroma
+    h = h - 7 * blue * ss(v, .45, .8)
+    purple = band(hs, 205, 222, 300, 325) * chroma   # deep blue, purple: nearer the input's saturation
+    s = np.where(s > ssat, s - .55 * (s - ssat) * purple, s)
+    out = rgb(h, np.clip(s, 0, 1), np.clip(v, 0, 1))
+    out = out + ((y0 - out @ w) * np.clip(warm + blue + purple, 0, 1))[..., None]
+    y = np.clip(out @ w, 0, 1)
+    yy = [0, .06, .2, .4, .6, .8, .92, 1]
+    off = ([0, 0, -3, -6, -5, -2, 0, 1], [0, 0, 0, 0, 0, 0, -1, -1], [2, 3, 5, 4, 3, 1, 1, 1])
+    out = out + np.stack([np.interp(y, yy, o) for o in off], -1) / 255
+    out = out * (1 + .095 * ss(out @ w, .62, .88))[..., None]
+    # Sun, lampshades, fire: bright warm inputs keep their own hue and brightness (the bake's capped red left them a dull
+    # yellow-green).
+    h2, s2, v2 = hsv(np.clip(out, 0, 1))
+    glow = rgb(hs - 2, np.maximum(s2, .60 * ssat), np.maximum(v2, .96 * vs))
+    k = .85 * band(hs, 8, 20, 50, 66) * ss(vs, .74, .97) * ss(ssat, .2, .45)
+    out = out + (glow - out) * k[..., None]
+    return np.clip(np.rint(out * 255), 0, 255).astype(np.uint8)
+
+
 TOE_KEYS = ("toe_r", "toe_g", "toe_b", "toe_p")
 
 
@@ -111,6 +178,8 @@ def apply_tweaks(cube, t):
         cube = toe(cube, **tk)
     if "mid" in t:
         cube = mid_pull(cube, t["mid"])
+    if t.get("scan800t"):
+        cube = scan800t(cube)
     return cube
 
 
