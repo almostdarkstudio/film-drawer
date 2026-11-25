@@ -295,3 +295,12 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
   grain in mids and light tones. At 1024 pixels wide, residual in smooth areas (dark / mid / light), real and app:
   Delta 3200 4.5/8.2/8.3 and 4.5/7.5/7.0 at strength 80 (now 85; was 2.1/3.0/1.3), Portra 400 4.0/4.2/2.0 and 3.2/3.7/1.9.
   Defaults changed: 800T 50 (75), Tri-X, HP5 65 (55), T-Max 45 (40), Delta 85 (80), Superia 1600 60 (70), Almost Dark 45 (55).
+
+## 0.54: the other Kodak and Fuji looks against real scans
+- Same method as 0.53, twelve more films. Changed (held-out splits won, of 16): Fuji 400H (16; skin saturation 43, real 25),
+  Superia 400 (16; 46, real 30), Ektachrome 100VS (15; warm colours softened less than the test asked, it is a vivid film),
+  Portra 800 (14). Checked and kept: Pro 160NS (10), Kodachrome 64 (11), Astia 100F (4).
+- Too few scans or photographers to decide: Reala 100, Ektachrome E100, Vision3 250D, Vision3 500T, Superia 1600.
+- Only the colours of these four looks changed.
+- Previews: area-weighted shrink (808 -> 640 is not a whole step, so whole-pixel boxes looked jagged) and smooth colour
+  upsampling. Photos are byte-identical without their previews; the preview copy in the file also has smoother colour.

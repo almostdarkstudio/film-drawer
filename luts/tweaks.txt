@@ -22,3 +22,8 @@ colorplus  warm=0.74  blue=0.97  leaf=0.88
 ultramax   warm=0.85
 # Real Velvia has far stronger blues (saturation 40, ours 32).
 velvia50   blue=1.50
+# 0.54: the rest of the Kodak and Fuji looks against real scans; changed where better on nearly all held-out splits.
+fuji400h   warm=0.74  blue=0.90  leaf=0.84
+superia400 warm=0.74  blue=0.95  leaf=0.95
+portra800  warm=0.86  blue=0.92  leaf=0.90
+ekta100vs  warm=0.87  blue=1.40  leaf=1.15

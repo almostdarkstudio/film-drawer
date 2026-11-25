@@ -1742,6 +1742,25 @@ int filmlut_bench(const char *in_path, const lut3d *l, const char *out_path, cha
 static volatile int g_pv_abort;                /* counts requests: a decode started later is not affected */
 void filmlut_preview_abort(void) { g_pv_abort++; }
 
+/* Source pixels covered by output pixel o of n, when scaling `size` down to n: first one, how many, weights summing to 256. */
+static unsigned int area_weights(unsigned int size, unsigned int n, unsigned int o, unsigned int *first, unsigned short *wt)
+{
+    double a = (double)o * size / n, b = (double)(o + 1) * size / n;
+    unsigned int i0 = (unsigned int)a, i1 = (unsigned int)b, i, cnt, done = 0;
+    if (b > i1 + 1e-9) i1++;                   /* one past the last source pixel */
+    if (i1 > size) i1 = size;
+    if (i1 <= i0) i1 = i0 + 1;
+    cnt = i1 - i0;
+    for (i = 0; i < cnt; i++) {                /* differences of the rounded running total: never negative, always 256 */
+        double hi = i0 + i + 1 < b && i + 1 < cnt ? i0 + i + 1 : b;
+        unsigned int upto = i + 1 == cnt ? 256 : (unsigned int)((hi - a) / (b - a) * 256 + 0.5);
+        wt[i] = (unsigned short)(upto - done);
+        done = upto;
+    }
+    *first = i0;
+    return cnt;
+}
+
 static int *preview_decode(const char *path, int max_w, int max_h, int *out_w, int *out_h, char *msg, size_t msglen, int abortable)
 {
     const int abort0 = g_pv_abort;
@@ -1791,7 +1810,7 @@ static int *preview_decode(const char *path, int max_w, int max_h, int *out_w, i
     jpeg_read_header(&d, TRUE);
     d.out_color_space = JCS_RGB;
     d.dct_method = JDCT_IFAST;
-    d.do_fancy_upsampling = FALSE;
+    d.do_fancy_upsampling = TRUE;            /* smooth colour: without it edges were blocky on the screen (0.54) */
     /* DCT scaling (42 MP -> ~994x663 at 1/8, very fast): the largest reduction that
      * still leaves at least max_w columns to box-filter down from. */
     denom = 8;
@@ -1813,7 +1832,8 @@ static int *preview_decode(const char *path, int max_w, int max_h, int *out_w, i
     jpeg_destroy_decompress(&d); d_ok = 0;
     fclose(f);
 
-    /* Box-filter down to fit max_w x max_h, keeping aspect. */
+    /* Down to fit max_w x max_h, keeping aspect. Area-weighted: every source pixel counts by how much of it
+     * is covered. Until 0.54 whole pixels were taken, so e.g. 808 -> 640 mixed copied and averaged pixels (jagged). */
     ow = w; oh = h;
     if (ow > (unsigned)max_w) { oh = (unsigned)((unsigned long long)oh * max_w / ow); ow = max_w; }
     if (oh > (unsigned)max_h) { ow = (unsigned)((unsigned long long)ow * max_h / oh); oh = max_h; }
@@ -1821,19 +1841,29 @@ static int *preview_decode(const char *path, int max_w, int max_h, int *out_w, i
     if (oh < 1) oh = 1;
     out = (int *)malloc((size_t)ow * oh * sizeof(int));
     if (!out) { free(img); snprintf(msg, msglen, "out of memory"); return NULL; }
-    for (oy = 0; oy < oh; oy++) {
-        unsigned int y0 = oy * h / oh, y1 = (oy + 1) * h / oh;
-        if (y1 <= y0) y1 = y0 + 1;
-        for (ox = 0; ox < ow; ox++) {
-            unsigned int x0 = ox * w / ow, x1 = (ox + 1) * w / ow, sx, sy, n = 0;
-            unsigned int sr = 0, sg = 0, sb = 0;
-            if (x1 <= x0) x1 = x0 + 1;
-            for (sy = y0; sy < y1; sy++) {
-                const unsigned char *px = img + ((size_t)sy * w + x0) * 3;
-                for (sx = x0; sx < x1; sx++, px += 3) { sr += px[0]; sg += px[1]; sb += px[2]; n++; }
+    {
+        /* Per output column: first source column, number of columns, and weights (sum 256). */
+        unsigned int cols = w / ow + 2, rows = h / oh + 2, k;
+        unsigned short *wx = (unsigned short *)malloc((size_t)(ow * cols) * sizeof *wx);
+        unsigned int *fx = (unsigned int *)malloc((size_t)(ow * 2) * sizeof *fx);
+        unsigned short *wy = (unsigned short *)malloc((size_t)rows * sizeof *wy);
+        if (!wx || !fx || !wy) { free(wx); free(fx); free(wy); free(img); free(out); snprintf(msg, msglen, "out of memory"); return NULL; }
+        for (ox = 0; ox < ow; ox++) fx[ox * 2 + 1] = area_weights(w, ow, ox, &fx[ox * 2], wx + ox * cols);
+        for (oy = 0; oy < oh; oy++) {
+            unsigned int y0, ny = area_weights(h, oh, oy, &y0, wy);
+            for (ox = 0; ox < ow; ox++) {
+                const unsigned short *cw = wx + ox * cols;
+                unsigned int x0 = fx[ox * 2], nx = fx[ox * 2 + 1], sy, sr = 0, sg = 0, sb = 0;
+                for (sy = 0; sy < ny; sy++) {
+                    const unsigned char *px = img + ((size_t)(y0 + sy) * w + x0) * 3;
+                    unsigned int rr = 0, rg = 0, rb = 0;
+                    for (k = 0; k < nx; k++, px += 3) { rr += px[0] * cw[k]; rg += px[1] * cw[k]; rb += px[2] * cw[k]; }
+                    sr += rr * wy[sy]; sg += rg * wy[sy]; sb += rb * wy[sy];
+                }
+                out[(size_t)oy * ow + ox] = (int)(0xFF000000u | (((sr + 32768) >> 16) << 16) | (((sg + 32768) >> 16) << 8) | ((sb + 32768) >> 16));
             }
-            out[(size_t)oy * ow + ox] = (int)(0xFF000000u | ((sr / n) << 16) | ((sg / n) << 8) | (sb / n));
         }
+        free(wx); free(fx); free(wy);
     }
     free(img);
     *out_w = (int)ow;
