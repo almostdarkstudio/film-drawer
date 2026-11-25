@@ -14,10 +14,11 @@ By Almost Dark Studio: https://almostdarkstudio.com
 ## What it does
 - 40 looks in 8 groups: Kodak negative, Cinema, Fuji & Agfa negative, Fuji simulations, Slide,
   Instant, Specialty (Metropolis, Aerochrome-style infrared), Black & white. Film grain per look;
-  CineStill looks add a red halation glow around lights.
+  CineStill 800T is tuned against real scans, with the red-orange halation around lights; 50D has a gentler one.
   **Almost Dark**, in Cinema, is the studio's own low-light look: deep blacks, rich lamplight, clean lights.
 - Shoot inside the app. A quick review shows each photo in its look, and the conversion runs in
   the background (about 20-25 s per photo at JPEG size M on an a7R II).
+- Mark your **favourites** (MENU > Favourites) and they become the first group.
 - Browse any photo on the card, preview a look, and convert it. Or view your converted photos
   (the camera's own playback cannot show them) and delete the ones you don't want: PLAY.
 - Converted files go to `FILMDRAW\<folder>\<TAG><number>.JPG` (for example
@@ -40,15 +41,15 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 ## Controls
 | | Shoot mode | Browse mode |
 |---|---|---|
-| Wheel / Up / Down | Change look (a card shows your last photo in that look). The wheel can change ISO instead (Controls > Wheel) | Change look |
+| Wheel / Up / Down | Change look (a card shows your last photo in that look). The wheel can change ISO instead (Controls > Wheel) | Change look (converted photos: change photo) |
 | Left / Right | Jump to the previous / next look group | Previous / next photo |
-| Front dial | Aperture (A/M/P), or shutter speed (Controls > Dials) | Change look |
+| Front dial | Aperture (A/M/P), or shutter speed (Controls > Dials) | Change look (converted photos: change photo) |
 | Rear dial | Shutter speed (S/M), else exposure compensation, or aperture (Controls > Dials) | Previous / next photo |
 | Fn | Base style: Standard / Neutral / Camera settings | Switch between all photos and converted photos |
 | C1 | JPEG size in the app: M / S / L, with your camera's megapixels | |
 | EV dial (a7R II) | Exposure compensation follows the dial | |
 | C2 | Grain: Auto (per look) / Off / Low / Medium / High | Same |
-| OK | Show / hide help | Convert this photo |
+| OK | Show / hide help | Convert this photo (converted photos: show / hide help) |
 | Trash | **Controls**: the list below, with Move focus point first | All photos: before / after. Converted photos: delete (asks first; only the converted copy, never the original) |
 | PLAY | Your converted photos, newest first (Fn: all photos) | Back to shooting (or half-press) |
 | MENU | Menu: look, grain, base style, JPEG size, quick review, **Controls**, **Favourites**, photos, about, **Exit application** | Same |
@@ -69,9 +70,8 @@ the wheel carries on into Kodak. Each look also stays in its own group.
 again, MENU, PLAY or a half-press cancels. Only the converted copy is deleted, and the app warns you if the original is
 no longer on the card. The app never deletes originals: use the camera's own playback for those.
 
-The camera's mode dial sets the exposure mode as usual (P/A/S/M). In 0.32 and earlier, set it before opening the app:
-turning it in the app had no effect. Everything on Fn, C1 and C2 is also
-in the menu, for bodies without those buttons. To leave the app: MENU > Exit application (photos still
+The camera's mode dial sets the exposure mode as usual (P/A/S/M). Everything on Fn, C1 and C2 is also in the menu, for
+bodies without those buttons. To leave the app: MENU > Exit application (photos still
 converting carry on next time).
 
 ## The looks
@@ -96,6 +96,20 @@ to RAW only, the app shoots RAW+JPEG while it is open. It saves your own setting
 them back when you leave the app with MENU > Exit application, or the next time you open it if the
 camera was switched off. Please check your settings the first time. Choose
 "Camera settings" (Fn) to leave your Creative Style alone. RAW files are never affected.
+
+## Known limits
+- **"Live view failed" (a7):** after viewing photos, the live view sometimes did not come back on an original a7. 0.48
+  changed how it starts, but that is not confirmed there yet. If it happens: half-press to try again, or MENU > Exit
+  application and open the app again. Please report it with `FILMDRAW\HANG.TXT`.
+- Lock-on (tracking) AF, Eye AF, the Zone and expanded focus areas, and the camera's own custom buttons and dial settings
+  do not work in the app.
+- RAW files already on the card without a JPEG cannot be converted.
+- The looks work on the camera's JPEG, after its own white balance. CineStill 800T therefore goes less blue in daylight
+  than real film.
+- Grain has a fixed pixel size: coarser in small photos, finer in large ones.
+- If your camera keeps contrast, saturation and sharpness separately for each Creative Style, your own values for Standard
+  and Neutral may be left at the app's (not confirmed). If you have changed those two styles, please check them.
+- On an original a7, a 24 MP photo takes about a minute to convert.
 
 ## Problems
 - If the app freezes or crashes it writes `FILMDRAW\HANG.TXT` or `FILMDRAW\CRASH.TXT` on the card.
