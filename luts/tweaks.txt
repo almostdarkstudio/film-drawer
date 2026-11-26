@@ -36,3 +36,8 @@ gold200   skin_shift=7  warm_sat=1.05  floor_r=11  floor_g=3  floor_b=-8  floor_
 # crushed and cool (the scans keep lifted, slightly warm blacks: a floor kept to the blacks, floor_p 5, as p 3 paled the
 # skin); dusk skies dull (blue_sat; still less blue than CineStill); daylight skin a touch drained (warm_sat).
 vision500t   warm_sat=1.10  blue_sat=1.25  floor_r=21  floor_g=15  floor_b=11  floor_p=5
+# 0.59: Tri-X and HP5 (the same curve) crowded the top of the range against white: sunlit fur at 206-238 in the camera's
+# JPEG came out at 232-250 with little texture (outside review: "clipped highlights ... reads as digital"). A longer
+# shoulder spreads it to 222-249; mid grey 147 -> 146.
+trix400   shoulder=0.5
+hp5std    shoulder=0.5

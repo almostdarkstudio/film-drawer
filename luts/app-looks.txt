@@ -53,9 +53,9 @@ fp100c      30
 metropolis  45   85
 aerochrome  35
 ## Black & white | B&W
-trix400     65
-hp5std      65
-tmax400     45
+trix400     45
+hp5std      45
+tmax400     30
 delta3200   85
 acros100    25
 panf50      10

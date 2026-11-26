@@ -426,4 +426,24 @@ clumps), the halos were too even across lamps of different brightness and a litt
 - Not acted on: the user's Kodak HP4 cine roll (18 selects, Noritsu, edited in RawTherapee) loses grain in light tones
   (0.59x mid, brightest 0.35x), where the Tri-X / Delta curve keeps it (0.97x, 0.74x). A different film and edited
   frames; worth a look with untouched black and white scans.
+- Blind outside review of Tri-X 400 (default grain 65, garden portrait DSC09078): read as "Tri-X pushed a stop or two,
+  or Delta 3200". Gave away: clipped highlights, grain all the way down into the blacks, grain "fine and even, like
+  noise". Changes:
+  - Highlights: Tri-X and HP5 (the same curve) squeezed the sunlit fur (206-238 in the camera's JPEG, almost nothing
+    clipped) into 232-250. `shoulder` (new, assemble.py, applied before floor) 0.5 for both: fur -> 222-249, at 250 or
+    above 11.7% -> 6.9%, mid grey 147 -> 146. Delta 3200 and Pan F crowd less; T-Max and Acros not at all. Both LUTs had
+    no tweaks, so a full assemble run gives the same bytes.
+  - Black and white grain curve: 0.10 at black (was 0.40), 0.28 at 0.05: the deepest blacks about half as grainy (Tri-X
+    2.26 -> 1.18 at 1024 px).
+  - Bigger, clumpier black and white grain: GR_CELLS_MONO 700 (colour 920), GR_COARSE_MONO 45, GR_CLUMP_MONO 620;
+    correlation two pixels apart at 1024 px 0.01 -> 0.20. GR_MONO_SCALE 390 -> 345 keeps 0.58's measured level: Delta,
+    Tri-X, HP5 mids and light tones within -2..+5%.
+- Second blind review of Tri-X: blacks, grain structure and highlight texture fixed ("a clear step closer"); grain now
+  heaviest and "sparkly, gritty" in near-white fur. Black and white grain curve made a bell: full 0.42-0.65, 0.62 at
+  0.80, 0.35 at 0.90, 0.12 at white (was 0.75 / 0.50 at 0.9 / 1). At 1024 px, brightest tones 0.82x -> 0.46-0.49x the
+  mid grain, light greys 0.91-0.93x; mids unchanged (Delta, Tri-X, HP5). The user's HP4 roll: 0.59x / 0.35x.
+  The review read it as "Tri-X at 1600 or Delta 3200". The user wants the black and white looks at box speed: defaults
+  Tri-X 65 -> 45 and HP5 65 -> 45 (two stops of push is roughly 1.4-1.5x the grain), T-Max 400 45 -> 30 (much finer
+  than Tri-X, RMS granularity ~10 vs 17). Delta 3200 stays 85 (fast at box speed; matched to real Delta scans), Acros 25
+  and Pan F 10 unchanged.
 

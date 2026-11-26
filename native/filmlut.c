@@ -234,7 +234,7 @@ static void markers_to_srgb(jpeg_saved_marker_ptr m)
 static int g_grain = 0;
 
 #ifndef GR_MONO_SCALE
-#define GR_MONO_SCALE 390.0f   /* black and white looks' grain scale (colour: 240), see grain_tables */
+#define GR_MONO_SCALE 345.0f   /* black and white looks' grain scale (colour: 240), see grain_tables */
 #endif
 
 static float knots(const float *px, const float *pw, int n, float t)
@@ -257,12 +257,17 @@ static float colour_weight(float t)
     return knots(px, pw, 10, t);
 }
 
-/* Black and white, from real Tri-X and Delta 3200 scans: full grain in the mids AND the light tones, less in the darks.
+/* Black and white, from real Tri-X and Delta 3200 scans: full grain in the mids AND the light tones, less in the darks;
+ * 0.59: the deepest blacks nearly clean (0.40 -> 0.10 at black), as the thin negative prints smooth (outside review:
+ * "the black clothing is noisy all the way down"), and fading towards white as well, a bell around the mids and light
+ * greys: near-white fur looked "sparkly, gritty" (same review; a Kodak HP4 roll of the user's also keeps ~0.35x the mid
+ * grain in its brightest tones). Was 0.75 / 0.50 at 0.9 / 1.
  * (A first 0.59 lowered the densest highlights, 0.60 / 0.25 at 0.9 / 1, without evidence: back to the measured curve.) */
 static float mono_weight(float t)
 {
-    static const float px[7] = { 0, 0.12f, 0.25f, 0.42f, 0.70f, 0.90f, 1 }, pw[7] = { 0.40f, 0.52f, 0.76f, 1, 1, 0.75f, 0.50f };
-    return knots(px, pw, 7, t);
+    static const float px[9] = { 0, 0.05f, 0.12f, 0.25f, 0.42f, 0.65f, 0.80f, 0.90f, 1 };
+    static const float pw[9] = { 0.10f, 0.28f, 0.52f, 0.76f, 1, 1, 0.62f, 0.35f, 0.12f };
+    return knots(px, pw, 9, t);
 }
 
 void filmlut_set_grain(int strength) { g_grain = strength < 0 ? 0 : strength > 100 ? 100 : strength; }
@@ -330,6 +335,16 @@ static inline void grain_cell2(unsigned int cx, unsigned int cy, int fy, unsigne
 #ifndef GR_CLUMP
 #define GR_CLUMP 420     /* ... and raising or lowering the grain around it (1/1024 at its peak) */
 #endif
+/* Black and white: bigger, clumpier grain (silver grain clumps; outside review: Tri-X "fine and even, like noise"). */
+#ifndef GR_CELLS_MONO
+#define GR_CELLS_MONO 700
+#endif
+#ifndef GR_COARSE_MONO
+#define GR_COARSE_MONO 45
+#endif
+#ifndef GR_CLUMP_MONO
+#define GR_CLUMP_MONO 620
+#endif
 #ifndef GR_CW
 #define GR_CW 3         /* colour cells, in eighths of the shared ones */
 #endif
@@ -352,12 +367,14 @@ static void grain_row(const lut3d *lut, unsigned char *px, unsigned int width, u
 {
     const unsigned int s0 = 0x5bd1e995u, s1 = 0x27d4eb2fu, s2 = 0x3c6ef372u, s3 = 0x1b873593u, s4 = 0x85ebca6bu, half = 0x8000u;
     const int *tr = lut->gtab[0], *tg = lut->gtab[1], *tb = lut->gtab[2], mono = lut->mono;
+    const unsigned int cells = mono ? GR_CELLS_MONO : GR_CELLS;
+    const int coarse = mono ? GR_COARSE_MONO : GR_COARSE, clump = mono ? GR_CLUMP_MONO : GR_CLUMP;
     unsigned int x = 0, step, size = width > height ? width : height;
     unsigned int v0, v1, v2, v3, v4, u = 0, w = 0, z = 0x6000u, wstep, zstep, c0 = 0, c1 = 0, c2 = 0, c3 = 0, c4 = 0;
     unsigned int y0, y1, y2, y3, y4;
     int f0, f1, f2, f3, f4, a0, b0, a1, b1, za, zb, ua = 0, ub = 0, va = 0, vb = 0, pa = 0, pb = 0, qa = 0, qb = 0;
     if (!g_grain) return;
-    step = size > GR_CELLS * 3 / 2 ? ((unsigned)GR_CELLS << 16) / size : 43690;   /* cells per pixel, 16.16; a cell is at least 1.5 pixels */
+    step = size > cells * 3 / 2 ? (cells << 16) / size : 43690;   /* cells per pixel, 16.16; a cell is at least 1.5 pixels */
     wstep = step * GR_CW / 8;
     zstep = step * 2 / 5;
     v0 = y * step;
@@ -385,7 +402,7 @@ static void grain_row(const lut3d *lut, unsigned char *px, unsigned int width, u
             int n = a0 + a1 + ((d0 * (int)((u >> 8) & 255)) >> 8) + ((d1 * (int)(((u + half) >> 8) & 255)) >> 8);
             int cl = za + (((zb - za) * (int)((z >> 8) & 255)) >> 8);          /* clump field, -65535..65535 */
             n = (n * GR_LUMA + tri_noise(x, y, 0x165667b1u) * GR_FINE) >> 12;
-            n = (n * (1024 + (cl * GR_CLUMP >> 16)) >> 10) + (cl * GR_COARSE >> 12);   /* (in that order: no mean shift) */
+            n = (n * (1024 + (cl * clump >> 16)) >> 10) + (cl * coarse >> 12);   /* (in that order: no mean shift) */
             n += (n * (n < 0 ? -n : n) >> 10) * GR_TAIL >> 8;     /* some grains stand out, as on film */
             z += zstep;
             if (z >> 16 != c4) { c4++; za = zb; zb = grain_cell(c4 + 1, y4, f4, s4); }

@@ -230,6 +230,19 @@ def warm_tones(cube, skin_shift=0.0, warm_sat=1.0, blue_sat=1.0):
     return np.clip(np.rint(out * 255), 0, 255).astype(np.uint8)
 
 
+def shoulder(cube, shoulder=0.0, shoulder_from=0.55):
+    """A longer highlight roll-off: lowers the tones above shoulder_from (of the look's own white, per channel) by up to
+    shoulder * (white - x), easing in with a smoothstep, so white stays white and the top of the range is spread out
+    instead of crowded against it. Mids barely move (0.59, Tri-X: sunlit fur at 206-238 in the camera's JPEG was
+    squeezed into 232-250; outside review: "clipped highlights ... the main thing that reads as digital")."""
+    c = cube.astype(np.float32)
+    wht = c[-1, -1, -1]
+    x = c / np.maximum(wht, 1)
+    t = np.clip((x - shoulder_from) / (1 - shoulder_from), 0, 1)
+    out = (x - shoulder * (1 - x) * t * t * (3 - 2 * t)) * wht
+    return np.clip(np.rint(out), 0, 255).astype(np.uint8)
+
+
 TOE_KEYS = ("toe_r", "toe_g", "toe_b", "toe_p")
 FLOOR_KEYS = ("floor_r", "floor_g", "floor_b", "floor_p")
 
@@ -253,6 +266,9 @@ def apply_tweaks(cube, t):
     wt = {k: v for k, v in t.items() if k in ("skin_shift", "warm_sat", "blue_sat")}
     if wt:
         cube = warm_tones(cube, **wt)
+    sk = {k: v for k, v in t.items() if k in ("shoulder", "shoulder_from")}
+    if sk:
+        cube = shoulder(cube, **sk)
     fk = {k: v for k, v in t.items() if k in FLOOR_KEYS}
     if fk:
         cube = floor(cube, **fk)
