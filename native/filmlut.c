@@ -233,6 +233,10 @@ static void markers_to_srgb(jpeg_saved_marker_ptr m)
 
 static int g_grain = 0;
 
+#ifndef GR_MONO_SCALE
+#define GR_MONO_SCALE 390.0f   /* black and white looks' grain scale (colour: 240), see grain_tables */
+#endif
+
 static float knots(const float *px, const float *pw, int n, float t)
 {
     int i = 0;
@@ -253,11 +257,11 @@ static float colour_weight(float t)
     return knots(px, pw, 10, t);
 }
 
-/* Black and white, from real Tri-X and Delta 3200 scans: full grain in the mids AND the light tones, less in the darks;
- * 0.59: less in the densest highlights. */
+/* Black and white, from real Tri-X and Delta 3200 scans: full grain in the mids AND the light tones, less in the darks.
+ * (A first 0.59 lowered the densest highlights, 0.60 / 0.25 at 0.9 / 1, without evidence: back to the measured curve.) */
 static float mono_weight(float t)
 {
-    static const float px[7] = { 0, 0.12f, 0.25f, 0.42f, 0.70f, 0.90f, 1 }, pw[7] = { 0.40f, 0.52f, 0.76f, 1, 1, 0.60f, 0.25f };
+    static const float px[7] = { 0, 0.12f, 0.25f, 0.42f, 0.70f, 0.90f, 1 }, pw[7] = { 0.40f, 0.52f, 0.76f, 1, 1, 0.75f, 0.50f };
     return knots(px, pw, 7, t);
 }
 
@@ -276,10 +280,11 @@ static void grain_tables(lut3d *l)
             float t = (float)(v - b) / (float)(wt - b), w;
             t = t < 0 ? 0 : t > 1 ? 1 : t;
             w = l->mono ? mono_weight(t) : colour_weight(t);
-            /* 0.59: 378 -> 240. The larger, clumped grain shows more at screen size than 0.58's at the same
+            /* 0.59: colour 378 -> 240. The larger, clumped grain shows more at screen size than 0.58's at the same
              * strength: a stop heavier than an 800T scan, "pushed two stops" (outside review). 250 -> 240 after
-             * 800T's lifted floor moved its tones up the curve (sky +5%). */
-            l->gtab[c][v] = (int)(g_grain * w * 240.0f + 0.5f);    /* <= 100 * 240 */
+             * 800T's lifted floor moved its tones up the curve (sky +5%). Black and white keeps 0.58's level, which
+             * matched real Delta 3200 and Tri-X scans at screen size: the colour cut left it ~40% under. */
+            l->gtab[c][v] = (int)(g_grain * w * (l->mono ? GR_MONO_SCALE : 240.0f) + 0.5f);   /* <= 100 * 400 */
         }
     }
 }

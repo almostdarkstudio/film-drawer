@@ -418,4 +418,12 @@ clumps), the halos were too even across lamps of different brightness and a litt
   - Dusk sky dull grey-blue (Lab b -19, 800T -25): `blue_sat` 1.25 (new in warm_tones, blues only) -> -23. Daylight
     skin a touch drained: warm_sat 1.10, skin chroma 26.7 -> 28.7. Gold's LUT is unchanged by the new parameter.
   - Almost Dark (derived from 500T, our own look) not changed.
+- Black and white grain: the colour scale cut (378 -> 240) had taken Delta 3200, Tri-X and HP5 38-48% under 0.58 at
+  1024 px, and 0.58 matched real scans (measured here the same way: 0.58 Delta at 85 4.5 / 7.5 / 7.5 dark / mid / light,
+  the 0.53 real scans 4.5 / 8.2 / 8.3). Black and white now has its own scale (GR_MONO_SCALE 390): within -9..+5% of
+  0.58 at every tone, with the new softer, clumped structure. The first 0.59's lower densest highlights for black and
+  white (0.60 / 0.25 at 0.9 / 1, no evidence) are back to the measured 0.75 / 0.50.
+- Not acted on: the user's Kodak HP4 cine roll (18 selects, Noritsu, edited in RawTherapee) loses grain in light tones
+  (0.59x mid, brightest 0.35x), where the Tri-X / Delta curve keeps it (0.97x, 0.74x). A different film and edited
+  frames; worth a look with untouched black and white scans.
 
