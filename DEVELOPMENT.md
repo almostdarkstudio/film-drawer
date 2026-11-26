@@ -318,3 +318,16 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
 - Cost: the grain step for colour is about 1.8x as slow as before on one core (PC, no vectorisation), black and white the same.
 - CineStill 800T: camera sharpness -1 while shooting (was -3), a judgement, not measured. Checked with and without grain: grain does not blur (coarse and
   medium detail keep 96-100%), it only hides detail, and the new grain hides less medium and fine detail than 0.31-0.54.
+
+## 0.56: preview made alongside the conversion
+- Camera timings (FILMDRAW/LOG.TXT, 0.55, a7R II, 18 MP; the camera has no NEON): 800T 37-48 s, of which ~13 s is the
+  glow pre-pass and 4-6 s the preview + thumbnail, both on one core with three idle; Gold/Portra/HP5 16-20 s, already
+  balanced (decode ~13.5 s on one core, each of three workers ~14 s).
+- The preview and thumbnail (extras_build) now run on their own thread during the conversion. The header's MPF
+  placeholder is written when a preview is planned; the EXIF thumbnail is put in at the stitch (same length, in place).
+  Output byte-identical to 0.55 (16 conversions: 6 looks, 10, 18 and 24 MP, parallel and serial).
+- Glow rows (halo_row): column positions computed once per photo (halo_prepare), rows with no glow or core skipped, the
+  glow colour only where there is glow. Same arithmetic in the same order: 39 outputs byte-identical to 0.55 (13 photos,
+  both pipelines, on-screen preview). 10-70% less time in that stage, most on night shots with separate lamps.
+- Rejected: the glow map from the embedded preview (about 40% less pre-pass, but ~10% glow difference). The look comes
+  first; speed changes must leave the output byte-identical.
