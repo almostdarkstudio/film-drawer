@@ -32,3 +32,7 @@ ekta100vs  warm=0.87  blue=1.40  leaf=1.15
 # (towards yellow-orange: skin_shift), shadows cool (a warm, slightly lifted floor), warm tones a touch flat (warm_sat,
 # kept small: the real scans were no more saturated in warm tones than this look). warm_tones runs last but for floor.
 gold200   skin_shift=7  warm_sat=1.05  floor_r=11  floor_g=3  floor_b=-8  floor_p=3
+# 0.59: Vision3 500T against the user's own ECN-2 roll (36 frames, Noritsu) and an outside review: blacks were fully
+# crushed and cool (the scans keep lifted, slightly warm blacks: a floor kept to the blacks, floor_p 5, as p 3 paled the
+# skin); dusk skies dull (blue_sat; still less blue than CineStill); daylight skin a touch drained (warm_sat).
+vision500t   warm_sat=1.10  blue_sat=1.25  floor_r=21  floor_g=15  floor_b=11  floor_p=5

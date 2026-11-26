@@ -408,4 +408,14 @@ clumps), the halos were too even across lamps of different brightness and a litt
   - Second review: signed off ("reads clearly as Gold"). Saw grain a little stronger in the arms' skin: measured on
     DSC09078, luma grain on skin 1.57 -> 1.60, each channel within 0.03; the warmer, slightly more saturated skin likely
     shows the same grain more. Left as is.
+- Vision3 500T against the user's own ECN-2 roll (36 frames, Noritsu; 30 batch-rotated in Photoshop by the lab before
+  delivery, the 6 untouched agree) and two outside reviews. Halation stays off: Vision3 keeps its remjet.
+  - Blacks: fully crushed at (0, 0, 3) and cool; the scans keep lifted, slightly warm blacks (darkest 2% L 6.7-10). Floor
+    -> (21, 15, 14), floor_p 5 so it stays in the blacks (p 3 also paled daylight skin, chroma 26.7 -> 25.4).
+  - Grain default 45 -> 35. The scans are ~3x grainier than the look (lab scans run grainy), but 500T is fine-grained
+    for its speed and the review saw a trial at 55 as coarser than 800T, "backwards". At 35 it is 19-25% under 800T at
+    50 on the same night frame (sky, tower, dark building).
+  - Dusk sky dull grey-blue (Lab b -19, 800T -25): `blue_sat` 1.25 (new in warm_tones, blues only) -> -23. Daylight
+    skin a touch drained: warm_sat 1.10, skin chroma 26.7 -> 28.7. Gold's LUT is unchanged by the new parameter.
+  - Almost Dark (derived from 500T, our own look) not changed.
 

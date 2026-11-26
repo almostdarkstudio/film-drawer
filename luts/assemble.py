@@ -205,10 +205,10 @@ def floor(cube, floor_r=0.0, floor_g=0.0, floor_b=0.0, floor_p=4.0):
     return np.clip(np.rint(out), 0, 255).astype(np.uint8)
 
 
-def warm_tones(cube, skin_shift=0.0, warm_sat=1.0):
+def warm_tones(cube, skin_shift=0.0, warm_sat=1.0, blue_sat=1.0):
     """Hue and chroma on the chroma plane (YCbCr, luma kept): rotates red-magenta to orange hues (skin, shaded
-    skin) skin_shift degrees towards yellow, then scales orange to yellow chroma by warm_sat. Blues, greens and
-    near-greys untouched. Applied near the end, on the finished cube (0.59, Kodak Gold 200: shaded skin went
+    skin) skin_shift degrees towards yellow, then scales orange to yellow chroma by warm_sat and blue chroma (sky,
+    ~300-30 deg) by blue_sat. Greens and near-greys untouched. Applied near the end, on the finished cube (0.59, Kodak Gold 200: shaded skin went
     red-magenta, warm tones a little flat; outside review)."""
     c = cube.astype(np.float32) / 255
     y = c @ np.array([0.299, 0.587, 0.114], np.float32)
@@ -223,6 +223,8 @@ def warm_tones(cube, skin_shift=0.0, warm_sat=1.0):
 
     a = np.radians(ang + skin_shift * band(45, 85, 135, 165) * near)
     k = 1 + (warm_sat - 1) * band(110, 130, 170, 190) * near
+    blue = np.clip(1 - (np.abs((ang - 345 + 180) % 360 - 180) - 25) / 30, 0, 1)   # full within 25 deg of 345, none past 55
+    k = k * (1 + (blue_sat - 1) * blue * near)
     cb, cr = chroma * k * np.cos(a), chroma * k * np.sin(a)
     out = np.stack([y + cr / 0.713, y - (0.299 * (cr / 0.713) + 0.114 * (cb / 0.564)) / 0.587, y + cb / 0.564], -1)
     return np.clip(np.rint(out * 255), 0, 255).astype(np.uint8)
@@ -248,7 +250,7 @@ def apply_tweaks(cube, t):
     mu = {k: v for k, v in t.items() if k in ("warm", "blue", "leaf")}
     if mu:
         cube = mute(cube, **mu)
-    wt = {k: v for k, v in t.items() if k in ("skin_shift", "warm_sat")}
+    wt = {k: v for k, v in t.items() if k in ("skin_shift", "warm_sat", "blue_sat")}
     if wt:
         cube = warm_tones(cube, **wt)
     fk = {k: v for k, v in t.items() if k in FLOOR_KEYS}
