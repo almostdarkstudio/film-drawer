@@ -13,7 +13,8 @@
 # mid fitted to the same edits (125->114, 155->138, 185->164).
 # 0.31: mute halved after indoor shots 02190-02192 (amber lampshades and stained glass went grey).
 # 0.52: cs800t is matched to real scans on top (scan800t in assemble.py).
-cs800t   keep_hue=0.8  yellow=0.80  green=0.81  toe_r=18  toe_g=22.5  toe_b=27  toe_p=2.5  mid=18  scan800t=1
+# 0.59: a slightly lifted blue-green floor (floor_*, applied last), as CineStill scans keep in deep shadows.
+cs800t   keep_hue=0.8  yellow=0.80  green=0.81  toe_r=18  toe_g=22.5  toe_b=27  toe_p=2.5  mid=18  scan800t=1  floor_r=2  floor_g=7  floor_b=7
 # 0.53: Portra 400 was too strong against 78 real scans (skin saturation 43, real 35-40): less in warm colours, some in
 # blues and greens. Better on every held-out split of the photographers.
 portra400  warm=0.80  blue=0.92  leaf=0.90

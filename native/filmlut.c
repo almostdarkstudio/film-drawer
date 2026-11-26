@@ -232,30 +232,55 @@ static void markers_to_srgb(jpeg_saved_marker_ptr m)
 /* ---- film grain ------------------------------------------------------ */
 
 static int g_grain = 0;
-static int g_gtab[2][256];       /* strength x tone weight per value: colour looks, black and white looks */
 
-/* Black and white, from real Tri-X and Delta 3200 scans: full grain in the mids AND the light tones, less in the darks. */
-static float mono_weight(float L)
+static float knots(const float *px, const float *pw, int n, float t)
 {
-    static const float px[7] = { 0, 0.12f, 0.25f, 0.42f, 0.70f, 0.90f, 1 }, pw[7] = { 0.40f, 0.52f, 0.76f, 1, 1, 0.75f, 0.50f };
     int i = 0;
-    while (i < 5 && L > px[i + 1]) i++;
-    return pw[i] + (pw[i + 1] - pw[i]) * (L - px[i]) / (px[i + 1] - px[i]);
+    while (i < n - 2 && t > px[i + 1]) i++;
+    return pw[i] + (pw[i + 1] - pw[i]) * (t - px[i]) / (px[i + 1] - px[i]);
 }
 
-void filmlut_set_grain(int strength)
+/* 0.59, tone t from the look's own black (0) to its own white (1).
+ * Colour, as in negative scans: most visible in the lower mids, softer in the shadows (0.42 in deep black), cleaning up
+ * steadily from just above mid grey (0.55 at t 0.55, 0.20 at 0.75) to almost nothing in dense highlights (0.04 at
+ * white). Until 0.58 it only fell to 0.45, on absolute values: 800T's white is ~245, so its highlights and pale skies kept
+ * two-thirds of the grain and it read as the same noise everywhere. A first 0.59 kept full grain up to t 0.45: a lit
+ * facade at night (~100 of 255, t 0.4) was as gritty as the dark street (outside review). */
+static float colour_weight(float t)
 {
-    int v;
-    g_grain = strength < 0 ? 0 : strength > 100 ? 100 : strength;
-    for (v = 0; v < 256; v++) {
-        /* Colour: like grain seen in negative scans, strongest in the shadows and low midtones (peak ~30% grey, 0.6 in
-         * deep black), weakest in the highlights (~0.45). Bell-shaped rational curve (no libm):
-         * 0.45 + 0.55 / (1 + x^2 + x^4/2), x = (L - 0.3) / 0.28. */
-        float x = (v / 255.0f - 0.30f) / 0.28f, x2 = x * x;
-        float w = 0.45f + 0.55f / (1.0f + x2 + 0.5f * x2 * x2);
-        float k = v < 4 ? 0.55f : v > 26 ? 1.0f : 0.55f + 0.45f * (v - 4) / 22;     /* near black: scans have less (0.55) */
-        g_gtab[0][v] = (int)(g_grain * w * k * 378.0f + 0.5f);                      /* <= 100 * 378 */
-        g_gtab[1][v] = (int)(g_grain * mono_weight(v / 255.0f) * k * 378.0f + 0.5f);
+    static const float px[10] = { 0, 0.06f, 0.15f, 0.22f, 0.32f, 0.45f, 0.55f, 0.65f, 0.80f, 1 };
+    static const float pw[10] = { 0.42f, 0.60f, 0.88f, 1, 1, 0.78f, 0.55f, 0.35f, 0.14f, 0.04f };
+    return knots(px, pw, 10, t);
+}
+
+/* Black and white, from real Tri-X and Delta 3200 scans: full grain in the mids AND the light tones, less in the darks;
+ * 0.59: less in the densest highlights. */
+static float mono_weight(float t)
+{
+    static const float px[7] = { 0, 0.12f, 0.25f, 0.42f, 0.70f, 0.90f, 1 }, pw[7] = { 0.40f, 0.52f, 0.76f, 1, 1, 0.60f, 0.25f };
+    return knots(px, pw, 7, t);
+}
+
+void filmlut_set_grain(int strength) { g_grain = strength < 0 ? 0 : strength > 100 ? 100 : strength; }
+
+/* Strength x tone weight per output value and channel, for this look: tones are measured between what the look makes of
+ * black and of white (its corners), per channel, so faded and capped looks get the same curve over their own range. */
+static void grain_tables(lut3d *l)
+{
+    const unsigned char *lo = l->t, *hi = l->t + ((size_t)l->n * l->n * l->n - 1) * 3;
+    int c, v;
+    for (c = 0; c < 3; c++) {
+        int b = lo[c], wt = hi[c];
+        if (wt - b < 96) { b = 0; wt = 255; }       /* not a usable range (an odd look): absolute tones */
+        for (v = 0; v < 256; v++) {
+            float t = (float)(v - b) / (float)(wt - b), w;
+            t = t < 0 ? 0 : t > 1 ? 1 : t;
+            w = l->mono ? mono_weight(t) : colour_weight(t);
+            /* 0.59: 378 -> 240. The larger, clumped grain shows more at screen size than 0.58's at the same
+             * strength: a stop heavier than an 800T scan, "pushed two stops" (outside review). 250 -> 240 after
+             * 800T's lifted floor moved its tones up the curve (sky +5%). */
+            l->gtab[c][v] = (int)(g_grain * w * 240.0f + 0.5f);    /* <= 100 * 240 */
+        }
     }
 }
 
@@ -286,19 +311,25 @@ static inline void grain_cell2(unsigned int cx, unsigned int cy, int fy, unsigne
 }
 
 #ifndef GR_CELLS
-#define GR_CELLS 1050    /* grain cells along the long side */
+#define GR_CELLS 920     /* grain cells along the long side (0.58: 1050) */
 #endif
 #ifndef GR_LUMA
-#define GR_LUMA 70       /* shared by the three layers (1/256) */
+#define GR_LUMA 76       /* shared by the three layers (1/256) */
 #endif
 #ifndef GR_FINE
-#define GR_FINE 30       /* per pixel */
+#define GR_FINE 10       /* per pixel (0.58: 30, which read as even digital noise) */
+#endif
+#ifndef GR_COARSE
+#define GR_COARSE 30     /* clumps: a coarser grid, 2.5 cells, added */
+#endif
+#ifndef GR_CLUMP
+#define GR_CLUMP 420     /* ... and raising or lowering the grain around it (1/1024 at its peak) */
 #endif
 #ifndef GR_CW
 #define GR_CW 3         /* colour cells, in eighths of the shared ones */
 #endif
 #ifndef GR_TAIL
-#define GR_TAIL 160
+#define GR_TAIL 70        /* 0.58: 160; with the clumps it made white specks */
 #endif
 #ifndef GR_CHROMA
 #define GR_CHROMA 50     /* own grain of each layer */
@@ -308,27 +339,35 @@ static inline void grain_cell2(unsigned int cx, unsigned int cy, int fy, unsigne
  * The size follows the photo, as on film: smooth clumps from two offset grids of interpolated noise, plus a little fine
  * noise (0.53). 0.55, from real scans: each colour layer also has grain of its own, and each layer's grain depends on that
  * layer's own tone (a layer with little dye has little grain). Before, the same amount was added to R, G and B: no colour
- * variation, and dark grey dots on saturated colours. Black and white looks: one layer. */
+ * variation, and dark grey dots on saturated colours. Black and white looks: one layer.
+ * 0.59: larger and softer (bigger cells, a third of the per-pixel noise), and clumped: a coarser grid adds slow mottle
+ * and also sets how strong the grain is around it, so it gathers in patches instead of sitting evenly. The amplitude
+ * per tone comes from grain_tables(): the shared grain by the pixel's luminance, each layer's own by its tone. */
 static void grain_row(const lut3d *lut, unsigned char *px, unsigned int width, unsigned int height, unsigned int y)
 {
-    const unsigned int s0 = 0x5bd1e995u, s1 = 0x27d4eb2fu, s2 = 0x3c6ef372u, s3 = 0x1b873593u, half = 0x8000u;
-    const int *tab = g_gtab[lut->mono], mono = lut->mono;
+    const unsigned int s0 = 0x5bd1e995u, s1 = 0x27d4eb2fu, s2 = 0x3c6ef372u, s3 = 0x1b873593u, s4 = 0x85ebca6bu, half = 0x8000u;
+    const int *tr = lut->gtab[0], *tg = lut->gtab[1], *tb = lut->gtab[2], mono = lut->mono;
     unsigned int x = 0, step, size = width > height ? width : height;
-    unsigned int v0, v1, v2, v3, u = 0, w = 0, wstep, c0 = 0, c1 = 0, c2 = 0, c3 = 0, y0, y1, y2, y3;
-    int f0, f1, f2, f3, a0, b0, a1, b1, ua = 0, ub = 0, va = 0, vb = 0, pa = 0, pb = 0, qa = 0, qb = 0;
+    unsigned int v0, v1, v2, v3, v4, u = 0, w = 0, z = 0x6000u, wstep, zstep, c0 = 0, c1 = 0, c2 = 0, c3 = 0, c4 = 0;
+    unsigned int y0, y1, y2, y3, y4;
+    int f0, f1, f2, f3, f4, a0, b0, a1, b1, za, zb, ua = 0, ub = 0, va = 0, vb = 0, pa = 0, pb = 0, qa = 0, qb = 0;
     if (!g_grain) return;
     step = size > GR_CELLS * 3 / 2 ? ((unsigned)GR_CELLS << 16) / size : 43690;   /* cells per pixel, 16.16; a cell is at least 1.5 pixels */
     wstep = step * GR_CW / 8;
+    zstep = step * 2 / 5;
     v0 = y * step;
     v1 = v0 + half;                                              /* the second grid, half a cell off both ways */
     v2 = y * wstep;
     v3 = v2 + half;
+    v4 = y * zstep + 0x6000u;
     y0 = v0 >> 16; f0 = (v0 >> 8) & 255;
     y1 = v1 >> 16; f1 = (v1 >> 8) & 255;
     y2 = v2 >> 16; f2 = (v2 >> 8) & 255;
     y3 = v3 >> 16; f3 = (v3 >> 8) & 255;
+    y4 = v4 >> 16; f4 = (v4 >> 8) & 255;
     a0 = grain_cell(0, y0, f0, s0); b0 = grain_cell(1, y0, f0, s0);
     a1 = grain_cell(0, y1, f1, s1); b1 = grain_cell(1, y1, f1, s1);
+    za = grain_cell(0, y4, f4, s4); zb = grain_cell(1, y4, f4, s4);
     if (!mono) {
         grain_cell2(0, y2, f2, s2, &ua, &va); grain_cell2(1, y2, f2, s2, &ub, &vb);
         grain_cell2(0, y3, f3, s3, &pa, &qa); grain_cell2(1, y3, f3, s3, &pb, &qb);
@@ -339,18 +378,26 @@ static void grain_row(const lut3d *lut, unsigned char *px, unsigned int width, u
         int d0 = b0 - a0, d1 = b1 - a1;
         for (; x < width && u < stop; x++, px += 3, u += step) {
             int n = a0 + a1 + ((d0 * (int)((u >> 8) & 255)) >> 8) + ((d1 * (int)(((u + half) >> 8) & 255)) >> 8);
+            int cl = za + (((zb - za) * (int)((z >> 8) & 255)) >> 8);          /* clump field, -65535..65535 */
             n = (n * GR_LUMA + tri_noise(x, y, 0x165667b1u) * GR_FINE) >> 12;
+            n = (n * (1024 + (cl * GR_CLUMP >> 16)) >> 10) + (cl * GR_COARSE >> 12);   /* (in that order: no mean shift) */
             n += (n * (n < 0 ? -n : n) >> 10) * GR_TAIL >> 8;     /* some grains stand out, as on film */
+            z += zstep;
+            if (z >> 16 != c4) { c4++; za = zb; zb = grain_cell(c4 + 1, y4, f4, s4); }
             if (mono) {
-                int r = px[0] + ((n * tab[px[0]] + (1 << 20)) >> 21);
+                int r = px[0] + ((n * tr[px[0]] + (1 << 20)) >> 21);
                 px[0] = px[1] = px[2] = (unsigned char)(r < 0 ? 0 : r > 255 ? 255 : r);
             } else {
                 int fx = (w >> 8) & 255, fz = ((w + half) >> 8) & 255;
                 int cu = (ua + pa + (((ub - ua) * fx) >> 8) + (((pb - pa) * fz) >> 8)) * GR_CHROMA >> 12;
                 int cv = (va + qa + (((vb - va) * fx) >> 8) + (((qb - qa) * fz) >> 8)) * GR_CHROMA >> 12;
-                int r = px[0] + (((n + cu) * tab[px[0]] + (1 << 20)) >> 21);
-                int g = px[1] + (((n - ((cu + cv) >> 1)) * tab[px[1]] + (1 << 20)) >> 21);
-                int b = px[2] + (((n + cv) * tab[px[2]] + (1 << 20)) >> 21);
+                /* The shared grain follows the pixel's luminance; each layer's own grain follows that layer's tone.
+                 * (Both per layer turned the shared grain into red-cyan noise in pale skies: the red layer was
+                 * still in the mids there, green and blue in the highlights.) */
+                int ln = n * tg[(px[0] * 77 + px[1] * 150 + px[2] * 29) >> 8];
+                int r = px[0] + ((ln + cu * tr[px[0]] + (1 << 20)) >> 21);
+                int g = px[1] + ((ln - ((cu + cv) >> 1) * tg[px[1]] + (1 << 20)) >> 21);
+                int b = px[2] + ((ln + cv * tb[px[2]] + (1 << 20)) >> 21);
                 if ((r | g | b) & ~255) {
                     r = r < 0 ? 0 : r > 255 ? 255 : r;
                     g = g < 0 ? 0 : g > 255 ? 255 : g;
@@ -529,7 +576,11 @@ static void on_message_halo(j_common_ptr c) { (void)c; }
  * clips it, so blurring the mask spread a small lamp so thin that it vanished. Here the light of a source counts by its
  * size and saturates (1 - exp): even a small lamp in the dark gets a full red-orange disc, about 1% of the width. */
 #define DISC_Q 0.35f        /* light of one map pixel of source, at 646 map pixels across */
-#define DISC_COLOURED 0.45f /* sources not clipped in all channels (coloured lights) count less */
+#define DISC_COLOURED 0.42f /* sources not clipped in all channels (coloured lights) count less (0.58: 0.45) */
+#define HOT_SPREAD 85.0f    /* the wide ring of the brightest sources: blur radius per pass = width / this */
+#define HOT_Q 0.12f         /* ... light per map pixel of white-hot core: ~10 pixels of core for a nearly full ring */
+#define HOT_RING 0.90f      /* ... its strength at full */
+#define HOT_KEEP 0.85f      /* ... and how much of its halo a lit surrounding cannot take away */
 #define DISC_SPREAD 215.0f  /* blur radius per pass = width / this */
 #define DISC_DARK 0.32f     /* surroundings (without the sources, 0..1) up to here: a full disc */
 #define DISC_BRIGHT 0.62f   /* ... from here on: almost none. Bright cloth, a sunlit table are not lamps */
@@ -622,23 +673,35 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
         float *area = (float *)malloc(n * sizeof(float));
         float *disc = (float *)malloc(n * sizeof(float));
         float *rest = (float *)malloc(n * sizeof(float));
+        float *hot = (float *)malloc(n * sizeof(float));
         tmp = (float *)malloc((size_t)(H->w > H->h ? H->w : H->h) * sizeof(float));
-        if (!tmp || !wide || !tight || !area || !disc || !rest) { free(tmp); free(wide); free(tight); free(area); free(disc); free(rest); free(m); free(km); free(lm); return 0; }
+        if (!tmp || !wide || !tight || !area || !disc || !rest || !hot) { free(tmp); free(wide); free(tight); free(area); free(disc); free(rest); free(hot); free(m); free(km); free(lm); return 0; }
         memcpy(area, m, n * sizeof(float));
         memcpy(tight, m, n * sizeof(float));
         memcpy(wide, m, n * sizeof(float));
         r = H->w / 400; if (r < 1) r = 1;      /* tight: ~0.25% of width per pass */
         box_blur(tight, tmp, H->w, H->h, r);
         for (i = 0; i < n; i++) disc[i] = km[i] > DISC_COLOURED * m[i] ? km[i] : DISC_COLOURED * m[i];
+        memcpy(hot, km, n * sizeof(float));
         box_blur(km, tmp, H->w, H->h, r);      /* white-hot cores, softened the same way */
         {
-            int rd = (int)(H->w / DISC_SPREAD + 0.5f);
+            int rd = (int)(H->w / DISC_SPREAD + 0.5f), rh = (int)(H->w / HOT_SPREAD + 0.5f);
             float var, q, sc = 646.0f / H->w;   /* the same for the conversion's map and the preview's smaller one */
             if (rd < 1) rd = 1;
+            if (rh < 2) rh = 2;
             var = 3.0f * ((2 * rd + 1) * (2 * rd + 1) - 1) / 12.0f;
             q = DISC_Q * sc * sc * 6.2832f * var;
             box_blur(disc, tmp, H->w, H->h, rd);
-            for (i = 0; i < n; i++) disc[i] = 1.0f - (float)exp(-q * disc[i]);
+            /* 0.59: the ring grows with the source. A white-hot core counts again over a wider radius and needs
+             * much more light to fill it, so the nearest headlights and street lights get a wide ring and a small
+             * or coloured lamp keeps just its disc. Before, every lamp got about the same one. */
+            var = 3.0f * ((2 * rh + 1) * (2 * rh + 1) - 1) / 12.0f;
+            box_blur(hot, tmp, H->w, H->h, rh);
+            for (i = 0; i < n; i++) {
+                float d1 = 1.0f - (float)exp(-q * disc[i]);
+                hot[i] = 1.0f - (float)exp(-HOT_Q * sc * sc * 6.2832f * var * hot[i]);
+                disc[i] = 1.0f - (1.0f - d1) * (1.0f - HOT_RING * hot[i]);
+            }
         }
         /* The surroundings, sources left out: blurred brightness over blurred share of non-source. */
         for (i = 0; i < n; i++) { rest[i] = 1.0f - m[i] + 0.01f; lm[i] *= rest[i]; }
@@ -667,6 +730,11 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
                 big = (lm[i] / rest[i] - DISC_DARK) / (DISC_BRIGHT - DISC_DARK);
                 big = big < 0 ? 0 : big > 1 ? 1 : big;
                 big = 1.0f - 0.85f * big * big * (3 - 2 * big);
+                /* 0.59: ... except around a compact white-hot source (the wide ring needs ~10 map pixels of core; a
+                 * large bright area is held back by the area test above). A headlight lights the road and the car in
+                 * front of it, so the nearest headlights, the brightest points in a night street, got the least
+                 * ring (0.22-0.55 of it, tail lights 0.8-1). */
+                big += (1.0f - big) * HOT_KEEP * hot[i];
                 d *= big;
                 g *= big;
                 g *= WIDE_GLOW * (1.0f - 0.65f * b * b * (3 - 2 * b));
@@ -683,6 +751,7 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
         free(area);
         free(disc);
         free(rest);
+        free(hot);
         free(lm);
         H->c = wide;
         H->k = km;
@@ -697,7 +766,7 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
  * without glow or cores skipped, the glow colour worked out only where there is glow. About 65% less time. */
 static void halo_row(const halo_t *H, unsigned char *px, unsigned int width, unsigned int out_h, unsigned int y)
 {
-    static const float tint[3] = { 1.0f, 0.22f, 0.06f };   /* redder than 0.13 (1, .30, .10) */
+    static const float tint[3] = { 1.0f, 0.28f, 0.03f };   /* 0.59: orange-red (0.58: 1, .22, .06) */
     float fy, wy, sx, ks;
     int y0, y1, tables;
     unsigned int x;
@@ -751,8 +820,10 @@ static void halo_row(const halo_t *H, unsigned char *px, unsigned int width, uns
          * the cores directly: a clipped white core turned khaki.) */
         if (c0) {
             float c = (c0[x0] * (1 - wx) + c0[x1] * wx) * (1 - wy) + (c1[x0] * (1 - wx) + c1[x1] * wx) * wy;
-            tg = 0.24f + 0.34f * c;
-            tb = 0.12f + 0.16f * c;
+            /* 0.59: warmer, towards orange rather than pinky-red: more green, much less blue. Over 800T's blue
+             * night the old blue share (half the green) screened to pink. */
+            tg = 0.28f + 0.30f * c;
+            tb = 0.03f + 0.12f * c;
         }
         {
             /* 0.30: the glow fades out on already bright pixels (film's shoulder): looks that cap white
@@ -1188,6 +1259,7 @@ static int apply_serial(const char *in_path, const char *out_path,
     g_progress = 0;
     g_cancel = 0;
     if (!filmlut_lut_init(&lut, lut_file, lut_len)) { snprintf(msg, msglen, "bad LUT file"); return 1; }
+    grain_tables(&lut);
 
     /* Temp file = out_path with its extension replaced by .TMP (the card only takes 8.3 names). */
     {
@@ -1795,6 +1867,7 @@ static int apply_any(const char *in_path, const char *out_path,
     g_progress = 0;
     g_cancel = 0;
     if (!filmlut_lut_init(&lut, lut_file, lut_len)) { snprintf(msg, msglen, "bad LUT file"); return 1; }
+    grain_tables(&lut);
     {
         const char *slash = strrchr(out_path, '/');
         const char *dot = strrchr(out_path, '.');

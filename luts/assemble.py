@@ -194,7 +194,19 @@ def scan800t(cube):
     return np.clip(np.rint(out * 255), 0, 255).astype(np.uint8)
 
 
+def floor(cube, floor_r=0.0, floor_g=0.0, floor_b=0.0, floor_p=4.0):
+    """Lifts the look's black by floor_* per channel, fading out towards its white ((white - x) / (white - black))
+    ** floor_p: a scan's floor rather than pure black, mids barely touched. Applied last, on the finished cube (0.59,
+    CineStill 800T: a slightly lifted blue-green floor, as real scans keep in deep shadows; outside review)."""
+    c = cube.astype(np.float32)
+    blk, wht = c[0, 0, 0], c[-1, -1, -1]
+    f = np.clip((wht - c) / np.maximum(wht - blk, 1), 0, 1) ** floor_p
+    out = c + np.array([floor_r, floor_g, floor_b], np.float32) * f
+    return np.clip(np.rint(out), 0, 255).astype(np.uint8)
+
+
 TOE_KEYS = ("toe_r", "toe_g", "toe_b", "toe_p")
+FLOOR_KEYS = ("floor_r", "floor_g", "floor_b", "floor_p")
 
 
 def apply_tweaks(cube, t):
@@ -213,6 +225,9 @@ def apply_tweaks(cube, t):
     mu = {k: v for k, v in t.items() if k in ("warm", "blue", "leaf")}
     if mu:
         cube = mute(cube, **mu)
+    fk = {k: v for k, v in t.items() if k in FLOOR_KEYS}
+    if fk:
+        cube = floor(cube, **fk)
     return cube
 
 

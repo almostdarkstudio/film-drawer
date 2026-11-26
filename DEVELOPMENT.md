@@ -35,8 +35,9 @@ accepts 8.3 names).
   - Dials (0.7+): front = aperture; rear = shutter (S/M) or EV (A/P); wheel = look.
   - DRO is switched off with the base style (DRO Auto re-tones each scene), saved/restored likewise.
   - Grain (C2): Auto (per-look default in `luts/app-looks.txt`) / Off / Low 25 / Medium 50 / High 80.
-    Luminance grain after the LUT, midtone-weighted, deterministic per pixel position (parallel ==
-    serial). Not shown in the browse preview.
+    Grain after the LUT, strongest in the lower mids and mids, little in dense highlights (tones relative to the
+    look's own black and white, 0.59), deterministic per pixel position (parallel == serial). Not shown in the
+    browse preview.
   - 40 looks in 8 groups (`luts/app-looks.txt`, assembled by `luts/assemble.py`). Aerochrome is our own
     (`luts/aerochrome.py`: estimated infrared -> red, red -> green, green -> blue; `luts/original.txt`). Almost Dark is derived from
     the Vision3 500T look (`luts/almostdark.py`).
@@ -348,3 +349,47 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
   the next ones into the same folder were fine). JobQueue now makes the folder when a job is queued, checks each result
   (under 16 KB: deleted and converted once more, then failed), and LOG.TXT gives each result's folder and size.
 - Film mode had a quick run-through on the a7R II before release; not yet run on another camera.
+
+## 0.59: grain by tone, halation by brightness
+From an outside review of the 800T conversions (DSC02273-76): halation and the tungsten shift convincing; the grain gave
+it away (the same size and strength everywhere, flat sky and highlights included; even per-pixel noise rather than
+clumps), the halos were too even across lamps of different brightness and a little pinky-red.
+- Grain amplitude per tone (grain_tables, per look, at the start of each conversion): tone measured between what the look
+  makes of black and of white, per channel. Colour: 0.42 in deep black, full 0.22-0.32, then cleaning up from just above
+  mid grey: 0.55 at 0.55, 0.14 at 0.80, 0.04 at white. Before, a fixed curve on absolute values only fell to 0.45, and
+  800T (white ~245) kept about two-thirds of its grain in skies and highlights. Black and white: 0.60 at 0.90, 0.25 at
+  white (were 0.75 / 0.50).
+- Second review of the first 0.59 (full grain up to t 0.45, scale 378): structure and halation better, but grain "a stop
+  heavier than an 800T scan, like pushed two stops", and a lit facade at night as gritty as the sky and the street. The
+  facade is ~100 of 255 (t 0.4): a midtone in numbers, a highlight to the eye in a night scene, so the fade now starts
+  just above mid grey. Overall scale 378 -> 250 (all looks, black and white too: the larger grain shows more at screen
+  size). The reviewer also saw the shadows of the dark building closer to black: its mean (~27) and 5th percentile
+  (11-12) are the same as in 0.58; the clumps made it read darker. 800T's black is (6, 8, 14); a lifted blue-green floor
+  would be a LUT change.
+- The shared grain follows the pixel's luminance, each layer's own grain its own tone. Both per layer turned the shared
+  grain into red-cyan noise in pale skies (red still in the mids, green and blue in the highlights).
+- 800T, grain 50, DSC02276, std of the added grain (0.58 -> 0.59): dark building 4.5 -> 2.4, lit facade 6.0 -> 3.2,
+  sky 4.6 -> 2.2; by output tone, lower mids 6.1 -> 3.6, 192-255 3.4 -> ~1.0. No mean shift (an earlier try with the
+  clumps multiplying themselves brightened by 0.3).
+- Structure: cells 1050 -> 920 per long side, per-pixel noise 30 -> 10, plus a clump grid 2.5 cells across that adds
+  slow mottle (GR_COARSE) and raises or lowers the grain around it (GR_CLUMP). Tail 160 -> 70: with the clumps it made
+  white specks in skies. Correlation at 4 pixels 0.33 -> 0.52. 820 cells looked too coarse at screen size.
+- Halation: white-hot cores (clipped in all channels) also count over a ~2.5x wider radius (HOT_*), needing ~10 map
+  pixels of core for a full ring: the nearest headlights and street lights get the widest rings, small and coloured
+  lamps keep their disc. Coloured sources 0.45 -> 0.42. The `rest` buffer holds the map in between (no extra memory).
+- Halo colour towards orange: far (1, .22-.24, .06-.12) -> (1, .28, .03), near the source amber as before. The blue
+  share screened to pink over 800T's blue night. Tried (1, .32, .04): read as peach.
+- Third review ("CineStill 800T, would not question it"; grain amount and tones right) left two refinements:
+  - The nearest headlights had less red ring than distant tail lights. The surroundings test (DISC_DARK..DISC_BRIGHT)
+    was the cause: a headlight lights the road and the car in front, so it kept 0.22-0.55 of its halo, tail lights
+    0.8-1. Around a compact white-hot source (the HOT_* ring, kept in its own map) that test now takes away at most
+    15% (HOT_KEEP). Large bright areas are still held back by the area test.
+  - Shadows nearly black: 800T's floor lifted blue-green, (6, 8, 14) -> (8, 15, 21), fading out by the mids (grey in 127
+    and above unchanged). `floor_*` in tweaks.txt, a step at the very end of apply_tweaks in assemble.py. The
+    intermediate LUTs (luts/out) were not on the Mac this was done on, so cs800t.lut got the same function directly
+    (assemble.floor on the 0.58 file); a full assemble run should give the same bytes.
+- Fourth review: would accept the preset; grain "crept up a touch" in the sky and lower half. The raised floor moved
+  tones up the grain curve (measured: sky +5%, facade +3%, lower half +1%, dark building -4%). Grain scale 250 -> 240.
+- Parallel == serial (pixels) for 800T, HP5, Gold 200, Classic Neg. Not yet timed on a camera (one more interpolated
+  grid and a luminance per pixel in grain_row).
+

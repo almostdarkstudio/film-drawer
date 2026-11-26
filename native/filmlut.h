@@ -9,6 +9,7 @@ typedef struct {
     int frac[256];            /* 0..256 weight toward the next grid point */
     int roff[256], goff[256], boff[256];   /* idx * byte stride per axis (precomputed) */
     int mono;                 /* 1: a black and white look */
+    int gtab[3][256];         /* grain amplitude per output value and channel (filmlut_apply fills it) */
 } lut3d;
 
 /* Stage timings of the last filmlut_apply(), for tuning (text, e.g. "cpus=4 dec=12.1s ..."). */
@@ -52,8 +53,10 @@ void filmlut_set_decode_options(int ifast, int plain);
  * Done by libjpeg's DCT scaling while decoding, so every stage gets faster. */
 void filmlut_set_scale(int eighths);
 
-/* Film grain added after the LUT, 0 (off) .. 100 (heavy). Luminance grain, strongest in the
- * midtones; deterministic per pixel position, so parallel and serial outputs stay identical. */
+/* Film grain added after the LUT, 0 (off) .. 100 (heavy). Strongest in the lower mids and mids, softer in
+ * the shadows, almost none in dense highlights (tones relative to the look's own black and white); soft
+ * clumps rather than per-pixel noise. Deterministic per pixel position, so parallel and serial outputs
+ * stay identical. */
 void filmlut_set_grain(int strength);
 
 /* Halation (CineStill-style red-orange glow around bright highlights), 0 (off) .. 100.
