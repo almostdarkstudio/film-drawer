@@ -205,6 +205,29 @@ def floor(cube, floor_r=0.0, floor_g=0.0, floor_b=0.0, floor_p=4.0):
     return np.clip(np.rint(out), 0, 255).astype(np.uint8)
 
 
+def warm_tones(cube, skin_shift=0.0, warm_sat=1.0):
+    """Hue and chroma on the chroma plane (YCbCr, luma kept): rotates red-magenta to orange hues (skin, shaded
+    skin) skin_shift degrees towards yellow, then scales orange to yellow chroma by warm_sat. Blues, greens and
+    near-greys untouched. Applied near the end, on the finished cube (0.59, Kodak Gold 200: shaded skin went
+    red-magenta, warm tones a little flat; outside review)."""
+    c = cube.astype(np.float32) / 255
+    y = c @ np.array([0.299, 0.587, 0.114], np.float32)
+    cb = (c[..., 2] - y) * 0.564
+    cr = (c[..., 0] - y) * 0.713
+    ang = np.degrees(np.arctan2(cr, cb)) % 360         # red ~109, orange/skin ~125-140, yellow ~171, magenta ~52
+    chroma = np.hypot(cb, cr)
+    near = np.clip(chroma * 10, 0, 1)                  # leave near-greys alone
+
+    def band(lo, top0, top1, hi):
+        return np.clip((ang - lo) / (top0 - lo), 0, 1) * np.clip((hi - ang) / (hi - top1), 0, 1)
+
+    a = np.radians(ang + skin_shift * band(45, 85, 135, 165) * near)
+    k = 1 + (warm_sat - 1) * band(110, 130, 170, 190) * near
+    cb, cr = chroma * k * np.cos(a), chroma * k * np.sin(a)
+    out = np.stack([y + cr / 0.713, y - (0.299 * (cr / 0.713) + 0.114 * (cb / 0.564)) / 0.587, y + cb / 0.564], -1)
+    return np.clip(np.rint(out * 255), 0, 255).astype(np.uint8)
+
+
 TOE_KEYS = ("toe_r", "toe_g", "toe_b", "toe_p")
 FLOOR_KEYS = ("floor_r", "floor_g", "floor_b", "floor_p")
 
@@ -225,6 +248,9 @@ def apply_tweaks(cube, t):
     mu = {k: v for k, v in t.items() if k in ("warm", "blue", "leaf")}
     if mu:
         cube = mute(cube, **mu)
+    wt = {k: v for k, v in t.items() if k in ("skin_shift", "warm_sat")}
+    if wt:
+        cube = warm_tones(cube, **wt)
     fk = {k: v for k, v in t.items() if k in FLOOR_KEYS}
     if fk:
         cube = floor(cube, **fk)

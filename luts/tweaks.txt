@@ -28,3 +28,7 @@ fuji400h   warm=0.74  blue=0.90  leaf=0.84
 superia400 warm=0.74  blue=0.95  leaf=0.95
 portra800  warm=0.86  blue=0.92  leaf=0.90
 ekta100vs  warm=0.87  blue=1.40  leaf=1.15
+# 0.59: Gold 200 against the user's own lab scans (two rolls) and an outside review: shaded skin went red-magenta
+# (towards yellow-orange: skin_shift), shadows cool (a warm, slightly lifted floor), warm tones a touch flat (warm_sat,
+# kept small: the real scans were no more saturated in warm tones than this look). warm_tones runs last but for floor.
+gold200   skin_shift=7  warm_sat=1.05  floor_r=11  floor_g=3  floor_b=-8  floor_p=3

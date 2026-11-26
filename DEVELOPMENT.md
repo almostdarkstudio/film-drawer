@@ -392,4 +392,20 @@ clumps), the halos were too even across lamps of different brightness and a litt
   tones up the grain curve (measured: sky +5%, facade +3%, lower half +1%, dark building -4%). Grain scale 250 -> 240.
 - Parallel == serial (pixels) for 800T, HP5, Gold 200, Classic Neg. Not yet timed on a camera (one more interpolated
   grid and a luminance per pixel in grain_row).
+- Kodak Gold 200 against the user's own lab scans (two Noritsu rolls: 33 and 37 untouched frames, many in low light, so
+  grainier than the norm) and an outside review of a garden portrait (DSC09078). Measured at 1024 px on 10 a7R II ISO
+  100 daylight photos:
+  - Colour, `warm_tones` (new, assemble.py; skin_shift / warm_sat) and a warm floor, in tweaks.txt. Skin hue (Lab)
+    56.7 -> 66.0 (scans 61-70), shaded skin 54.5 -> 63.9 (62-70); shadow b 0.5 -> 6.1 (7.1, 12.5); black (1, 6, 10)
+    -> (12, 9, 2), darkest 2% L 2.4 -> 3.5 (4.7-6.1). Warm-tone saturation only +5%: the reviewer asked for more, but
+    the scans were no more saturated in warm tones than the look already was (29-33, look 37). Gold had no tweaks
+    before, so gold200.lut got the full apply_tweaks directly; a full assemble run gives the same bytes.
+  - Grain, not changed yet: at default 35 Gold adds 1.7 in the mids at screen size, about half the lowest real estimate
+    (~3.5); light tones keep ~70% of the mid grain in every split of the scans, the brightest ~35%, here ~40% and ~15%.
+    The scans are grainier than the norm (mostly low light), and the reviewer wants Gold 200 grain fine in well-exposed
+    daylight skin, so the default stays at 35. A gentler highlight fade for all colour looks is still open (re-check
+    800T if so).
+  - Second review: signed off ("reads clearly as Gold"). Saw grain a little stronger in the arms' skin: measured on
+    DSC09078, luma grain on skin 1.57 -> 1.60, each channel within 0.03; the warmer, slightly more saturated skin likely
+    shows the same grain more. Left as is.
 
