@@ -119,7 +119,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private TextView cardText, cardGroup, cardStrip;
     private static final int ACCENT = 0xFFFFB020;   // amber: the current group
     private boolean helpVisible;
-    private String note;                          // short corner message ("Saved ..."), cleared after NOTE_MS
+    private String note;                          // short corner message ("Developed ..."), cleared after NOTE_MS
+    private String noteCode;                      // the film name in a "Developed" note, shown in edge-print orange
     private long noteUntil;
     private boolean reviewing;                    // quick review covering the live view
     private volatile File lastShot;               // newest JPEG on the card (look picker thumbnail)
@@ -189,6 +190,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         jobs = new JobQueue(looks, this, prefs);
         for (JobQueue.Job j : resumed) jobs.add(j);
         if (!resumed.isEmpty()) setNote("Resuming " + resumed.size() + " unfinished conversion" + (resumed.size() > 1 ? "s" : ""));
+        // Film mode: the roll in the camera sets the stock, grain and base style (before the camera opens).
+        roll = new Roll(prefs);
+        if (filmOn() && looks.byId(roll.lookId()) != null) {
+            lookIndex = looks.navIndex(roll.lookId(), false);
+            current = looks.nav.get(lookIndex);
+            grainIndex = roll.grainIndex();
+            baseIndex = roll.baseIndex();
+            sizeIndex = roll.sizeIndex();
+            sizeAuto = false;
+        }
+        developCheck();
         startPreviewThread();
         // Remember which photos already exist, so only new shots are queued.
         new Thread(new Runnable() {
@@ -199,7 +211,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 synchronized (knownJpegs) { knownJpegs.addAll(s); }
                 if (lastShot == null && !all.isEmpty()) lastShot = all.get(all.size() - 1);
                 knownLoaded = true;
-                try { Photos.allOutputs(); } catch (Throwable ignored) {}      // so PLAY is quick later: the dates are kept
+                try { Photos.allOutputs(); Photos.warm(); } catch (Throwable ignored) {}   // so PLAY is quick later: dates and names are kept
                 Diag.trace("scan done: " + all.size() + " JPEGs, newest " + (lastShot == null ? "none" : lastShot.getName()));
             }
         }, "filmlut-scan").start();
@@ -353,8 +365,79 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         ui.postDelayed(hideHelp, HELP_MS);
     }
 
+    // ---------------------------------------------------------------- Film mode (0.58)
+
+    private Roll roll;
+
+    private boolean filmOn() { return roll != null && roll.on() && roll.loaded(); }
+
+    private String rollStatus() { return roll.frames() + "/" + roll.length(); }
+
+    /** In Film mode the look, grain and base style belong to the roll: says so and returns true. */
+    private boolean filmLocked(String what) {
+        if (!filmOn()) return false;
+        setNote(what + " is fixed for this roll" + SEP + "MENU: Film mode");
+        return true;
+    }
+
+    /** Rolls whose frames are all done come back from the lab: shown in PLAY from now on. UI thread. */
+    private void developCheck() {
+        if (roll == null || jobs == null) return;
+        for (Roll.Released r : roll.develop(jobs)) {
+            Looks.Look lk = looks.byId(r.lookId);
+            noteCode = lk == null ? r.lookId : lk.name;
+            setNote("Developed  " + noteCode + SEP + r.frames + (r.frames == 1 ? " frame" : " frames"));
+            Diag.trace("roll developed " + r.lookId + " " + r.frames);
+        }
+    }
+
+    private boolean filmOffArmed, rewindArmed;           // waiting for the answer in the menu footer
+
+    /** Film mode off with a started roll: develop it now (its photos come back), or keep it in the camera, paused. */
+    private void filmOff(boolean develop) {
+        int n = develop ? roll.rewind() : 0;
+        String at = rollStatus();
+        roll.turnOff();
+        menuFooter = develop ? "Film mode off. " + n + (n == 1 ? " frame" : " frames") + " at the lab: they come back once developed."
+                             : "Film mode off. The roll is kept at " + at + ": Film mode on carries on with it.";
+        Diag.trace("film mode off, " + (develop ? "developing " + n : "roll paused at " + at));
+        developCheck();
+        updateTexts();
+    }
+
+    /** MENU > Film mode. On: carries on with a paused roll, else the next shot starts one. Off: pauses a started roll. */
+    private void toggleFilm() {
+        if (roll.on()) {
+            boolean paused = roll.frames() > 0;
+            String at = rollStatus();
+            roll.turnOff();
+            setNote("Film mode off" + (paused ? SEP + "roll paused at " + at : ""));
+        } else {
+            boolean resume = roll.loaded();
+            roll.turnOn();
+            Looks.Look lk = looks.byId(roll.lookId());
+            if (resume && lk != null) {
+                if (!lk.id.equals(look().id)) setLook(looks.navIndex(lk.id, false));
+                grainIndex = roll.grainIndex();
+                if (baseIndex != roll.baseIndex() || sizeIndex != roll.sizeIndex()) {
+                    if (camera != null) restoreUser("roll", UserSettings.G_SHARPNESS, UserSettings.G_STYLE, UserSettings.G_SIZE, UserSettings.G_DRO);
+                    baseIndex = roll.baseIndex();
+                    sizeIndex = roll.sizeIndex();
+                    sizeAuto = false;
+                    if (camera != null) applyBase();
+                }
+            }
+            hideReview();
+            if (browsing) enterShoot();                           // Film mode: no photos to look at until it is off
+            setNote(resume ? "Roll resumed  " + look().name + SEP + rollStatus() : "Film mode on" + SEP + "the roll starts with your next shot");
+        }
+        Diag.trace("film mode " + (roll.on() ? "on " + roll.lookId() + " " + rollStatus() : "off"));
+        updateTexts();
+    }
+
     /** Short message in the top-right corner (instead of covering the frame). */
     private void setNote(String s) {
+        if (noteCode != null && (s == null || !s.contains(noteCode))) noteCode = null;   // other notes: no orange
         note = s;
         noteUntil = System.currentTimeMillis() + NOTE_MS;
         if (topRight != null) updateStatus();
@@ -449,6 +532,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (browsing && showConverted) {
             Looks.Look lk = photos == null || photos.isEmpty() ? null : lookOf(photos.get(photoIndex));
             topLeft.setText("Converted" + (lk == null ? "" : SEP + lk.name));
+        } else if (!browsing && roll != null && roll.on()) {
+            topLeft.setText(look().name + SEP + rollStatus() + SEP + SIZE_SHORT[sizeIndex]);   // a roll in the camera: stock, frame, size
         } else {
             topLeft.setText((browsing && look().isFavourite() ? "Fav" + SEP : "") + look().name + SEP + grainShort()
                     + (browsing ? "" : SEP + SIZE_SHORT[sizeIndex] + SEP + BASE_SHORT[baseIndex]));
@@ -462,8 +547,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (!browsing) {
             text = helpVisible
                     ? "Film Drawer " + appVersion + "  (free, MIT licence)\n"
-                      + (wheelIsIso() ? "Up/Down: look   Wheel: ISO" : "Wheel/Up/Down: look") + "   Left/Right: group   Fn: base   C1: size   C2: grain\n"
-                      + (dialIndex == 1 ? "Front: shutter/EV   Rear: aperture" : "Front: aperture   Rear: shutter/EV") + "   Trash: controls   PLAY: photos   MENU"
+                      + (roll != null && roll.on() ? rollStatus() + "\n"
+                         : (wheelIsIso() ? "Up/Down: look   Wheel: ISO" : "Wheel/Up/Down: look") + "   Left/Right: group   Fn: base   C1: size   C2: grain\n")
+                      + (dialIndex == 1 ? "Front: shutter/EV   Rear: aperture" : "Front: aperture   Rear: shutter/EV") + "   Trash: controls" + (roll != null && roll.on() ? "" : "   PLAY: photos") + "   MENU"
                     : null;
         } else if (listing) {
             text = helpVisible ? "PLAY: shoot" : null;
@@ -476,7 +562,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                     + (helpVisible ? "\nLeft/Right/Wheel: photo   Trash: delete   Fn: all photos   PLAY: shoot" : "");
         } else {
             File p = photos.get(photoIndex);
-            boolean done = Photos.outputFor(p, look().tag).exists();
+            File o = Photos.findOutput(p, look().tag);
+            boolean done = o != null && !Photos.isHidden(o);                 // a roll at the lab: not yet
             text = p.getName() + "  " + (photoIndex + 1) + "/" + photos.size()
                     + (showOriginal ? "    ORIGINAL" : done ? "    showing the converted file" : "    preview")
                     + (helpVisible ? "\nLeft/Right: photo   Wheel: look   OK: convert   Trash: before/after   Fn: converted   PLAY: shoot" : "");
@@ -499,13 +586,20 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             int waiting = jobs.pending() - 1;
             if (waiting > 0) s += "  +" + waiting;
         }
-        if (note != null && System.currentTimeMillis() < noteUntil) s = s == null ? note : note + SEP + s;
+        if (note != null && System.currentTimeMillis() < noteUntil) s = note;     // for a few seconds, then the progress again
         else note = null;
         if (s == null && jobs.failed() > 0) s = jobs.failed() + " failed";
         if (s == null) {
             topRight.setVisibility(View.GONE);
         } else {
-            topRight.setText(s);
+            int at = note != null && noteCode != null ? s.indexOf(noteCode) : -1;
+            if (at >= 0) {
+                android.text.SpannableString sp = new android.text.SpannableString(s);
+                sp.setSpan(new android.text.style.ForegroundColorSpan(0xFFFFAA28), at, at + noteCode.length(), 0);
+                topRight.setText(sp);
+            } else {
+                topRight.setText(s);
+            }
             topRight.setVisibility(View.VISIBLE);
         }
     }
@@ -1423,10 +1517,33 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                     Looks.Look cur = current;
                     shot = new Shot(cur, grainFor(cur), 0);
                 }
-                jobs.add(new JobQueue.Job(f, Photos.outputFor(f, shot.look.tag), shot.look, shot.grain));
+                boolean film = roll != null && roll.on();
+                File out = film ? Photos.rollOutput(f, shot.look.tag, roll.nextFolder()) : Photos.outputFor(f, shot.look.tag);
+                if (film) Photos.hideNow(out);                     // hidden before it can be listed
+                jobs.add(new JobQueue.Job(f, out, shot.look, shot.grain));
                 lastShot = f;
+                if (film) {
+                    // Film mode: a frame on the roll, no review. The last one sends the roll to the lab.
+                    final int n = roll.frames() + 1;
+                    final boolean rollDone = roll.shot(out, shot.look.id, grainIndex, baseIndex, sizeIndex);
+                    ui.post(new Runnable() {
+                        public void run() {
+                            updateTexts();
+                            developCheck();
+                            if (rollDone) {                        // the Film mode menu: next film, or Film mode off
+                                Diag.trace("roll finished at " + n);
+                                if (!browsing && !menuOpen) openMenu();
+                                if (menuOpen && deleteFile == null && !favOpen && !aboutOpen) {
+                                    openFilmMenu();
+                                    menuFooter = "Roll finished: " + n + " frames at the lab. Choose the next film, or turn Film mode off.";
+                                    renderMenu();
+                                }
+                            }
+                        }
+                    });
+                }
                 // Quick review, unless another shot has been taken since (burst / shooting on).
-                if (reviewIndex > 0 && shot.time != 0 && shot.time == lastShutterMs) requestReview(f, shot.look);
+                else if (reviewIndex > 0 && shot.time != 0 && shot.time == lastShutterMs) requestReview(f, shot.look);
                 watchUntil = Math.max(watchUntil, System.currentTimeMillis() + 10000);
             } else {
                 growing.put(key, size);   // still being written (or first sighting): check again
@@ -1693,8 +1810,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             postShow(toBitmap(px, photo), gen);
             return;
         }
-        File out = Photos.outputFor(photo, lk.tag);
-        if (!original && out.exists()) {
+        File out = Photos.findOutput(photo, lk.tag);
+        if (!original && out != null && !Photos.isHidden(out)) {                  // not a roll still at the lab
             // Already converted with this look: show the real result rather than a preview of it.
             int[] px = Native.preview(out.getAbsolutePath(), PREVIEW_MAX_W, PREVIEW_MAX_H);
             if (stale(gen)) return;
@@ -1871,12 +1988,35 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     private static final int M_LOOK = 0, M_GRAIN = 1, M_BASE = 2, M_SIZE = 3, M_FOCUS = 4, M_AREA = 5, M_POINT = 6, M_ISO = 7,
             M_DIALS = 8, M_WHEEL = 9, M_REVIEW = 10, M_CONVERTED = 11, M_HELP = 12, M_ABOUT = 13, M_EXIT = 14, M_CONTROLS = 15,
-            M_FAV = 16;
-    /** The menu, and the Controls menu inside it. */
-    private static final int[] MENU_MAIN = {M_LOOK, M_GRAIN, M_BASE, M_SIZE, M_REVIEW, M_CONTROLS, M_FAV, M_CONVERTED, M_ABOUT, M_EXIT};
+            M_FAV = 16, M_FILM = 17, M_ROLL = 18, M_REWIND = 19, M_FILMON = 20, M_FILMLOOK = 21;
+    /** The menu, and the Controls and Film mode menus inside it. */
+    private static final int[] MENU_MAIN = {M_LOOK, M_GRAIN, M_BASE, M_SIZE, M_REVIEW, M_FILM, M_CONTROLS, M_FAV, M_CONVERTED, M_ABOUT, M_EXIT};
+    private int[] mainRows() {
+        if (roll == null || !roll.on()) return MENU_MAIN;
+        int[] r = new int[MENU_MAIN.length - 1];                  // Film mode: no All photos until it is off
+        int n = 0;
+        for (int i : MENU_MAIN) if (i != M_CONVERTED) r[n++] = i;
+        return r;
+    }
+
+    /** MENU > Film mode: on/off, the film, the roll length, and Rewind & develop once the roll has a frame. */
+    private int[] filmRows() {
+        return filmOn() && roll.frames() > 0 ? new int[]{M_FILMON, M_FILMLOOK, M_ROLL, M_REWIND} : new int[]{M_FILMON, M_FILMLOOK, M_ROLL};
+    }
+
     private static final int[] MENU_CONTROLS = {M_POINT, M_AREA, M_FOCUS, M_ISO, M_DIALS, M_WHEEL, M_HELP};
     private int[] menuRows = MENU_MAIN;
-    private int menuMainSel;                      // row to come back to from Controls
+    private int menuSub;                          // 0 the menu, 1 Controls, 2 Film mode
+    private int menuMainSel;                      // row to come back to from Controls / Film mode
+
+    private void openFilmMenu() {
+        if (menuSub == 0) menuMainSel = menuSel;
+        menuSub = 2;
+        menuRows = filmRows();
+        menuSel = 0;
+        menuFooter = null;
+        renderMenu();
+    }
 
     private boolean menuDirect;                   // Controls opened with Trash: going back closes the menu
     private long menuDirectAt;
@@ -1892,6 +2032,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     private void openControls() {
         menuMainSel = menuSel;
+        menuSub = 1;
         menuRows = MENU_CONTROLS;
         menuSel = 0;
         menuFooter = null;
@@ -1901,7 +2042,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     private void closeControls() {
         if (menuDirect) { closeMenu(); return; }
-        menuRows = MENU_MAIN;
+        menuSub = 0;
+        menuRows = mainRows();
         menuSel = menuMainSel;
         menuFooter = null;
         renderMenu();
@@ -1925,6 +2067,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private String menuLabel(int i) {
         switch (i) {
             case M_LOOK: return "Look";
+            case M_FILM: return "Film mode";
+            case M_FILMON: return "Film mode";
+            case M_FILMLOOK: return "Film";
+            case M_ROLL: return "Roll length";
+            case M_REWIND: return "Rewind & develop";
             case M_GRAIN: return "Grain";
             case M_BASE: return "Base style";
             case M_SIZE: return "JPEG size";
@@ -1947,6 +2094,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private String menuValue(int i) {
         switch (i) {
             case M_LOOK: return look().name;
+            case M_FILM: return roll.on() ? (roll.loaded() ? "On, " + rollStatus() : "On") : roll.loaded() ? "Off, paused at " + rollStatus() : "Off";
+            case M_FILMON: return roll.on() ? "On" : "Off";
+            case M_FILMLOOK: return look().name;
+            case M_ROLL: return roll.length() + " frames";
             case M_GRAIN: return grainIndex == 0 ? "Auto (" + look().grain + ")" : GRAIN_NAMES[grainIndex];
             case M_BASE: return BASE_NAMES[baseIndex];
             case M_SIZE: return sizeName();
@@ -2055,7 +2206,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         sb.append("Film Drawer ").append(appVersion);
         sb.setSpan(new android.text.style.ForegroundColorSpan(ACCENT), s0, sb.length(), 0);
         sb.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), s0, sb.length(), 0);
-        if (menuRows == MENU_CONTROLS) sb.append("  \u203a  Controls");
+        if (menuSub == 2) sb.append("  ›  Film mode");
+        if (menuSub == 1) sb.append("  \u203a  Controls");
         for (int row = 0; row < menuRows.length; row++) {
             int i = menuRows[row];
             sb.append('\n');
@@ -2064,7 +2216,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             sb.append("  ").append(menuLabel(i));
             if (v != null) {
                 for (int pad = menuLabel(i).length(); pad < 16; pad++) sb.append(' ');
-                if (v.length() == 0) sb.append("  ").append(i == M_FAV && favCount() > 0 ? favCount() + " marked " : "").append("›"); else sb.append("‹ ").append(v).append(" ›");
+                if (i == M_FILM) sb.append("  ").append(v).append(" ›");
+                else if (v.length() == 0) sb.append("  ").append(i == M_FAV && favCount() > 0 ? favCount() + " marked " : "").append("›"); else sb.append("‹ ").append(v).append(" ›");
             }
             sb.append("  ");
             if (row == menuSel) {
@@ -2075,7 +2228,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         sb.append("\n");
         int f = sb.length();
         sb.append(menuFooter != null ? menuFooter : "Up/Down: choose   Left/Right/OK: change   MENU: "
-                + (menuRows == MENU_CONTROLS && !menuDirect ? "back" : "close"));
+                + (menuSub != 0 && !menuDirect ? "back" : "close"));
         sb.setSpan(new android.text.style.ForegroundColorSpan(menuFooter != null ? ACCENT : 0xFF9A9A9A), f, sb.length(), 0);
         sb.setSpan(new android.text.style.RelativeSizeSpan(0.75f), f, sb.length(), 0);
         if (menuView.getTypeface() != android.graphics.Typeface.MONOSPACE) menuView.setTypeface(android.graphics.Typeface.MONOSPACE);
@@ -2116,7 +2269,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         favOpen = false;
         menuFooter = null;
         exitArmedUntil = 0;
-        if (menuRows != MENU_MAIN) { menuRows = MENU_MAIN; menuSel = menuMainSel; }
+        filmOffArmed = rewindArmed = false;
+        if (menuSub != 0) menuSel = menuMainSel;
+        menuSub = 0;
+        menuRows = mainRows();
+        if (menuSel >= menuRows.length) menuSel = 0;
         renderMenu();
         menuView.setVisibility(View.VISIBLE);
     }
@@ -2258,7 +2415,30 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     /** Left/right/OK on a value: step it. Returns false for action items. */
     private boolean menuChange(int item, int dir) {
+        if (filmOn() && (item == M_LOOK || item == M_GRAIN || item == M_BASE || item == M_SIZE)) {
+            menuFooter = "Fixed for this roll. Film mode off to change it (the roll is kept).";
+            return true;
+        }
         switch (item) {
+            case M_FILMON:
+                if (roll.on() && roll.frames() > 0) {             // a started roll: develop it, or keep it for later?
+                    filmOffArmed = true;
+                    menuFooter = "Develop these " + roll.frames() + " frames?  OK: develop   Left/Right: keep the roll for later";
+                    break;
+                }
+                toggleFilm();
+                menuRows = filmRows();
+                break;
+            case M_FILMLOOK:
+                if (filmOn()) menuFooter = "This roll is " + look().name + ". Rewind & develop to change the film.";
+                else changeLook(dir);
+                break;
+            case M_ROLL: {
+                int len = roll.length() == Roll.LENGTHS[0] ? Roll.LENGTHS[1] : Roll.LENGTHS[0];
+                if (!roll.setLength(len)) menuFooter = "This roll is at " + rollStatus() + ": " + len + " frames from the next roll.";
+                updateTexts();
+                break;
+            }
             case M_LOOK:
                 changeLook(dir);
                 break;
@@ -2306,6 +2486,27 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_CONTROLS:
                 openControls();
                 return;
+            case M_FILM:
+                openFilmMenu();
+                return;
+            case M_REWIND: {
+                if (!rewindArmed) {                               // cannot be undone: OK twice
+                    rewindArmed = true;
+                    menuFooter = "OK again to rewind and develop " + roll.frames() + (roll.frames() == 1 ? " frame" : " frames") + ".";
+                    renderMenu();
+                    return;
+                }
+                rewindArmed = false;
+                int n = roll.rewind();
+                Diag.trace("roll rewound at " + n);
+                menuRows = filmRows();
+                menuSel = 0;
+                menuFooter = "Rewound: " + n + (n == 1 ? " frame" : " frames") + " at the lab. Choose the next film, or turn Film mode off.";
+                developCheck();
+                updateTexts();
+                renderMenu();
+                return;
+            }
             case M_FAV:
                 openFavourites();
                 return;
@@ -2340,6 +2541,20 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private void menuKey(int sc) {
         if (aboutOpen) { renderMenu(); aboutOpen = false; return; }
         if (favOpen) { favouriteKey(sc); return; }
+        int row = menuRows[menuSel];
+        if (filmOffArmed) {
+            // "Develop these 14 frames?" OK: develop, Left/Right: keep the roll for later, anything else: never mind.
+            filmOffArmed = false;
+            if (row == M_FILMON && (sc == K_ENTER || sc == K_LEFT || sc == K_RIGHT)) {
+                filmOff(sc == K_ENTER);
+                menuRows = filmRows();
+                menuSel = 0;
+                renderMenu();
+                return;
+            }
+            menuFooter = null;
+        }
+        if (rewindArmed && !(row == M_REWIND && sc == K_ENTER)) { rewindArmed = false; menuFooter = null; }
         switch (sc) {
             case K_UP: case WHEEL_CCW: case D1_CCW: case D2_CCW: case D3_CCW:
                 menuSel = (menuSel + menuRows.length - 1) % menuRows.length; menuFooter = null; break;
@@ -2349,6 +2564,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case K_RIGHT:
                 if (menuRows[menuSel] == M_CONTROLS) { openControls(); return; }
                 if (menuRows[menuSel] == M_FAV) { openFavourites(); return; }
+                if (menuRows[menuSel] == M_FILM) { openFilmMenu(); return; }
                 menuChange(menuRows[menuSel], 1);
                 break;
             case K_ENTER: menuActivate(menuRows[menuSel]); return;
@@ -2356,7 +2572,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 // Trash may send two codes per press: the second must not close what the first opened.
                 if (menuDirect && sc != K_MENU && System.currentTimeMillis() - menuDirectAt < 400) return;
                 if (sc != K_MENU && System.currentTimeMillis() - favClosed < 400) return;
-                if (menuRows == MENU_CONTROLS) { closeControls(); return; }
+                if (menuSub != 0) { closeControls(); return; }
                 closeMenu();
                 return;
             case K_S1: case K_PLAY:
@@ -2422,6 +2638,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     }
 
     private void changeLook(int delta) {
+        if (filmLocked("The film")) return;
         int n = looks.nav.size();
         setLook(((lookIndex + delta) % n + n) % n);
     }
@@ -2443,6 +2660,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     /** Left/right in shoot mode: first look of the next / previous group (Kodak, Cine, Fuji, ...). */
     private void changeGroup(int dir) {
+        if (filmLocked("The film")) return;
         setLook(looks.groupJump(lookIndex, dir));
     }
 
@@ -2598,18 +2816,20 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 return true;
             case K_FN:
                 if (browsing) toggleConverted();                 // all photos <-> converted
-                else if (camera != null) cycleBase();
+                else if (camera != null && !filmLocked("Base style")) cycleBase();
                 return true;
             case K_C1:
-                if (!browsing && camera != null) cycleSize();
+                if (!browsing && camera != null && !filmLocked("JPEG size")) cycleSize();
                 return true;
             case K_C2:
+                if (filmLocked("Grain")) return true;
                 grainIndex = (grainIndex + 1) % GRAIN_NAMES.length;
                 updateTexts();
                 setNote("Grain: " + GRAIN_NAMES[grainIndex] + (grainIndex == 0 ? " (per look)" : ""));
                 return true;
             case K_PLAY:
                 if (browsing) enterShoot();
+                else if (roll != null && roll.on()) setNote("No photos in Film mode" + SEP + "MENU: Film mode");   // until it is off
                 else { showConverted = true; enterBrowse(); }     // the camera's own playback cannot show these
                 return true;
             case K_DELETE: case K_SK2:
@@ -2644,11 +2864,16 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         Photos.outputChanged(job.out);
         ui.post(new Runnable() {
             public void run() {
-                if (error == null) {
-                    setNote("Saved " + job.out.getName() + "  " + (millis / 100) / 10.0 + " s");
+                if (error == null && Photos.isHidden(job.out)) {
+                    // Film mode: a frame of a roll, which comes back with the rest of it (below).
+                } else if (error == null) {
+                    // Back from the lab: "Developed  CineStill 800T", the stock in film edge-print orange.
+                    noteCode = job.look.name;
+                    setNote("Developed  " + noteCode);
                 } else {
                     flash(job.in.getName() + " failed:\n" + error, 6000);
                 }
+                developCheck();                                   // the last frame of a roll at the lab
                 updateTexts();
             }
         });

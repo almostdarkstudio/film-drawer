@@ -27,12 +27,18 @@ differently, and several looks have changed: see the [releases](../../releases).
   CineStill 800T is tuned against real scans, with the red-orange halation around lights; 50D has a gentler one.
   **Almost Dark**, in Cinema, is the studio's own low-light look: deep blacks, rich lamplight, clean lights.
 - Shoot inside the app. A quick review shows each photo in its look, and the conversion runs in
-  the background (about 20-40 s per photo at JPEG size M on an a7R II, CineStill 800T the longest).
+  the background (about 20-40 s per photo at JPEG size M on an a7R II, CineStill 800T the longest). When it is done,
+  "Developed" and the film's name show for a moment.
+- **Film mode** (MENU > Film mode): load a roll of one film, 24 or 36 frames, and shoot it like film. The film, grain,
+  base style and size are fixed for the roll, there is no review, and PLAY is off. When the roll is finished (or you
+  rewind it), it is developed and the whole roll comes back at once.
 - Mark your **favourites** (MENU > Favourites) and they become the first group.
 - Browse any photo on the card, preview a look, and convert it. Or view your converted photos
   (the camera's own playback cannot show them) and delete the ones you don't want: PLAY.
-- Converted files go to `FILMDRAW\<folder>\<TAG><number>.JPG` (for example
-  `FILMDRAW\100MSDCF\P4002097.JPG` = DSC02097 in Portra 400). EXIF is kept.
+- Converted files go to a folder of the day the photo was taken, `FILMDRAW\<date>\<TAG><number>.JPG` (for example
+  `FILMDRAW\20261126\P4002097.JPG` = DSC02097 in Portra 400), and in Film mode to one folder per roll
+  (`FILMDRAW\ROLL0001\`). EXIF is kept. Up to 0.57 the folder was the camera's (`FILMDRAW\100MSDCF\`): those stay
+  where they are.
   (Up to 0.34 the folder was `FILMLUT`. The app still shows what is in it, and never moves it.)
 
 ## Example
@@ -50,6 +56,7 @@ lights. Made with 0.55 and resized for this page, no other editing. Photo: Almos
 | ![Menu](docs/screenshots/3-menu.jpg)<br>MENU | ![Browsing, Almost Dark](docs/screenshots/4-browse.jpg)<br>All photos: one converted with Almost Dark |
 | ![Quick review, Almost Dark](docs/screenshots/6-review.jpg)<br>Quick review: the shot you just took, in Almost Dark | ![Converted photos, Aerochrome](docs/screenshots/5-converted.jpg)<br>PLAY: your converted photos (Aerochrome) |
 | ![Favourites](docs/screenshots/7-favourites.jpg)<br>MENU > Favourites: mark the looks you use | ![Controls](docs/screenshots/8-controls.jpg)<br>Controls: press Trash while shooting |
+| ![Film mode](docs/screenshots/9-film-mode.jpg)<br>MENU > Film mode: a roll of CineStill 800T, 14 of 36 frames | |
 
 *Drawn for 0.55 from the app's layout with its own film engine; the camera has no screenshot function, and its fonts may differ a little.*
 
@@ -98,8 +105,8 @@ spare. A smaller JPEG size (C1) is quicker.
 | C2 | Grain: Auto (per look) / Off / Low / Medium / High | Same |
 | OK | Show / hide help | Convert this photo (converted photos: show / hide help) |
 | Trash | **Controls**: the list below, with Move focus point first | All photos: before / after. Converted photos: delete (asks first; only the converted copy, never the original) |
-| PLAY | Your converted photos, newest first (Fn: all photos) | Back to shooting (or half-press) |
-| MENU | Menu: look, grain, base style, JPEG size, quick review, **Controls**, **Favourites**, photos, about, **Exit application** | Same |
+| PLAY | Your converted photos, newest first (Fn: all photos). Not in Film mode | Back to shooting (or half-press) |
+| MENU | Menu: look, grain, base style, JPEG size, quick review, **Film mode**, **Controls**, **Favourites**, photos, about, **Exit application** | Same |
 
 **Controls** (Trash while shooting, or MENU > Controls):
 - **Move focus point**: the arrows move it, OK or half-press keeps it, Trash goes back to the earlier focus area.
@@ -112,6 +119,15 @@ spare. A smaller JPEG size (C1) is quicker.
 **Favourites** (MENU > Favourites): Left / Right for the group, Up / Down for the look, OK to mark or unmark it. Once
 you have marked one, Favourites is the first group, so Left / Right reaches it while shooting; after your last favourite
 the wheel carries on into Kodak. Each look also stays in its own group.
+
+**Film mode** (MENU > Film mode): Film mode On, the Film, and Roll length (24 or 36). The roll starts with your next
+shot, in the film chosen then; from that shot on the film, grain, base style and JPEG size stay as they were, and the top
+bar shows the frame count (`CineStill 800T · 14/36 · M`). There is no quick review, PLAY and All photos are off, and the
+photos convert out of sight. At the last frame the roll goes to the lab and this menu opens, to choose the next film or
+turn Film mode off. Once all its frames are converted the roll is developed ("Developed CineStill 800T · 36 frames") and
+is in PLAY, in its own folder. **Rewind & develop** (OK twice) finishes a roll early. Turning Film mode off with frames on
+the roll asks whether to develop them now (OK) or keep the roll for later (Left / Right). A burst uses one frame per
+photo, as a motor drive does. The camera's own playback still shows its original JPEGs.
 
 **Deleting a converted photo** (PLAY, then Trash): the app asks first, with Cancel chosen. Up, then OK, deletes it. Trash
 again, MENU, PLAY or a half-press cancels. Only the converted copy is deleted, and the app warns you if the original is

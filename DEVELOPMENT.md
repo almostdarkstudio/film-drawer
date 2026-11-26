@@ -331,3 +331,20 @@ explicit file list (never `samples\`, `luts\report\`, `luts\out*\`, `build\`, `k
   both pipelines, on-screen preview). 10-70% less time in that stage, most on night shots with separate lamps.
 - Rejected: the glow map from the embedded preview (about 40% less pre-pass, but ~10% glow difference). The look comes
   first; speed changes must leave the output byte-identical.
+
+## 0.58: Film mode, Developed note, date and roll folders
+- When a photo is converted the corner shows "Developed <film>" (the film name in edge-print orange, 0xFFFFAA28) for
+  NOTE_MS, instead of "Saved <file> <s>". Notes now replace the progress while they show.
+- Film mode (Roll.java): a roll of one look. The first frame loads it with the look, grain index, base and size of the
+  moment; those are locked (filmLocked) until the roll is rewound or finished. Frames convert as usual, into
+  FILMDRAW/ROLLnnnn, but are hidden (Photos.setHidden) from PLAY and All photos until every frame of the roll is done
+  (Roll.develop, checked on each job done, each frame and at start). PLAY and All photos are off while Film mode is on.
+  State is in the app's settings (film_*, roll_*), saved after each frame. At the last frame the Film mode menu opens.
+  Off with frames on the roll asks: develop (OK) or keep paused (Left/Right). Rewind & develop needs OK twice.
+- Outside Film mode, new conversions go to FILMDRAW/<YYYYMMDD> from the photo's EXIF DateTime (the app's clock is not
+  set: 1970); without one, the DCF folder as before. Photos.findOutput looks a converted photo up by name in an index of
+  the app's folders read once at start (Photos.warm) and kept current by outputChanged, so lookups do not stat folders.
+- Once on the a7R II, a conversion into a just-created date folder reported OK but left a 0-byte file (cause not found;
+  the next ones into the same folder were fine). JobQueue now makes the folder when a job is queued, checks each result
+  (under 16 KB: deleted and converted once more, then failed), and LOG.TXT gives each result's folder and size.
+- Film mode had a quick run-through on the a7R II before release; not yet run on another camera.

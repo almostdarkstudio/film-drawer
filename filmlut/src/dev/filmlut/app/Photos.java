@@ -5,7 +5,9 @@ import android.os.Environment;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Finds camera photos (DCIM/<folder>/*.JPG) and names their converted copies. */
 public final class Photos {
@@ -110,7 +112,7 @@ public final class Photos {
         for (File d : dirs) {
             if (!d.isDirectory()) continue;
             for (String n : jpegNamesIn(d)) {
-                if (isOutputName(n)) out.add(new File(d, n));
+                if (isOutputName(n) && !isHidden(new File(d, n))) out.add(new File(d, n));
             }
         }
         final java.util.Map<File, Long> t = new java.util.HashMap<File, Long>();
@@ -132,12 +134,32 @@ public final class Photos {
         return out;
     }
 
+    /** Film mode: converted photos of rolls not developed yet (absolute paths). PLAY does not list them. */
+    private static volatile Set<String> hidden = new HashSet<String>();
+
+    static synchronized void setHidden(Set<String> h) { hidden = h; }
+
+    /** One more, at once (the roll saves its full list right after). */
+    static synchronized void hideNow(File f) {
+        Set<String> h = new HashSet<String>(hidden);
+        h.add(f.getAbsolutePath());
+        hidden = h;
+    }
+
+    public static boolean isHidden(File f) { return hidden.contains(f.getAbsolutePath()); }
+
     /** When each converted photo was written, as read so far. */
     private static final java.util.Map<String, Long> written = new java.util.HashMap<String, Long>();
 
     /** This converted photo was written again or deleted. */
     public static void outputChanged(File f) {
-        synchronized (written) { written.remove(f.getPath()); }
+        synchronized (written) {
+            written.remove(f.getPath());
+            if (byName != null) {
+                if (f.exists()) byName.put(f.getName(), f);
+                else if (f.equals(byName.get(f.getName()))) byName.remove(f.getName());
+            }
+        }
     }
 
     /** The look tag of a converted photo (first 3 letters of its name). */
@@ -164,12 +186,18 @@ public final class Photos {
 
     /** The name of the photo (JPEG, else RAW) a converted photo was made from, or null if it is not on the card. */
     public static String originalOf(File output) {
-        String last5 = output.getName().substring(3, 8), raw = null;
-        String[] names = new File(new File(sd(), "DCIM"), output.getParentFile().getName()).list();
-        if (names != null) for (String n : names) {
-            String u = n.toUpperCase();
-            if (u.endsWith(last5 + ".JPG")) return n;
-            if (u.endsWith(last5 + ".ARW")) raw = n;
+        String last5 = output.getName().substring(3, 8), raw = null, folder = output.getParentFile().getName();
+        // A roll or date folder is not a DCIM folder: then look in each of them, newest first.
+        File dcf = new File(new File(sd(), "DCIM"), folder);
+        File[] dirs = dcf.isDirectory() ? new File[]{dcf} : folders();
+        for (int i = dirs.length - 1; i >= 0; i--) {
+            String[] names = dirs[i].list();
+            if (names != null) for (String n : names) {
+                String u = n.toUpperCase();
+                if (u.endsWith(last5 + ".JPG")) return n;
+                if (u.endsWith(last5 + ".ARW") && raw == null) raw = n;
+            }
+            if (raw != null) return raw;
         }
         return raw;
     }
@@ -179,14 +207,69 @@ public final class Photos {
      * The camera's card only accepts 8.3 upper-case names (e.g. FILMDRAW/100MSDCF/P4002097.JPG).
      */
     public static File outputFor(File photo, String tag) {
+        File f = findOutput(photo, tag);
+        return f != null ? f : new File(new File(appDir(), dateFolder(photo)), outputName(photo, tag));
+    }
+
+    /**
+     * The converted photo of this photo and look wherever it is (a DCF folder up to 0.57, a date or roll folder from
+     * 0.58, or the old FILMLUT folder), or null. From a list of the app's folders read once, not a search of each.
+     */
+    public static File findOutput(File photo, String tag) {
+        File f;
+        synchronized (written) { f = index().get(outputName(photo, tag)); }
+        return f != null && f.exists() ? f : null;
+    }
+
+    /** Reads the list of converted photos now (start-up, background thread), so the first lookup is quick. */
+    public static void warm() { synchronized (written) { index(); } }
+
+    /** Converted photos by name. Read once (on a background thread at start), then kept up to date by outputChanged(). */
+    private static java.util.Map<String, File> byName;
+
+    private static java.util.Map<String, File> index() {
+        if (byName != null) return byName;
+        java.util.Map<String, File> m = new java.util.HashMap<String, File>();
+        for (File top : new File[]{appDir(), oldDir()}) {
+            String[] dirs = top.list();
+            if (dirs == null) continue;
+            for (String dn : dirs) {
+                File dir = new File(top, dn);
+                for (String n : jpegNamesIn(dir)) if (isOutputName(n) && !m.containsKey(n)) m.put(n, new File(dir, n));
+            }
+        }
+        byName = m;
+        return m;
+    }
+
+    /**
+     * 0.58: outside Film mode, a converted photo goes in a folder of the day it was taken, FILMDRAW/20261126, from the
+     * photo's own EXIF date (the app's clock is not the camera's: it says 1970). Without one: its DCF folder, as before.
+     */
+    private static String dateFolder(File photo) {
+        try {
+            String dt = new android.media.ExifInterface(photo.getAbsolutePath()).getAttribute(android.media.ExifInterface.TAG_DATETIME);
+            if (dt != null && dt.length() >= 10) {
+                String day = dt.substring(0, 4) + dt.substring(5, 7) + dt.substring(8, 10);
+                if (day.matches("(19|20)[0-9]{6}")) return day;
+            }
+        } catch (Throwable ignored) {}
+        String folder = photo.getParentFile().getName().toUpperCase();
+        return folder.length() > 8 ? folder.substring(0, 8) : folder;
+    }
+
+    /** Film mode: a frame's converted photo goes in its roll's folder, FILMDRAW/ROLL0001/<TAG><last 5 of name>.JPG. */
+    public static File rollOutput(File photo, String tag, String rollFolder) {
+        return new File(new File(appDir(), rollFolder), outputName(photo, tag));
+    }
+
+    private static String outputName(File photo, String tag) {
         String base = photo.getName();
         int dot = base.lastIndexOf('.');
         if (dot > 0) base = base.substring(0, dot);
         if (base.length() > 5) base = base.substring(base.length() - 5);
-        String folder = photo.getParentFile().getName().toUpperCase();
-        if (folder.length() > 8) folder = folder.substring(0, 8);
-        String name = (tag + base).toUpperCase() + ".JPG";
-        File out = new File(new File(appDir(), folder), name), old = new File(new File(oldDir(), folder), name);
-        return !out.exists() && old.exists() ? old : out;      // converted before the folder was renamed
+        return (tag + base).toUpperCase() + ".JPG";
     }
+
+
 }

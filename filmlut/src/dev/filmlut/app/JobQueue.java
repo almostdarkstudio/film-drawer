@@ -50,6 +50,8 @@ public final class JobQueue {
     private final LinkedList<Job> outstanding = new LinkedList<Job>();   // queued + running, oldest first
 
     private static final String KEY = "pendingJobs";
+    /** A converted photo smaller than this is not a photo (the smallest real ones are hundreds of KB). */
+    private static final long MIN_OUTPUT = 16 * 1024;
 
     public JobQueue(Looks looks, Listener listener, SharedPreferences prefs) {
         this.looks = looks;
@@ -63,6 +65,9 @@ public final class JobQueue {
     }
 
     public synchronized void add(Job job) {
+        // A new date or roll folder is made now, seconds before anything is written into it.
+        File dir = job.out.getParentFile();
+        try { if (dir != null && !dir.isDirectory()) dir.mkdirs(); } catch (Throwable ignored) {}
         if (pending++ == 0) listener.onBusyChanged(true);
         outstanding.add(job);
         save();
@@ -170,25 +175,38 @@ public final class JobQueue {
                 return;
             }
             current = job;
-            String err;
-            long t0 = System.currentTimeMillis();
-            try {
-                File dir = job.out.getParentFile();
-                if (!dir.isDirectory() && !dir.mkdirs()) err = "cannot create " + dir;
-                else {
-                    Native.setGrain(job.grain);
-                    Native.setHalation(job.look.halation);
-                    err = Native.apply(job.in.getAbsolutePath(), job.out.getAbsolutePath(), looks.lut(job.look), 95);
+            String err = null;
+            long t0 = System.currentTimeMillis(), size = 0;
+            String retried = "";
+            // 0.58: once (on the a7R II) a conversion into a new folder reported OK but left an empty file. The result is
+            // checked: an empty or tiny file is deleted and converted once more; if it is still bad, the job fails.
+            for (int attempt = 0; attempt < 2; attempt++) {
+                try {
+                    File dir = job.out.getParentFile();
+                    if (!dir.isDirectory() && !dir.mkdirs()) err = "cannot create " + dir;
+                    else {
+                        Native.setGrain(job.grain);
+                        Native.setHalation(job.look.halation);
+                        err = Native.apply(job.in.getAbsolutePath(), job.out.getAbsolutePath(), looks.lut(job.look), 95);
+                    }
+                } catch (Throwable t) {
+                    err = t.toString();
                 }
-            } catch (Throwable t) {
-                err = t.toString();
+                if (err != null) break;
+                size = job.out.length();
+                if (size >= MIN_OUTPUT) break;
+                retried += "  (written " + size + " bytes" + (attempt == 0 ? ", converting again)" : ")");
+                if (!job.out.delete() && job.out.exists()) { err = "empty file written, cannot delete it"; break; }
+                if (attempt == 1) err = "the converted file came out empty (" + size + " bytes)";
+                else try { Thread.sleep(500); } catch (InterruptedException e) { break; }
             }
             long ms = System.currentTimeMillis() - t0;
             String st;
             try { st = Native.stats(); } catch (Throwable t) { st = "?"; }
             log(job.in.getName() + "  " + job.look.tag + " grain " + job.grain
-                    + (job.look.halation > 0 ? " halation " + job.look.halation : "") + "  " + ms + " ms  " + (err == null ? "OK -> " + job.out.getName() : "FAILED: " + err)
-                    + "  (queued after: " + (pending - 1) + ")\n    " + st);
+                    + (job.look.halation > 0 ? " halation " + job.look.halation : "") + "  " + ms + " ms  "
+                    + (err == null ? "OK -> " + job.out.getParentFile().getName() + "/" + job.out.getName() + " " + size / 1024 + " KB" : "FAILED: " + err)
+                    + retried + "  (queued after: " + (pending - 1) + ")\n    " + st);
             synchronized (this) {
                 current = null;
                 if (err == null) done++; else failed++;
