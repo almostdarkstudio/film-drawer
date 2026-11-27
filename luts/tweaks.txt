@@ -39,5 +39,7 @@ vision500t   warm_sat=1.10  blue_sat=1.25  floor_r=21  floor_g=15  floor_b=11  f
 # 0.59: Tri-X and HP5 (the same curve) crowded the top of the range against white: sunlit fur at 206-238 in the camera's
 # JPEG came out at 232-250 with little texture (outside review: "clipped highlights ... reads as digital"). A longer
 # shoulder spreads it to 222-249; mid grey 147 -> 146.
-trix400   shoulder=0.5
-hp5std    shoulder=0.5
+# Then a second, gentler roll-off in the very top (shoulder2, from 0.85 of white): the brightest greys still hit 250-251
+# like a wall (third review). Inputs 207 / 223 / 239 -> 220 / 231 / 246, evenly spread up to white.
+trix400   shoulder=0.5  shoulder2=0.7  shoulder2_from=0.85
+hp5std    shoulder=0.5  shoulder2=0.7  shoulder2_from=0.85

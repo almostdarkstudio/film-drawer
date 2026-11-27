@@ -446,4 +446,9 @@ clumps), the halos were too even across lamps of different brightness and a litt
   Tri-X 65 -> 45 and HP5 65 -> 45 (two stops of push is roughly 1.4-1.5x the grain), T-Max 400 45 -> 30 (much finer
   than Tri-X, RMS granularity ~10 vs 17). Delta 3200 stays 85 (fast at box speed; matched to real Delta scans), Acros 25
   and Pan F 10 unchanged.
+- Third review of Tri-X: grain fixed (peaks in the mids, clean blacks, no grit in the whites); the right-hand toy's face
+  "close to flat white", suspected clipped in the source. It is not clipped (camera JPEG 226-244, no channel at 254) but
+  out of focus at f/2.5: a third of the left toy's fine detail in the source (0.75 vs 2.18), which no curve can add.
+  The top of the Tri-X / HP5 curve still met white like a wall (241-251): `shoulder2` 0.7 from 0.85 of white, inputs
+  207 / 223 / 239 -> 220 / 231 / 246 (were 222 / 238 / 249); mid grey and the image median unchanged.
 

@@ -269,6 +269,8 @@ def apply_tweaks(cube, t):
     sk = {k: v for k, v in t.items() if k in ("shoulder", "shoulder_from")}
     if sk:
         cube = shoulder(cube, **sk)
+    if "shoulder2" in t:   # a second, steeper roll-off in the very top (Tri-X: the top of its curve stayed nearly flat)
+        cube = shoulder(cube, t["shoulder2"], t.get("shoulder2_from", 0.88))
     fk = {k: v for k, v in t.items() if k in FLOOR_KEYS}
     if fk:
         cube = floor(cube, **fk)
