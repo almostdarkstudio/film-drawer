@@ -24,7 +24,7 @@ ultramax   warm=0.85
 # Real Velvia has far stronger blues (saturation 40, ours 32).
 velvia50   blue=1.50
 # 0.54: the rest of the Kodak and Fuji looks against real scans; changed where better on nearly all held-out splits.
-fuji400h   warm=0.74  blue=0.90  leaf=0.84
+fuji400h   warm=0.74  blue=0.90  leaf=0.84  green_hue=26  green_sat=0.65  sat=0.76  warm_sat=0.90  bal_r=32  bal_g=35  bal_b=34  shoulder=0.35  shoulder_from=0.6  floor_r=3  floor_g=21  floor_b=20  floor_p=2
 superia400 warm=0.74  blue=0.95  leaf=0.95  green_hue=12  skin_shift=-3  warm_sat=0.92  floor_r=2  floor_g=12  floor_b=9  floor_p=2.5
 portra800  warm=0.86  blue=0.92  leaf=0.90  skin_shift=4  green_sat=0.74  floor_r=21  floor_g=13  floor_b=4  floor_p=3
 ekta100vs  warm=0.87  blue=1.40  leaf=1.15
@@ -65,3 +65,6 @@ pro160ns   green_hue=18  green_sat=0.62  sat=0.80  skin_shift=-3  warm_sat=0.88 
 superia1600   green_hue=8  floor_r=1  floor_g=0  floor_b=-4  floor_p=3
 # 0.59: Superia 400 (outside review: "reads as Superia 400 now"): Fuji greens, its green-cyan toe lifted into the lower
 # tones (crushed hedge and trousers get detail back), skin a touch cooler; grain 40 -> 55. Separate from Fuji C200.
+# 0.59: Fuji 400H after three outside reviews ("reads as 400H ... clearly lighter and mintier than your 160NS"): bright,
+# airy, pastel: mid-tones lifted about half to one stop (balance, all channels), a soft roll-off so whites keep detail
+# (shoulder), minty greens (green_hue, green_sat), skin paler (sat, warm_sat), a soft teal toe (floor).

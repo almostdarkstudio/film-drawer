@@ -515,4 +515,11 @@ clumps), the halos were too even across lamps of different brightness and a litt
   darkest 15% L 2.2 -> 5.6, a -2.1 -> -6.6; C200 3.1, -2.9); skin a touch cooler (skin_shift -3, warm_sat 0.92: hue 61.5
   -> 59.6, chroma 22.7 -> 20.4); grain 40 -> 55 (at 100%: shade 3.27, C200 2.35, Portra 800 3.70). Its warm / blue /
   leaf tweaks run before the new steps: superia400.lut got only the new steps.
+- Fuji 400H after three outside reviews ("reads as 400H ... clearly lighter and mintier than your 160NS"). The first
+  trial (greens and a cool lift) was "too dense and too saturated", with a purple-magenta toe on navy fabric. Now: mid-tones
+  lifted (balance +32 / +35 / +34 on all channels: median L over the 10 garden photos 23 -> 33, Pro 160NS 31), whites kept
+  off the wall (shoulder 0.35 from 0.6: toys at 250 or above 8.7% -> 7.3%, fine detail up), minty greens (green_hue 26,
+  green_sat 0.65: foliage hue 146, chroma 30.5 -> 22.6, lighter), paler skin (sat 0.76, warm_sat 0.90: chroma 20.9 ->
+  15.6), a soft teal toe with little red (floor 3 / 21 / 20, p 2: dark fabric L 4 -> 10, hue 185). Its warm / blue / leaf
+  tweaks run before the new steps: fuji400h.lut got only the new steps. All Fuji negatives now have Fuji's greens.
 
