@@ -482,4 +482,11 @@ clumps), the halos were too even across lamps of different brightness and a litt
     mixed scenes, so not pushed to 21.
   - Portra 400 already had warm / blue / leaf (mute), which run before the new steps: portra400.lut got only the new
     steps, which is what a full assemble run gives. Portra 160 and 800 not changed yet.
+- Portra 160 and 800 follow Portra 400 (skin_shift 4, warm floor, green_sat). 160: green_sat 0.68, floor as 400, the
+  softest of the three. 800, after two outside reviews ("reads well as Portra 800"): punchier and warmer by design
+  (green_sat 0.74, warm golden skin kept); a bigger warm-brown toe, floor (21, 13, 4) p 3 -> black (23, 16, 7), deepest
+  hedge / grass L 5.6 -> 7.4 / 5.0 -> 6.9; default grain 50 -> 60. At 50 it already added 800T's grain per tone, but 42%
+  of the sunlit garden frame was crushed shade, where grain cannot show. At 100% on the same frame: shade / mid 3.70 /
+  3.37 against Vision3 500T's 2.32 / 2.10, fading to 0.76 on the brightest. Both had warm / blue / leaf tweaks before
+  the new steps: their LUTs got only the new steps, as for Portra 400.
 

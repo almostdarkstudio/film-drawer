@@ -18,7 +18,7 @@ cs800t   keep_hue=0.8  yellow=0.80  green=0.81  toe_r=18  toe_g=22.5  toe_b=27  
 # 0.53: Portra 400 was too strong against 78 real scans (skin saturation 43, real 35-40): less in warm colours, some in
 # blues and greens. Better on every held-out split of the photographers.
 portra400  warm=0.80  blue=0.92  leaf=0.90  skin_shift=4  green_sat=0.70  floor_r=6  floor_g=4  floor_b=0  floor_p=4
-portra160  warm=0.78  blue=0.92  leaf=0.88
+portra160  warm=0.78  blue=0.92  leaf=0.88  skin_shift=4  green_sat=0.68  floor_r=6  floor_g=4  floor_b=0  floor_p=4
 colorplus  warm=0.74  blue=0.97  leaf=0.88
 ultramax   warm=0.85
 # Real Velvia has far stronger blues (saturation 40, ours 32).
@@ -26,7 +26,7 @@ velvia50   blue=1.50
 # 0.54: the rest of the Kodak and Fuji looks against real scans; changed where better on nearly all held-out splits.
 fuji400h   warm=0.74  blue=0.90  leaf=0.84
 superia400 warm=0.74  blue=0.95  leaf=0.95
-portra800  warm=0.86  blue=0.92  leaf=0.90
+portra800  warm=0.86  blue=0.92  leaf=0.90  skin_shift=4  green_sat=0.74  floor_r=21  floor_g=13  floor_b=4  floor_p=3
 ekta100vs  warm=0.87  blue=1.40  leaf=1.15
 # 0.59: Gold 200 against the user's own lab scans (two rolls) and an outside review: shaded skin went red-magenta
 # (towards yellow-orange: skin_shift), shadows cool (a warm, slightly lifted floor), warm tones a touch flat (warm_sat,
@@ -49,3 +49,5 @@ almostdark   floor_r=7  floor_g=4  floor_b=0  floor_p=5
 # 0.59: Portra 400 against 37 openly licensed Portra 400 scans (Wikimedia Commons, 24 photographers) and an outside review
 # that named it Portra 400 blind: soft, slightly lifted warm shadows (floor; a first, larger lift turned dark fabric milky),
 # skin from pink-magenta towards peach (skin_shift 4), foliage greens muted towards olive (green_sat 0.70).
+# 0.59: Portra 160 and 800 follow Portra 400 (same palette): 160 the softest; 800 warmer and punchier, with a bigger
+# warm-brown toe (outside review: "Portra 800 has quite a lot of shadow latitude ... a slightly lifted, warm-brown floor").

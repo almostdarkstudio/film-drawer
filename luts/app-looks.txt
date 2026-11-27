@@ -14,7 +14,7 @@
 ## Kodak negative | Kodak
 portra400   35   65
 portra160   20   60
-portra800   50   60
+portra800   60   60
 gold200     35
 ultramax    45
 colorplus   40

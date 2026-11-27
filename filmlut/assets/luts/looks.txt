@@ -1,6 +1,6 @@
 portra400|P40|Portra 400|35|0|Kodak negative;Kodak|0
 portra160|P16|Portra 160|20|0|Kodak negative;Kodak|0
-portra800|P80|Portra 800|50|0|Kodak negative;Kodak|0
+portra800|P80|Portra 800|60|0|Kodak negative;Kodak|0
 gold200|G20|Gold 200|35|0|Kodak negative;Kodak|0
 ultramax|UMX|UltraMax 400|45|0|Kodak negative;Kodak|0
 colorplus|CP2|ColorPlus 200|40|0|Kodak negative;Kodak|0
