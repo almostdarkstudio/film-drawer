@@ -31,7 +31,7 @@ eterna      30
 fuji400h    35
 pro160ns    20
 reala100    25
-superia400  40   70
+superia400  55   70
 superia1600 60
 fujic200    35
 vista200    35

@@ -510,4 +510,9 @@ clumps), the halos were too even across lamps of different brightness and a litt
 - Superia 1600: Fuji greens (green_hue 8, foliage hue 123 -> 129) and a little blue out of its lifted shadows (floor_b
   -4; its LUT already lifts black to cyan (16, 25, 25)): dark navy fabric read "cool magenta-purple" in the review; now
   a green-cyan toe (dark fabric hue 210 -> 169, L unchanged). Grain 60 kept.
+- Superia 400 (outside review: "reads as Superia 400 now ... clearly separate from your Fuji 200"): Fuji greens
+  (green_hue 12, foliage 118 -> 130); Superia's green-cyan toe, lifted into the lower tones (floor 2 / 12 / 9, p 2.5:
+  darkest 15% L 2.2 -> 5.6, a -2.1 -> -6.6; C200 3.1, -2.9); skin a touch cooler (skin_shift -3, warm_sat 0.92: hue 61.5
+  -> 59.6, chroma 22.7 -> 20.4); grain 40 -> 55 (at 100%: shade 3.27, C200 2.35, Portra 800 3.70). Its warm / blue /
+  leaf tweaks run before the new steps: superia400.lut got only the new steps.
 
