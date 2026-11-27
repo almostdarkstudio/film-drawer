@@ -547,6 +547,7 @@ typedef struct {
     float *c;          /* light-source cores (widely softened), 0..1: glow colour amber near lights */
     float *k;          /* light-source cores (tightly softened), 0..1: lifted to neutral white */
     float s;           /* strength 0..1 */
+    int neutral;       /* 0.59: a white glow (black and white looks, bloom_build) instead of the red-orange halo */
     /* 0.56, from halo_prepare() for one output width: where each column falls on the map (the same on every row),
      * and the largest glow and core value of each map row (rows without either are skipped). */
     unsigned int cw;
@@ -838,6 +839,115 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
     return 1;
 }
 
+#define BLOOM_LO 0.62f      /* black and white looks: output brightness where the glow starts, */
+#define BLOOM_HI 0.92f      /* ... and where it is full */
+#define BLOOM_TIGHT 200.0f  /* blur radius per pass = map width / this: a tight bloom, */
+#define BLOOM_WIDE 50.0f    /* ... and a wide, dreamy one */
+
+/* 0.59: a white glow for black and white looks (Infrared: Kodak HIE had no anti-halation layer, so its glowing foliage
+ * bled light into everything around it; outside review: "a soft, dreamy glow ... the biggest difference"). The glow
+ * comes from what the LOOK makes bright, not from the source: the 1/8-scale map is run through the LUT, so infrared
+ * foliage glows although it is mid-green in the camera's JPEG. Average-pooled (a glow is about areas, not small
+ * lamps), two blur radii, the glow spreads over the bright areas and around them; halo_row fades it on pixels that are
+ * already bright, so the foliage keeps its texture. White (neutral), so the picture stays black and white. */
+static int bloom_build(const char *path, halo_t *H, int strength, int use_preview, const lut3d *lut)
+{
+    struct jpeg_decompress_struct d;
+    halo_err e;
+    FILE *f;
+    JSAMPARRAY row;
+    float *volatile acc = NULL;
+    float *volatile wide = NULL;
+    float *tmp;
+    int x, y, r, ow, oh;
+    size_t n, i;
+    memset(H, 0, sizeof *H);
+    if (!strength || !lut || !(f = fopen(path, "rb"))) return 0;
+    jpeg_std_error(&e.pub);
+    e.pub.error_exit = on_error_halo;
+    e.pub.output_message = on_message_halo;
+    d.err = &e.pub;
+    if (setjmp(e.jump)) { jpeg_destroy_decompress(&d); fclose(f); free(acc); free(wide); return 0; }
+    {
+        long off = use_preview ? mpf_preview_offset(f) : 0;
+        if (fseek(f, off, SEEK_SET)) off = -1;
+        if (off < 0) { fclose(f); return 0; }
+        use_preview = off > 0;
+    }
+    jpeg_create_decompress(&d);
+    jpeg_stdio_src(&d, f);
+    jpeg_read_header(&d, TRUE);
+    d.out_color_space = JCS_RGB;
+    d.dct_method = JDCT_IFAST;
+    d.do_fancy_upsampling = FALSE;
+    d.scale_num = 1;
+    d.scale_denom = use_preview ? 2 : 4;
+    jpeg_start_decompress(&d);
+    H->w = (int)(d.output_width + 1) / 2;
+    H->h = (int)(d.output_height + 1) / 2;
+    n = (size_t)H->w * H->h;
+    acc = (float *)calloc(n * 3, sizeof(float));                   /* 2x2 sums of R, G, B */
+    if (!acc) longjmp(e.jump, 1);
+    row = (*d.mem->alloc_sarray)((j_common_ptr)&d, JPOOL_IMAGE, d.output_width * 3, 1);
+    for (y = 0; d.output_scanline < d.output_height; y++) {
+        const JSAMPLE *p;
+        float *cell = acc + (size_t)(y / 2) * H->w * 3;
+        jpeg_read_scanlines(&d, row, 1);
+        p = row[0];
+        for (x = 0; x < (int)d.output_width; x++, p += 3) {
+            float *c = cell + (x / 2) * 3;
+            c[0] += p[0]; c[1] += p[1]; c[2] += p[2];
+        }
+    }
+    ow = (int)d.output_width; oh = (int)d.output_height;
+    jpeg_finish_decompress(&d);
+    jpeg_destroy_decompress(&d);
+    fclose(f);
+    {
+        float *m = (float *)malloc(n * sizeof(float));
+        wide = (float *)malloc(n * sizeof(float));
+        tmp = (float *)malloc((size_t)(H->w > H->h ? H->w : H->h) * sizeof(float));
+        if (!m || !wide || !tmp) { free(m); free(wide); free(tmp); free(acc); return 0; }
+        for (y = 0; y < H->h; y++)
+            for (x = 0; x < H->w; x++) {
+                /* cells on the right / bottom edge may hold fewer than 4 pixels: count them */
+                int cnt = ((2 * x + 1 < ow) ? 2 : 1) * ((2 * y + 1 < oh) ? 2 : 1);
+                float *c = acc + ((size_t)y * H->w + x) * 3;
+                unsigned char o[3];
+                float v, t;
+                lut_px(lut, (int)(c[0] / cnt + 0.5f), (int)(c[1] / cnt + 0.5f), (int)(c[2] / cnt + 0.5f), o);
+                v = o[0] / 255.0f;                                 /* black and white: R = G = B */
+                t = (v - BLOOM_LO) / (BLOOM_HI - BLOOM_LO);
+                t = t < 0 ? 0 : t > 1 ? 1 : t;
+                m[(size_t)y * H->w + x] = t * t * (3 - 2 * t);
+            }
+        free(acc); acc = NULL;
+        memcpy(wide, m, n * sizeof(float));
+        r = (int)(H->w / BLOOM_TIGHT + 0.5f); if (r < 1) r = 1;
+        box_blur(m, tmp, H->w, H->h, r);
+        r = (int)(H->w / BLOOM_WIDE + 0.5f); if (r < 2) r = 2;
+        box_blur(wide, tmp, H->w, H->h, r);
+        for (i = 0; i < n; i++) {
+            float g = 0.6f * m[i] + 0.9f * wide[i];
+            m[i] = g > 1 ? 1 : g;
+        }
+        free(wide); wide = NULL;
+        free(tmp);
+        H->g = m;
+    }
+    H->s = strength / 100.0f;
+    H->neutral = 1;
+    return 1;
+}
+
+/* The glow for this look: black and white looks bloom white from what the look makes bright; colour looks get the
+ * halation (red-orange, from light sources in the source). */
+static int glow_build(const char *path, halo_t *H, int strength, int use_preview, const lut3d *lut)
+{
+    if (lut && lut->mono) return bloom_build(path, H, strength, use_preview, lut);
+    return halo_build(path, H, strength, use_preview);
+}
+
 /* Adds the glow to one output row y (of out_h rows): screen blend of a red-orange tint.
  * 0.56: the same arithmetic in the same order (byte-identical), less of it: column positions from halo_prepare(), rows
  * without glow or cores skipped, the glow colour worked out only where there is glow. About 65% less time. */
@@ -913,7 +1023,7 @@ static void halo_row(const halo_t *H, unsigned char *px, unsigned int width, uns
             a *= 1.0f - u * u * (3 - 2 * u);
         }
         for (k = 0; k < 3; k++) {
-            float tk = k == 0 ? tint[0] : k == 1 ? tg : tb;
+            float tk = H->neutral ? 1.0f : k == 0 ? tint[0] : k == 1 ? tg : tb;
             float c = 255.0f - (255.0f - px[k]) * (1.0f - a * tk);
             px[k] = (unsigned char)(c > 255.0f ? 255 : (int)(c + 0.5f));
         }
@@ -1177,7 +1287,7 @@ static void extras_build(const char *in_path, const lut3d *lut)
     free(px);
     filmlut_lut_rgb(lut, rgb, (unsigned)(w * h));
     memset(&H, 0, sizeof H);
-    if (g_halation && halo_build(in_path, &H, g_halation, 1)) {
+    if (g_halation && glow_build(in_path, &H, g_halation, 1, lut)) {
         halo_prepare(&H, (unsigned)w);
         for (y = 0; y < h; y++) halo_row(&H, rgb + (size_t)y * w * 3, (unsigned)w, (unsigned)h, (unsigned)y);
         halo_free(&H);
@@ -1404,7 +1514,7 @@ static int apply_serial(const char *in_path, const char *out_path,
 
     p.width = d.output_width;
     p.height = d.output_height;
-    halo_build(in_path, &p.halo, g_halation, 0);
+    glow_build(in_path, &p.halo, g_halation, 0, &lut);
     halo_prepare(&p.halo, d.output_width);
     p.rows_per_slot = d.rec_outbuf_height < 16 ? 16 : d.rec_outbuf_height;
     for (i = 0; i < NSLOT; i++) {
@@ -1765,7 +1875,7 @@ static int apply_parallel(const char *in_path, const char *tmp_path,
     markers_to_srgb(d.marker_list);                    /* what the LUT gives is sRGB; the thumbnail goes in at the stitch */
     p->markers = d.marker_list;
     p->units = (int)((d.output_height + 7) / 8);
-    halo_build(in_path, &p->halo, g_halation, 0);
+    glow_build(in_path, &p->halo, g_halation, 0, p->lut);
     halo_prepare(&p->halo, p->width);
     for (i = 0; i < PSLOTS; i++) {
         p->slot[i].rows = (*d.mem->alloc_sarray)((j_common_ptr)&d, JPOOL_IMAGE, d.output_width * 3, 8);
@@ -2191,12 +2301,59 @@ int *filmlut_preview_abortable(const char *path, int max_w, int max_h, int *out_
 static char g_ph_path[1024];
 static halo_t g_ph;
 
+/* 0.59: the screen preview of a black and white look (every pixel grey: the LUT is already applied) gets the white
+ * bloom of bloom_build, worked out from the preview itself (the same thresholds and radii for its width). */
+static int preview_bloom(int *argb, int w, int h, int strength)
+{
+    int mw = (w + 1) / 2, mh = (h + 1) / 2, x, y, r;
+    size_t n = (size_t)mw * mh, i;
+    float *m = (float *)calloc(n, sizeof(float)), *wide = (float *)malloc(n * sizeof(float));
+    float *tmp = (float *)malloc((size_t)(mw > mh ? mw : mh) * sizeof(float)), s = strength / 100.0f;
+    if (!m || !wide || !tmp) { free(m); free(wide); free(tmp); return 0; }
+    for (y = 0; y < h; y++)
+        for (x = 0; x < w; x++) m[(size_t)(y / 2) * mw + x / 2] += (argb[(size_t)y * w + x] & 255) / 255.0f;
+    for (y = 0; y < mh; y++)
+        for (x = 0; x < mw; x++) {
+            int cnt = ((2 * x + 1 < w) ? 2 : 1) * ((2 * y + 1 < h) ? 2 : 1);
+            float t = (m[(size_t)y * mw + x] / cnt - BLOOM_LO) / (BLOOM_HI - BLOOM_LO);
+            t = t < 0 ? 0 : t > 1 ? 1 : t;
+            m[(size_t)y * mw + x] = t * t * (3 - 2 * t);
+        }
+    memcpy(wide, m, n * sizeof(float));
+    r = (int)(mw / BLOOM_TIGHT + 0.5f); if (r < 1) r = 1;
+    box_blur(m, tmp, mw, mh, r);
+    r = (int)(mw / BLOOM_WIDE + 0.5f); if (r < 2) r = 2;
+    box_blur(wide, tmp, mw, mh, r);
+    for (i = 0; i < n; i++) { float g = 0.6f * m[i] + 0.9f * wide[i]; m[i] = g > 1 ? 1 : g; }
+    for (y = 0; y < h; y++)
+        for (x = 0; x < w; x++) {
+            int *p = argb + (size_t)y * w + x, v = *p & 255;
+            float a = s * 0.9f * m[(size_t)(y / 2) * mw + x / 2], u = (v - 150) / 100.0f, c;
+            u = u < 0 ? 0 : u > 1 ? 1 : u;
+            a *= 1.0f - u * u * (3 - 2 * u);                       /* as in halo_row: none on already bright pixels */
+            if (a < 0.002f) continue;
+            c = 255.0f - (255.0f - v) * (1.0f - a);
+            v = c > 255.0f ? 255 : (int)(c + 0.5f);
+            *p = (int)(0xFF000000u | (unsigned)v << 16 | (unsigned)v << 8 | (unsigned)v);
+        }
+    free(m); free(wide); free(tmp);
+    return 1;
+}
+
 int filmlut_preview_halation(const char *path, int *argb, int w, int h, int strength)
 {
     halo_t H;
     unsigned char *row;
     int x, y;
     if (strength <= 0 || w <= 0 || h <= 0) return 0;
+    {
+        size_t i, n = (size_t)w * h;
+        for (i = 0; i < n; i++) {
+            unsigned p = (unsigned)argb[i];
+            if (((p >> 16) & 255) != ((p >> 8) & 255) || ((p >> 8) & 255) != (p & 255)) break;
+        }
+        if (i == n) return preview_bloom(argb, w, h, strength);
+    }
     if (!g_ph.g || strcmp(g_ph_path, path) != 0) {
         halo_free(&g_ph);
         memset(&g_ph, 0, sizeof g_ph);

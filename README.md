@@ -21,7 +21,7 @@ By Almost Dark Studio: https://almostdarkstudio.com
 differently, and several looks have changed: see the [releases](../../releases).
 
 ## What it does
-- 40 looks in 8 groups: Kodak negative, Cinema, Fuji & Agfa negative, Fuji simulations, Slide,
+- 41 looks in 8 groups: Kodak negative, Cinema, Fuji & Agfa negative, Fuji simulations, Slide,
   Instant, Specialty (Metropolis, Aerochrome-style infrared), Black & white. Film grain per look,
   sized to the photo and with its own grain in each colour layer;
   CineStill 800T is tuned against real scans, with the red-orange halation around lights; 50D has a gentler one.
@@ -149,7 +149,7 @@ In menu order (your favourites, if you mark any, come first). The app opens on P
 | Slide | Kodachrome 64, Ektachrome E100, Ektachrome 100VS, Provia 100F, Astia 100F, Velvia 50 |
 | Instant | Polaroid 669, Polaroid SX-70, Fuji FP-100C |
 | Specialty | Lomo Metropolis, Aerochrome |
-| Black & white | Tri-X 400, Ilford HP5, T-Max 400, Delta 3200, Acros 100, Pan F Plus 50 |
+| Black & white | Tri-X 400, Ilford HP5, T-Max 400, Delta 3200, Acros 100, Pan F Plus 50, Infrared |
 
 ## Your camera settings
 While you shoot in Film Drawer, the app sets a neutral base so the looks come out consistently:

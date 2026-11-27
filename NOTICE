@@ -50,6 +50,7 @@ The full attribution and licence texts are in assets/luts/LICENSE.txt
 (also in the download as LOOKS-LICENSE.txt). In short:
 
 - Aerochrome: made for Film Drawer (luts/aerochrome.py), MIT like the app.
+- Infrared: made for Film Drawer (luts/infrared.py), MIT like the app.
 - Almost Dark: made for Film Drawer (luts/almostdark.py), MIT; modified from the EmulsionPresets Vision3 500T.
 - Looks derived from the RawTherapee Film Simulation Collection (2015-09-20)
   by Pat David, Pavlov Dmitry and Michael Ezra: CC BY-SA 4.0

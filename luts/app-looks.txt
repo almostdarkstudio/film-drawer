@@ -1,7 +1,8 @@
 # Looks shipped in the Film Drawer app, in menu order:
 #   <id>  [default grain 0-100 for "Grain: Auto"]  [strength % - blend toward the original, default 100]
 #         [halation 0-100]  [camera sharpness -3..3 while shooting this look, default 0 = unchanged]
-#         [halation 0-100: red-orange glow around light sources; CineStill stocks only (no remjet)]
+#         [halation 0-100: red-orange glow around light sources; CineStill stocks only (no remjet);
+#          black and white looks get a white glow from their own bright areas instead (Infrared)]
 # "## Name | Short" lines start a menu group (left/right jump between groups; the short name is used
 # in the group strip on the look card).
 # (ids from looks.txt, emulsion-trial.txt or candidates-rt.txt). Grain: fine stocks low, 400 medium, 800+ high.
@@ -59,3 +60,4 @@ tmax400     30
 delta3200   85
 acros100    25
 panf50      10
+infrared    50   100  50

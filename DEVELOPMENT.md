@@ -38,7 +38,7 @@ accepts 8.3 names).
     Grain after the LUT, strongest in the lower mids and mids, little in dense highlights (tones relative to the
     look's own black and white, 0.59), deterministic per pixel position (parallel == serial). Not shown in the
     browse preview.
-  - 40 looks in 8 groups (`luts/app-looks.txt`, assembled by `luts/assemble.py`). Aerochrome is our own
+  - 41 looks in 8 groups (`luts/app-looks.txt`, assembled by `luts/assemble.py`). Aerochrome is our own
     (`luts/aerochrome.py`: estimated infrared -> red, red -> green, green -> blue; `luts/original.txt`). Almost Dark is derived from
     the Vision3 500T look (`luts/almostdark.py`).
 - `hello/` - test app (`dev.filmlut.hello`) used to bring up the toolchain and engine.
@@ -522,4 +522,23 @@ clumps), the halos were too even across lamps of different brightness and a litt
   green_sat 0.65: foliage hue 146, chroma 30.5 -> 22.6, lighter), paler skin (sat 0.76, warm_sat 0.90: chroma 20.9 ->
   15.6), a soft teal toe with little red (floor 3 / 21 / 20, p 2: dark fabric L 4 -> 10, hue 185). Its warm / blue / leaf
   tweaks run before the new steps: fuji400h.lut got only the new steps. All Fuji negatives now have Fuji's greens.
+- New look: Infrared (INF), black-and-white infrared in the spirit of Kodak HIE / Rollei Infrared behind a deep red
+  filter, our own (luts/infrared.py, MIT, listed in original.txt). Infrared is estimated from visible colour as in
+  aerochrome.py (vegetation strong, blue sky / water weak, other surfaces about their red); output is neutral, so the app
+  treats it as black and white (lut->mono: its grain curve and scale). Foliage glows white (Wood effect), skies go nearly
+  black, skin pale; HIE contrast with a soft top. Default grain 50. Build: `python -I luts/infrared.py
+  luts/out-original/infrared.lut` before assemble.py (out-original was not on the Mac where it was made: the asset was
+  written directly by the same script).
+  Outside review of the first version ("a good first pass", read as Kodak HIE): foliage clipped to flat cut-outs,
+  shaded leaves black, cheeks blown, "closer to a threshold". Now vegetation is keyed on how green a colour is for its
+  brightness (shaded leaves count), leaves roll off (1 - exp(-4.5 g)), a milder S-curve and a shoulder. On DSC09076:
+  sunlit leaves at 250 or above 100% -> 17%, texture 1.0 -> 2.1; shaded leaves 64 -> 89; bright skin clipped 51% -> 3%.
+- Glow for black and white looks (bloom_build, glow_build in filmlut.c): HIE had no anti-halation layer, so glowing
+  foliage bled light around it ("a soft, dreamy glow ... the biggest difference"). The glow comes from what the LOOK makes
+  bright: the 1/8-scale map (average-pooled) is run through the LUT, output 0.62-0.92 -> glow, blurred at two radii
+  (width / 200 and / 50), added as a white screen by halo_row (halo_t.neutral), fading on already bright pixels as the
+  halation does, so the foliage keeps its texture. Only for black and white looks with halation on: colour looks go
+  through halo_build as before (800T night, 50D day, Tri-X and the 800T screen preview byte-identical). The screen preview
+  of a black and white look (every pixel grey after the LUT) builds the same glow from the preview (preview_bloom).
+  Infrared: halation 50; adds 6 levels on average, ~50 at the brightest edges. Stays grey; parallel == serial.
 

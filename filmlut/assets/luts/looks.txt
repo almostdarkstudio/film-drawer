@@ -38,3 +38,4 @@ tmax400|TMX|T-Max 400|30|0|Black & white;B&W|0
 delta3200|D32|Delta 3200|85|0|Black & white;B&W|0
 acros100|ACR|Acros 100|25|0|Black & white;B&W|0
 panf50|PF5|Pan F Plus 50|10|0|Black & white;B&W|0
+infrared|INF|Infrared|50|50|Black & white;B&W|0
