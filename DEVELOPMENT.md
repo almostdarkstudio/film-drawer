@@ -507,4 +507,7 @@ clumps), the halos were too even across lamps of different brightness and a litt
   lower tones (black (14, 18, 22); dark fabric on the wide shot L 9.4, "charcoal, not black"). Grain 25 -> 20 (50D's).
   Superia 400 / 1600 and 400H: trials with Fuji greens (and a cool lift for 400H) not committed; the review's numbered
   reads could not be matched to them with confidence.
+- Superia 1600: Fuji greens (green_hue 8, foliage hue 123 -> 129) and a little blue out of its lifted shadows (floor_b
+  -4; its LUT already lifts black to cyan (16, 25, 25)): dark navy fabric read "cool magenta-purple" in the review; now
+  a green-cyan toe (dark fabric hue 210 -> 169, L unchanged). Grain 60 kept.
 

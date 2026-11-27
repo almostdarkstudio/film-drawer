@@ -60,3 +60,6 @@ fujic200   green_hue=18  bal_r=-4  bal_g=0  bal_b=3  floor_r=4  floor_g=7  floor
 # greens (green_hue) but muted to sage (green_sat), all chroma down (sat), skin cooler and less saturated, cool mids, and
 # an airy cool lift so dark fabric is charcoal, not black.
 pro160ns   green_hue=18  green_sat=0.62  sat=0.80  skin_shift=-3  warm_sat=0.88  bal_r=-3  bal_g=0  bal_b=4  floor_r=14  floor_g=16  floor_b=19  floor_p=2.5
+# 0.59: Superia 1600: Fuji greens (green_hue 8; foliage 123 -> 129), and a little blue out of its already lifted cyan
+# shadows (floor_b -4): navy fabric read purple (outside review); now a green-cyan toe, Superia 1600's character.
+superia1600   green_hue=8  floor_r=1  floor_g=0  floor_b=-4  floor_p=3
