@@ -56,3 +56,7 @@ almostdark   floor_r=7  floor_g=4  floor_b=0  floor_p=5
 # only; yellows stay). Skin, shadows and balance follow the review (cooler, a green-cyan toe), not the Commons scans,
 # which measured warmer skin and slightly magenta shadows.
 fujic200   green_hue=18  bal_r=-4  bal_g=0  bal_b=3  floor_r=4  floor_g=7  floor_b=7  floor_p=4
+# 0.59: Fuji Pro 160NS, after three outside reviews ("reads as Pro 160NS now"): soft, low contrast, pastel. Fuji's cool
+# greens (green_hue) but muted to sage (green_sat), all chroma down (sat), skin cooler and less saturated, cool mids, and
+# an airy cool lift so dark fabric is charcoal, not black.
+pro160ns   green_hue=18  green_sat=0.62  sat=0.80  skin_shift=-3  warm_sat=0.88  bal_r=-3  bal_g=0  bal_b=4  floor_r=14  floor_g=16  floor_b=19  floor_p=2.5

@@ -498,4 +498,13 @@ clumps), the halos were too even across lamps of different brightness and a litt
   a small lift keeping a green-cyan toe (shadow a -4.9, darkest L 0.9 -> 2.4), `balance` (new: a mid-tone colour
   balance, black and white untouched) -4 / 0 / +3: highlights b 3.8 -> 3.0. Grain 35 kept (Gold's level). fujic200 had
   no tweaks, so its LUT got apply_tweaks directly; every LUT changed earlier is byte-identical with the new steps.
+- Fuji negatives: Superia 400, Superia 1600, 400H and Pro 160NS all put foliage at Kodak-like hues (113-123; C200
+  scans 132). Pro 160NS done, after three outside reviews ("reads as Pro 160NS now ... clearly different from both your
+  Fuji 200 and your Portra presets"): the first trial (Fuji greens only) read "closer to Fuji 200 than a professional
+  portrait stock", more saturated than Portra 400. Now Fuji's hue muted to sage (green_sat 0.62; foliage chroma 35.5 ->
+  21), all chroma down (`sat`, new in warm_tones, 0.80; median 12.5 -> 8.1, Portra 400 8.7), skin cooler and less
+  saturated (hue 56.8 -> 50.6, chroma 27.8 -> 18.2), cool mids (balance -3 / 0 / +4), an airy cool lift reaching into the
+  lower tones (black (14, 18, 22); dark fabric on the wide shot L 9.4, "charcoal, not black"). Grain 25 -> 20 (50D's).
+  Superia 400 / 1600 and 400H: trials with Fuji greens (and a cool lift for 400H) not committed; the review's numbered
+  reads could not be matched to them with confidence.
 

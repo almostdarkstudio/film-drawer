@@ -13,7 +13,7 @@ cs50d|C5D|CineStill 50D|20|50|Cinema;Cine|-2
 k2383|K23|Kodak 2383 Print|30|0|Cinema;Cine|0
 eterna|ETR|Fujifilm Eterna|30|0|Cinema;Cine|0
 fuji400h|F4H|Fuji 400H|35|0|Fuji & Agfa negative;Fuji|0
-pro160ns|16N|Fuji Pro 160NS|25|0|Fuji & Agfa negative;Fuji|0
+pro160ns|16N|Fuji Pro 160NS|20|0|Fuji & Agfa negative;Fuji|0
 reala100|R10|Reala 100|25|0|Fuji & Agfa negative;Fuji|0
 superia400|S40|Superia 400|40|0|Fuji & Agfa negative;Fuji|0
 superia1600|S16|Superia 1600|60|0|Fuji & Agfa negative;Fuji|0

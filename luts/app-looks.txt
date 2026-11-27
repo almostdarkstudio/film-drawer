@@ -29,7 +29,7 @@ k2383       30   80
 eterna      30
 ## Fuji & Agfa negative | Fuji
 fuji400h    35
-pro160ns    25
+pro160ns    20
 reala100    25
 superia400  40   70
 superia1600 60
