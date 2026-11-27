@@ -471,4 +471,15 @@ clumps), the halos were too even across lamps of different brightness and a litt
   about a quarter of 0.58's; area lifted more than 8 levels 1.8-8.8% -> 0.2-2.5%. Night byte-identical.
 - Idea, not done: real film has a fixed balance (a daylight stock goes cool in shade, warm under tungsten); the app keeps
   the camera's auto white balance. A per-look fixed white balance while shooting would be closer to film.
+- Portra 400 against 37 openly licensed Portra 400 scans (Wikimedia Commons, 24 photographers, 2048 px; one digital
+  "Portra filter" imitation left out) and an outside review, which named it Portra 400 blind. On the 10 garden photos:
+  - Shadows: deeper and slightly green (darkest 2% L 1.1, a -1.4) where the scans are lifted and warm (2.7, a +1.6,
+    b +4.6). A first lift to (12, 9, 6) matched the numbers but turned dark fabric "milky navy-grey"; floor (6, 4, 0)
+    -> black (9, 7, 3): dark fabric L 1.9 -> 3.1, "blacks have weight again ... still a gentle lift".
+  - Skin "a little pink-magenta in the cheeks": skin_shift 4, hue 60.5 -> 65.9 (warm peach).
+  - Greens: foliage chroma 32.5, scans 21.3 (Gold's scans showed the same); "closer to Ektar or Gold than Portra".
+    `green_sat` (new in warm_tones, yellow-green to green) 0.70 -> 27.7. A sunlit garden is more vivid than the scans'
+    mixed scenes, so not pushed to 21.
+  - Portra 400 already had warm / blue / leaf (mute), which run before the new steps: portra400.lut got only the new
+    steps, which is what a full assemble run gives. Portra 160 and 800 not changed yet.
 
