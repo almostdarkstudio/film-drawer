@@ -26,16 +26,24 @@ def smoothstep(e0, e1, x):
 
 def infrared(r, g, b):
     lum = 0.30 * r + 0.59 * g + 0.11 * b
-    # Vegetation by how green a colour is for its brightness, so leaves in shade count too (an absolute difference
-    # missed them, and the shaded hedge went black; outside review).
-    veg = smoothstep(0.06, 0.30, (g - 0.5 * (r + b)) / (g + 0.04))
     sky = smoothstep(0.02, 0.22, b - 0.5 * (r + g))                 # blue sky / water: dark in infrared
-    base = np.maximum(lum, 0.96 * r)                                # skin, wood, warm light: about their red
-    # Leaves reflect infrared several times more than they reflect green, but rolling off (1 - exp), so sunlit foliage
-    # is very bright and still keeps its texture, and shaded leaves come out mid to light grey.
-    leaf = 1.0 - np.exp(-4.5 * g)
-    ir = (base * (1.0 - 0.80 * sky)) * (1.0 - veg) + leaf * veg
+    # Skin, wood, warm light: about their red (0.92: a little more shoulder on bright skin; review: cheeks near clipping)
+    base = np.maximum(lum, 0.92 * r) * (1.0 - 0.80 * sky)
+    # Leaves reflect infrared several times more than they reflect green: an extra term from how green a colour is
+    # (green above red and blue, past a small dead zone for near-neutrals: 0.012; 0.03 left a dark hedge in deep shade,
+    # around 10 in the camera's JPEG, black; review), steep, so leaves in shade come out mid grey
+    # too, and smaller on surfaces already bright, so sunlit foliage keeps its texture. ADDED to the base, not a mask
+    # that switches between a leaf formula and a non-leaf one: a blurred edge between a pale blob and a dark leaf is a
+    # mix of the two colours, and the mask counted the mix as "not quite leaf", darker than both sides, which drew
+    # dark contour lines round every out-of-focus blob (outside review: "topographic lines"). Added, a mix lands
+    # between its two ends.
+    e = np.maximum(g - 0.5 * (r + b) - 0.012, 0.0)
+    ir = base + 0.65 * (1.0 - 0.80 * base) * (1.0 - np.exp(-22.0 * e))
     y = 0.88 * ir + 0.12 * r * (1.0 - sky)                          # a little visible red through the filter
+    # Leaves can add past white: a soft knee from 0.7 (slope 1 there) that reaches white at 1.2, so the brightest
+    # foliage rolls off rather than clipping flat.
+    u = np.clip(y - 0.7, 0, 0.5)
+    y = np.where(y > 0.7, 0.7 + u - u * u * (0.5 - 0.3) / 0.25, y)
     y = np.clip(y, 0, 1)
     # HIE: contrasty, but not a threshold: a mild S-curve, then a shoulder so faces and bright leaves keep detail.
     y = np.clip(y + 0.07 * np.sin(np.pi * (y - 0.5)), 0, 1)

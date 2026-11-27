@@ -31,7 +31,7 @@ pola669|669|Polaroid 669|35|0|Instant;Instant|0
 sx70|SX7|Polaroid SX-70|35|0|Instant;Instant|0
 fp100c|FPC|Fuji FP-100C|30|0|Instant;Instant|0
 metropolis|MTR|Lomo Metropolis|45|0|Specialty;Special|0
-aerochrome|AER|Aerochrome|35|0|Specialty;Special|0
+aerochrome|AER|Aerochrome|35|50|Specialty;Special|0
 trix400|TRX|Tri-X 400|45|0|Black & white;B&W|0
 hp5std|HPS|Ilford HP5|45|0|Black & white;B&W|0
 tmax400|TMX|T-Max 400|30|0|Black & white;B&W|0

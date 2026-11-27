@@ -99,18 +99,23 @@ static jboolean j_lut_argb(JNIEnv *env, jclass cls, jintArray jsrc, jintArray jd
     return ok;
 }
 
-static jboolean j_preview_halation(JNIEnv *env, jclass cls, jstring jpath, jintArray jpx, jint offset, jint w, jint h, jint strength)
+static jboolean j_preview_halation(JNIEnv *env, jclass cls, jstring jpath, jintArray jpx, jint offset, jint w, jint h,
+                                   jint strength, jbyteArray jlut)
 {
     const char *path;
     jint *px;
+    jsize len = 0;
+    unsigned char *lutbuf = NULL;
     int ok = 0;
     (void)cls;
     if (offset < 0 || w <= 0 || h <= 0 || offset + w * h > (*env)->GetArrayLength(env, jpx)) return JNI_FALSE;
+    if (jlut) lutbuf = copy_bytes(env, jlut, &len);      /* the look: decides which glow (NULL: halation) */
     path = (*env)->GetStringUTFChars(env, jpath, NULL);
     px = (*env)->GetIntArrayElements(env, jpx, NULL);
-    if (path && px) ok = filmlut_preview_halation(path, (int *)px + offset, w, h, strength);
+    if (path && px) ok = filmlut_preview_halation(path, (int *)px + offset, w, h, strength, lutbuf, (size_t)len);
     if (px) (*env)->ReleaseIntArrayElements(env, jpx, px, ok ? 0 : JNI_ABORT);
     if (path) (*env)->ReleaseStringUTFChars(env, jpath, path);
+    free(lutbuf);
     return ok ? JNI_TRUE : JNI_FALSE;
 }
 
@@ -149,7 +154,7 @@ static const JNINativeMethod methods[] = {
     { "setHalation", "(I)V",                                                     (void *)j_set_halation },
     { "preview",  "(Ljava/lang/String;II)[I",                                    (void *)j_preview },
     { "previewAbort", "()V",                                                     (void *)j_preview_abort },
-    { "previewHalation", "(Ljava/lang/String;[IIIII)Z",                          (void *)j_preview_halation },
+    { "previewHalation", "(Ljava/lang/String;[IIIII[B)Z",                        (void *)j_preview_halation },
     { "lutArgb",  "([I[III[B)Z",                                                 (void *)j_lut_argb },
 };
 

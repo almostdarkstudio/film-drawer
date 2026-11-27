@@ -44,8 +44,8 @@ static void *run_job(void *a) { job_t *j = (job_t *)a; j->rc = filmlut_apply(j->
 
 int main(int argc, char **argv)
 {
-    size_t len;
-    unsigned char *lut;
+    size_t len = 0;
+    unsigned char *lut = NULL;
     char msg[256], tmp[1024];
     if (argc < 5) { fprintf(stderr, "usage: see source\n"); return 2; }
     /* FILMLUT_DEC=ifast,plain (e.g. "1,0") selects decoder options for this run. */
@@ -128,11 +128,11 @@ int main(int argc, char **argv)
         if (getenv("FILMLUT_HALATION")) {
             int s = atoi(getenv("FILMLUT_HALATION"));
             double t1 = now();
-            int ok = filmlut_preview_halation(argv[2], px, w, h, s);
+            int ok = filmlut_preview_halation(argv[2], px, w, h, s, lut, len);
             double t2 = now();
-            ok = ok && filmlut_preview_halation(argv[2], px, w, h, 0) == 0;   /* strength 0 = no-op */
+            ok = ok && filmlut_preview_halation(argv[2], px, w, h, 0, lut, len) == 0;   /* strength 0 = no-op */
             printf("preview halation %d: %s, %.3fs (cached map: ", s, ok ? "ok" : "FAILED", t2 - t1);
-            t1 = now(); filmlut_preview_halation(argv[2], px, w, h, 1); printf("%.3fs)\n", now() - t1);
+            t1 = now(); filmlut_preview_halation(argv[2], px, w, h, 1, lut, len); printf("%.3fs)\n", now() - t1);
         }
         printf("preview: %dx%d in %.2fs\n", w, h, now() - t0);
         f = fopen(argv[3], "wb");

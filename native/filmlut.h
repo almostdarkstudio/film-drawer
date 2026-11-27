@@ -9,6 +9,7 @@ typedef struct {
     int frac[256];            /* 0..256 weight toward the next grid point */
     int roff[256], goff[256], boff[256];   /* idx * byte stride per axis (precomputed) */
     int mono;                 /* 1: a black and white look */
+    int irc;                  /* 1: a colour infrared look (Aerochrome: mid-green foliage comes out red) */
     int gtab[3][256];         /* grain amplitude per output value and channel (filmlut_apply fills it) */
 } lut3d;
 
@@ -60,12 +61,15 @@ void filmlut_set_scale(int eighths);
 void filmlut_set_grain(int strength);
 
 /* Halation (CineStill-style red-orange glow around bright highlights), 0 (off) .. 100.
- * Uses a quick 1/8-scale pre-pass to build a blurred highlight map; deterministic. */
+ * Black and white looks get a white glow from their own bright areas instead, and colour infrared looks
+ * (Aerochrome) a pink one from their bright foliage. Uses a quick 1/8-scale pre-pass; deterministic. */
 void filmlut_set_halation(int strength);
 
-/* Adds the halation glow (0..100) to a w x h ARGB preview of `path`, using the same highlight map as
- * the full conversion (cached for the last photo). Returns 1 if applied. Preview thread only. */
-int filmlut_preview_halation(const char *path, int *argb, int w, int h, int strength);
+/* Adds the glow (0..100) to a w x h ARGB preview of `path` that already has the look `lut_file` applied (the
+ * look decides which glow), as the full conversion does (the halation map is cached for the last photo).
+ * Returns 1 if applied. Preview thread only. */
+int filmlut_preview_halation(const char *path, int *argb, int w, int h, int strength,
+                             const unsigned char *lut_file, size_t lut_len);
 
 /* Test only: 1 = no preview / thumbnail in the output. */
 void filmlut_no_extras(int on);

@@ -41,10 +41,11 @@ public final class Native {
     public static native int[] preview(String path, int maxW, int maxH);
 
     /**
-     * Adds the halation glow (0..100) to a w x h ARGB preview of `path` (px[offset..]), using the
-     * same highlight map as the full conversion (cached for the last photo). Preview thread only.
+     * Adds the glow (0..100) to a w x h ARGB preview of `path` (px[offset..]) that already has the look
+     * `lut` applied, as the full conversion does: halation (map cached for the last photo), or for black
+     * and white and colour infrared looks a bloom from their own bright areas. Preview thread only.
      */
-    public static native boolean previewHalation(String path, int[] px, int offset, int w, int h, int strength);
+    public static native boolean previewHalation(String path, int[] px, int offset, int w, int h, int strength, byte[] lut);
 
     /** True if the photo is Adobe RGB (apply() handles that itself; previews use adobeLut). */
     public static native boolean isAdobe(String path);

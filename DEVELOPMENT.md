@@ -541,4 +541,55 @@ clumps), the halos were too even across lamps of different brightness and a litt
   through halo_build as before (800T night, 50D day, Tri-X and the 800T screen preview byte-identical). The screen preview
   of a black and white look (every pixel grey after the LUT) builds the same glow from the preview (preview_bloom).
   Infrared: halation 50; adds 6 levels on average, ~50 at the brightest edges. Stays grey; parallel == serial.
+- Second outside review of Infrared: "a very convincing IR preset", but "wavy, contour-like outlines around the leaf
+  clusters, almost like topographic lines" in the brightest foliage. Two causes, both fixed:
+  1. The LUT (main cause). It switched between a leaf formula and a non-leaf one with a vegetation mask. A blurred edge
+     between a pale out-of-focus blob (163,163,139 -> 162) and a dark leaf (32,53,0 -> 142) is a mix of the two, which
+     the mask counted as "not quite leaf": 70/30 came out at 150, darker than both ends, a dark line round every blob.
+     Now the leaf term is ADDED to the base (from green above red and blue, past a 0.03 dead zone; steep, 1 - exp(-22 e);
+     smaller on already bright surfaces), with a soft knee from 0.7 to white at 1.2. The same blend now rises 158 -> 182.
+     On 150,000 neighbouring-pixel pairs 4-40 px apart (quarter-size garden photos), worst dips below both ends (p99)
+     13.6 / 15.6 levels -> 4.7 / 9.9. Sunlit leaves 195-204 -> 228-237 (the same spread: texture kept), deep-shade leaves
+     87 -> 108, skin 245 -> 232, sky and neutrals unchanged.
+  2. The glow blend. halo_row faded the glow by each pixel's own brightness (150 -> 250); with the white glow, which
+     covers whole areas of foliage, that tone curve flattened to a slope of 0.2 between 165 and 200 at strength 50 (81
+     input levels in 150-230 -> 35 outputs) and folded back at 100. The white bloom now fades per AREA, in its map
+     (bloom_map: brightness blurred at the tight radius, faded up to 85% from 0.59 to 0.98), and halo_row adds it as a
+     plain screen. The screen preview uses the same bloom_map. Colour halation unchanged (800T and Portra 400 with
+     halation 60 byte-identical); parallel == serial pixels.
+  Third review ("close to finished"): the shaded hedge had slipped back to black, and the right-hand face was near
+  clipping. The hedge is around 10 in the camera's JPEG (6,14,1; 7,19,7), and 62% of it fell inside the leaf term's
+  0.03 dead zone: now 0.012 (near-black noise such as 3,5,2 still 0). Hedge median 0 -> 30, p75 31 -> 68; those
+  colours 24 / 43 -> 66 / 79. (A dead zone scaled by brightness lifted the hedge as well but brought the dips back,
+  p99 4.7 -> 13; the constant 0.012 gives 5.6.) Skin: base from 0.92 x red (was 0.96), a little more shoulder: face
+  p90 237 -> 230, at 245 or above 0.7% -> 0.3%; white unchanged. Pale blobs a little brighter (182 -> 198). The faint
+  rings left at the top are out-of-focus highlight discs in the source.
+- Aerochrome (luts/aerochrome.py; asset written directly by the script, as before), from an outside review that read it as
+  Aerochrome but "a hue rotation rather than a channel remap". It already was the remap (IR -> R, red -> G, green -> B);
+  the tells came from the IR estimate:
+  - Shade-lit white fur and pale stripes went vivid cyan: slightly bluish, they counted as sky (b - r), which cut their
+    IR. Sky is now blue for its brightness ((b - r) / (b + 0.04), 0.18 -> 0.42): white fur 185,213,225 -> 237,183,222
+    (pale pink-lavender, was 135,183,255); blue sky unchanged (110,150,210 -> 40,98,223).
+  - Foliage "flat and uniform, like a mask", most leaves at full red: the leaf term is now added and graded (as in
+    infrared.py), smaller on bright surfaces, with a soft knee to white at 1.3: sunlit 255,172,191, mid 226,67,96, dark
+    195,16,40, deep shade 127,8,20.
+  - Skin lemon-yellow: on non-foliage, non-sky colours, the yellow is halved (blue lifted halfway to the red / green
+    average): 220,170,140 -> 237,222,202 (was 255,222,174).
+  - An orange acer went yellow-olive: saturated warm colours (r - b 0.35 -> 0.65) get extra IR and a little less green:
+    200,110,40 -> 255,143,104 (was 232,200,104). Dark fabric stays black.
+  Second review: skin and hair "almost monochrome, a grey-yellow", mouths and teeth greenish-yellow. Of the yellow
+  (red / green average above blue) on non-foliage, non-sky colours, 35% now goes into blue and 25% off green: skin
+  220,170,140 -> 237,208,194, lips 190,110,105 -> 206,166,137, teeth and whites barely move.
+- Glow for colour infrared (Aerochrome, default 50; the review preferred the glow mock-up "with two tweaks"). A look is
+  colour infrared when mid-green foliage (70,115,45) comes out strongly red (lut->irc, from the LUT's content like
+  mono; only aerochrome.lut, no other look within 60 levels). It gets bloom_build, not halation:
+  - weighted to foliage, "where the IR is": a cell glows only where red stands 0.06-0.25 above green and blue, so white
+    toys and pale skin do not (the mock-up's bloom round a white toy "reads as haze");
+  - pink (1, 0.45, 0.55), about the average foliage colour;
+  - blacks kept (a slide film): the glow fades out below 80 by the brightest channel, which only steepens the curve
+    (slope >= 1 - a), so no banding. Dark pixels (< 40) move 0.2-1 level on average (the mock-up lifted them to
+    navy-grey).
+  The screen preview needs the look to choose the glow: filmlut_preview_halation / Native.previewHalation now take
+  the look's LUT (MainActivity.withLook passes the one it just applied). Halation (800T, Portra 400) and Infrared
+  byte-identical to before; parallel == serial pixels.
 
