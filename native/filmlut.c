@@ -53,6 +53,10 @@ int filmlut_lut_init(lut3d *l, const unsigned char *lut_file, size_t lut_len)
         unsigned char o[3];
         lut_px(l, 70, 115, 45, o);
         l->irc = !l->mono && o[0] > o[1] + 80 && o[0] > o[2] + 60;
+        /* Black and white infrared (Infrared), told the same way: foliage comes out light (191; the other black and
+         * white looks 76-103) and blue sky dark (9; the others 139-186). Gets its own grain curve (ir_weight). */
+        l->ir = l->mono && o[0] > 150;
+        if (l->ir) { lut_px(l, 110, 150, 210, o); l->ir = o[0] < 60; }
     }
     return 1;
 }
@@ -312,6 +316,17 @@ static float colour_weight(float t)
  * greys: near-white fur looked "sparkly, gritty" (same review; a Kodak HP4 roll of the user's also keeps ~0.35x the mid
  * grain in its brightest tones). Was 0.75 / 0.50 at 0.9 / 1.
  * (A first 0.59 lowered the densest highlights, 0.60 / 0.25 at 0.9 / 1, without evidence: back to the measured curve.) */
+/* 0.59, Infrared: full in the mids, then fading from light grey to almost nothing at white, as colour does. With
+ * mono_weight (full up to 0.65), an indoor frame at ISO 6400 had pale walls, a white scarf and a bottle covered in
+ * fine speckle that read as sensor noise (outside review; the camera's own JPEG is smooth there: it is our grain).
+ * Infrared makes much of a frame light grey (foliage, skin), so the light tones carry most of the picture. */
+static float ir_weight(float t)
+{
+    static const float px[9] = { 0, 0.05f, 0.12f, 0.25f, 0.42f, 0.55f, 0.68f, 0.82f, 1 };
+    static const float pw[9] = { 0.10f, 0.28f, 0.52f, 0.80f, 1, 0.80f, 0.45f, 0.15f, 0.03f };
+    return knots(px, pw, 9, t);
+}
+
 static float mono_weight(float t)
 {
     static const float px[9] = { 0, 0.05f, 0.12f, 0.25f, 0.42f, 0.65f, 0.80f, 0.90f, 1 };
@@ -333,7 +348,7 @@ static void grain_tables(lut3d *l)
         for (v = 0; v < 256; v++) {
             float t = (float)(v - b) / (float)(wt - b), w;
             t = t < 0 ? 0 : t > 1 ? 1 : t;
-            w = l->mono ? mono_weight(t) : colour_weight(t);
+            w = l->ir ? ir_weight(t) : l->mono ? mono_weight(t) : colour_weight(t);
             /* 0.59: colour 378 -> 240. The larger, clumped grain shows more at screen size than 0.58's at the same
              * strength: a stop heavier than an 800T scan, "pushed two stops" (outside review). 250 -> 240 after
              * 800T's lifted floor moved its tones up the curve (sky +5%). Black and white keeps 0.58's level, which

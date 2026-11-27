@@ -1767,8 +1767,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         int[] px = new int[2 + w * h];
         px[0] = w;
         px[1] = h;
-        byte[] lut = lutFor(photo, lk);
+        byte[] lut;
         try {
+            lut = lutFor(photo, lk);
             if (!Native.lutArgb(src, px, 2, w * h, lut)) { postFlash("LUT failed"); return null; }
         } catch (Exception e) { postFlash("LUT: " + e); return null; }
         if (lk.halation > 0) Native.previewHalation(photo.getAbsolutePath(), px, 2, w, h, lk.halation, lut);

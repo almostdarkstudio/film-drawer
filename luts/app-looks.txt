@@ -61,4 +61,4 @@ tmax400     30
 delta3200   85
 acros100    25
 panf50      10
-infrared    50   100  50
+infrared    35   100  50

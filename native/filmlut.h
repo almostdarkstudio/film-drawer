@@ -9,6 +9,7 @@ typedef struct {
     int frac[256];            /* 0..256 weight toward the next grid point */
     int roff[256], goff[256], boff[256];   /* idx * byte stride per axis (precomputed) */
     int mono;                 /* 1: a black and white look */
+    int ir;                   /* 1: black and white infrared (Infrared: foliage light, blue sky dark) */
     int irc;                  /* 1: a colour infrared look (Aerochrome: mid-green foliage comes out red) */
     int gtab[3][256];         /* grain amplitude per output value and channel (filmlut_apply fills it) */
 } lut3d;

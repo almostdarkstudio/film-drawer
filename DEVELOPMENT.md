@@ -526,7 +526,7 @@ clumps), the halos were too even across lamps of different brightness and a litt
   filter, our own (luts/infrared.py, MIT, listed in original.txt). Infrared is estimated from visible colour as in
   aerochrome.py (vegetation strong, blue sky / water weak, other surfaces about their red); output is neutral, so the app
   treats it as black and white (lut->mono: its grain curve and scale). Foliage glows white (Wood effect), skies go nearly
-  black, skin pale; HIE contrast with a soft top. Default grain 50. Build: `python -I luts/infrared.py
+  black, skin pale; HIE contrast with a soft top. Default grain 50 (35 from the indoor review, see below). Build: `python -I luts/infrared.py
   luts/out-original/infrared.lut` before assemble.py (out-original was not on the Mac where it was made: the asset was
   written directly by the same script).
   Outside review of the first version ("a good first pass", read as Kodak HIE): foliage clipped to flat cut-outs,
@@ -595,4 +595,28 @@ clumps), the halos were too even across lamps of different brightness and a litt
   The screen preview needs the look to choose the glow: filmlut_preview_halation / Native.previewHalation now take
   the look's LUT (MainActivity.withLook passes the one it just applied). Halation (800T, Portra 400) and Infrared
   byte-identical to before; parallel == serial pixels.
+- withLook: lutFor() throws, so it is called inside the try again (the first 0.59 did not compile).
 
+### 0.59 grain: accurate rather than heavy (decision, after review on Windows)
+The aim from 0.59 on is accurate grain: grain that behaves like film by tone, not 0.58's mostly uniform overlay, and
+nothing that reads as digital noise. The defaults stay as set here; 0.58's heavier levels are not restored on purpose.
+Checked on the 8 own photos (grainm.py measure, 1024 px), 0.59 / 0.58 at each look's default setting:
+- Colour mids 0.63-0.87, darks 0.39-0.91, light tones 0.25-0.60. Fine and slide films lose least in the mids (Ektar,
+  E100, Kodachrome, 50D, Velvia 0.81-0.87); looks with a lifted black lose most in the darks (2383, SX-70, Polaroid
+  669, Metropolis, 800T 0.39-0.48), as their darks sit at the look's own black, where the curve is 0.42.
+- Black and white near 0.58 in the mids (Tri-X 0.96, Delta 3200 0.89), light tones 0.70-0.76.
+- No look got heavier, none stands out. Getting 0.58's mid level back would need about 1.5x the setting (UltraMax ~68).
+- UltraMax's two usable real scans measure far noisier than even 0.58 (scanner noise): no guide to the level.
+- Running time (PC, 32-bit plain C, median of 5): 800T, Portra 400, HP5 and Aerochrome as 0.58 within noise; Infrared's
+  glow adds ~150 ms (~40%), to be timed on the camera. A full assemble.py run here gives all 41 LUTs byte for byte.
+
+
+### Infrared indoors (review of INF02279, ISO 6400, on the camera)
+"Fix the highlight grain and it's a convincing indoor IR frame." The pale wall, a white scarf and a bottle had fine speckle
+that read as sensor noise. The camera's JPEG is smooth there: it was our grain. mono_weight keeps full grain up to t 0.65,
+and Infrared makes much of a frame light grey. Infrared (lut->ir: mono, foliage 70,115,45 -> >150, blue sky -> <60; only
+infrared.lut) now has ir_weight: full in the mids, 0.45 at 0.68, 0.15 at 0.82, 0.03 at white. Default grain 50 -> 35
+("closer to pushed 3200"). Other looks byte-identical; parallel == serial pixels.
+The glass "glowing like a light source" holds yellow juice, which the look turns white (as IR film does). A tighter glow
+(wide radius halved, weight 0.9 -> 0.6) changed little round it and would weaken the foliage glow: kept as it was.
+Not yet checked on the earlier garden frames (not on this PC).
