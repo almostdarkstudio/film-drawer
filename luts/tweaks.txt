@@ -51,3 +51,8 @@ almostdark   floor_r=7  floor_g=4  floor_b=0  floor_p=5
 # skin from pink-magenta towards peach (skin_shift 4), foliage greens muted towards olive (green_sat 0.70).
 # 0.59: Portra 160 and 800 follow Portra 400 (same palette): 160 the softest; 800 warmer and punchier, with a bigger
 # warm-brown toe (outside review: "Portra 800 has quite a lot of shadow latitude ... a slightly lifted, warm-brown floor").
+# 0.59: Fujicolor C200 against 27 openly licensed C200 scans (Wikimedia Commons, 17 photographers) and an outside review.
+# Greens rendered like the Kodak looks (Lab hue 114; C200 scans 132, Kodak scans 100-115): green_hue 18 (Lab, foliage
+# only; yellows stay). Skin, shadows and balance follow the review (cooler, a green-cyan toe), not the Commons scans,
+# which measured warmer skin and slightly magenta shadows.
+fujic200   green_hue=18  bal_r=-4  bal_g=0  bal_b=3  floor_r=4  floor_g=7  floor_b=7  floor_p=4

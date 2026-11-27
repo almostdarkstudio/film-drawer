@@ -489,4 +489,13 @@ clumps), the halos were too even across lamps of different brightness and a litt
   of the sunlit garden frame was crushed shade, where grain cannot show. At 100% on the same frame: shade / mid 3.70 /
   3.37 against Vision3 500T's 2.32 / 2.10, fading to 0.76 on the brightest. Both had warm / blue / leaf tweaks before
   the new steps: their LUTs got only the new steps, as for Portra 400.
+- Fujicolor C200 against 27 openly licensed C200 scans (Wikimedia Commons, 17 photographers, 1920 px) and two outside
+  reviews. Foliage sat at Lab hue 114, like the Kodak looks (Portra scans 115, the user's Gold scans 100); C200 scans
+  132, "that vivid, cool emerald is the Fuji 200 signature". The YCbCr steps cannot reach yellow-green foliage without
+  moving yellows (side by side on that wheel), so `green_hue` (new, assemble.py) rotates in Lab, hue ~105-165 only:
+  18 -> foliage 134, strong yellows 95 -> 93. Skin, shadows and balance follow the review, not the Commons scans (which
+  measured warmer skin, 64 against 57, and slightly magenta shadows): skin left at C200's own (56.4, cooler, slight pink),
+  a small lift keeping a green-cyan toe (shadow a -4.9, darkest L 0.9 -> 2.4), `balance` (new: a mid-tone colour
+  balance, black and white untouched) -4 / 0 / +3: highlights b 3.8 -> 3.0. Grain 35 kept (Gold's level). fujic200 had
+  no tweaks, so its LUT got apply_tweaks directly; every LUT changed earlier is byte-identical with the new steps.
 

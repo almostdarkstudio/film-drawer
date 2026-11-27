@@ -232,6 +232,51 @@ def warm_tones(cube, skin_shift=0.0, warm_sat=1.0, blue_sat=1.0, green_sat=1.0):
     return np.clip(np.rint(out * 255), 0, 255).astype(np.uint8)
 
 
+_M = np.array([[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]])
+_WP = np.array([0.95047, 1.0, 1.08883])
+
+
+def _to_lab(c):
+    c = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    xyz = c @ _M.T / _WP
+    f = np.where(xyz > 0.008856, np.cbrt(xyz), 7.787 * xyz + 16 / 116)
+    return np.stack([116 * f[..., 1] - 16, 500 * (f[..., 0] - f[..., 1]), 200 * (f[..., 1] - f[..., 2])], -1)
+
+
+def _from_lab(lab):
+    fy = (lab[..., 0] + 16) / 116
+    f = np.stack([fy + lab[..., 1] / 500, fy, fy - lab[..., 2] / 200], -1)
+    xyz = np.where(f ** 3 > 0.008856, f ** 3, (f - 16 / 116) / 7.787) * _WP
+    c = xyz @ np.linalg.inv(_M).T
+    return np.where(c <= 0.0031308, 12.92 * c, 1.055 * np.clip(c, 0, None) ** (1 / 2.4) - 0.055)
+
+
+def green_hue(cube, green_hue=0.0):
+    """Rotates foliage greens (Lab hue ~105-165) by green_hue degrees, + towards cyan; yellows (~95 and below) and
+    near-greys stay. In Lab, where yellow-green foliage and yellow separate (on the YCbCr wheel they sit side by side).
+    0.59, Fujicolor C200: foliage at Lab hue 114 like the Kodak looks; real C200 scans 132, Kodak scans 100-115."""
+    c = cube.astype(np.float64) / 255
+    lab = _to_lab(c)
+    C = np.hypot(lab[..., 1], lab[..., 2]); H = np.degrees(np.arctan2(lab[..., 2], lab[..., 1])) % 360
+    w = np.clip((H - 98) / 14, 0, 1) * np.clip((185 - H) / 20, 0, 1) * np.clip(C / 10, 0, 1)
+    Hn = np.radians(H + green_hue * w)
+    out = _from_lab(np.stack([lab[..., 0], C * np.cos(Hn), C * np.sin(Hn)], -1))
+    changed = w > 0
+    res = np.where(changed[..., None], np.clip(np.rint(out * 255), 0, 255), cube)
+    return res.astype(np.uint8)
+
+
+def balance(cube, bal_r=0.0, bal_g=0.0, bal_b=0.0):
+    """A colour balance in the mids: adds bal_* levels at mid grey, fading to nothing at the look's own black and white
+    (4x(1-x) of each channel's position between them), so blacks and whites keep their colour. 0.59, Fujicolor C200:
+    cooler overall than the Kodak looks (outside review)."""
+    c = cube.astype(np.float32)
+    blk, wht = c[0, 0, 0], c[-1, -1, -1]
+    x = np.clip((c - blk) / np.maximum(wht - blk, 1), 0, 1)
+    out = c + np.array([bal_r, bal_g, bal_b], np.float32) * 4 * x * (1 - x)
+    return np.clip(np.rint(out), 0, 255).astype(np.uint8)
+
+
 def shoulder(cube, shoulder=0.0, shoulder_from=0.55):
     """A longer highlight roll-off: lowers the tones above shoulder_from (of the look's own white, per channel) by up to
     shoulder * (white - x), easing in with a smoothstep, so white stays white and the top of the range is spread out
@@ -268,6 +313,11 @@ def apply_tweaks(cube, t):
     wt = {k: v for k, v in t.items() if k in ("skin_shift", "warm_sat", "blue_sat", "green_sat")}
     if wt:
         cube = warm_tones(cube, **wt)
+    if "green_hue" in t:
+        cube = green_hue(cube, t["green_hue"])
+    bk = {k: v for k, v in t.items() if k in ("bal_r", "bal_g", "bal_b")}
+    if bk:
+        cube = balance(cube, **bk)
     sk = {k: v for k, v in t.items() if k in ("shoulder", "shoulder_from")}
     if sk:
         cube = shoulder(cube, **sk)
