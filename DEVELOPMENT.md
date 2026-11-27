@@ -451,4 +451,24 @@ clumps), the halos were too even across lamps of different brightness and a litt
   out of focus at f/2.5: a third of the left toy's fine detail in the source (0.75 vs 2.18), which no curve can add.
   The top of the Tri-X / HP5 curve still met white like a wall (241-251): `shoulder2` 0.7 from 0.85 of white, inputs
   207 / 223 / 239 -> 220 / 231 / 246 (were 222 / 238 / 249); mid grey and the image median unchanged.
+- CineStill 50D in daylight (10 garden photos, EV 12-14, halation 50): the 0.59 wide ring for white-hot sources and the
+  lit-surroundings exemption put orange-brown glows on black trousers next to white piping and sunlit toys (red added
+  +40% on 6 of 10 frames, locally +50..72 levels). A JPEG cannot tell a lamp from sunlit white cloth; the exposure can.
+  photo_ev() (new, EXIF ExposureTime / FNumber / ISO) gates both: in full up to EV 8 (HOT_EV_FULL), none from EV 11
+  (HOT_EV_NONE); night streets here are EV 5-6. No EXIF: in full. Night 800T byte-identical; daylight 50D back to 0.58
+  within 3 levels (the remainder is the warmer tint). 0.58 itself already put a pink glow on the trousers there: the
+  disc and glow, unchanged here.
+- filmlut_is_adobe now reads EXIF through app1_load(), shared with photo_ev().
+- Almost Dark (our own look, from Vision3 500T) takes 500T's fixes, keeping its deeper blacks for punch (the user):
+  grain 45 -> 35 like 500T; a small warm floor (7, 4, 0), black (7, 7, 10) -> (14, 11, 10), darkest L about 3.3
+  against 500T's 5.0; mids unchanged; no warm_sat / blue_sat (it is already the punchier of the two). It had no tweaks
+  before, so almostdark.lut got apply_tweaks directly.
+- Outside review of 50D in the garden: grain, colour, sharpness right for 50D (the close-up "at the cold end": its fur
+  is neutral in both the camera JPEG and the look, b +2.9 / +3.9; the cold read is pale-blue toys in open shade with the
+  camera's auto white balance; not changed). Halation still "too wide and patchy" in daylight even at 0.58's level: in
+  daylight 50D shows "a thin red rim on the brightest specular edges". The same exposure weight now also shrinks the
+  wide glow (DAY_WIDE 0.25) and the disc (DAY_DISC 0.20) by day; the tight rim stays. Red added on the 10 garden frames:
+  about a quarter of 0.58's; area lifted more than 8 levels 1.8-8.8% -> 0.2-2.5%. Night byte-identical.
+- Idea, not done: real film has a fixed balance (a daylight stock goes cool in shade, warm under tungsten); the app keeps
+  the camera's auto white balance. A per-look fixed white balance while shooting would be closer to film.
 

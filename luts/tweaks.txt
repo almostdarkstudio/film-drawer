@@ -43,3 +43,6 @@ vision500t   warm_sat=1.10  blue_sat=1.25  floor_r=21  floor_g=15  floor_b=11  f
 # like a wall (third review). Inputs 207 / 223 / 239 -> 220 / 231 / 246, evenly spread up to white.
 trix400   shoulder=0.5  shoulder2=0.7  shoulder2_from=0.85
 hp5std    shoulder=0.5  shoulder2=0.7  shoulder2_from=0.85
+# 0.59: Almost Dark (our own look, from Vision3 500T) keeps deeper blacks than 500T, for punch, but no longer cool:
+# a small warm lift, black (7, 7, 10) -> (14, 11, 10); 500T is (21, 15, 14). Mids unchanged.
+almostdark   floor_r=7  floor_g=4  floor_b=0  floor_p=5

@@ -20,7 +20,7 @@ ultramax    45
 colorplus   40
 ektar100    15
 ## Cinema | Cine
-almostdark  45
+almostdark  35
 vision500t  35
 vision250d  30
 cs800t      50   100  80   -1
