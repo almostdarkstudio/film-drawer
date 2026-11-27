@@ -26,9 +26,10 @@ differently, and several looks have changed: see the [releases](../../releases).
   sized to the photo and with its own grain in each colour layer;
   CineStill 800T is tuned against real scans, with the red-orange halation around lights; 50D has a gentler one.
   **Almost Dark**, in Cinema, is the studio's own low-light look: deep blacks, rich lamplight, clean lights.
-- Shoot inside the app. A quick review shows each photo in its look, and the conversion runs in
+- Shoot inside the app. The conversion runs in
   the background (about 20-40 s per photo at JPEG size M on an a7R II, CineStill 800T the longest). When it is done,
-  "Developed" and the film's name show for a moment.
+  "Developed" and the film's name show for a moment. A quick review of each photo in its look is in Controls (off by
+  default).
 - **Film mode** (MENU > Film mode): load a roll of one film, 24 or 36 frames, and shoot it like film. The film, grain,
   base style and size are fixed for the roll, there is no review, and PLAY is off. When the roll is finished (or you
   rewind it), it is developed and the whole roll comes back at once.

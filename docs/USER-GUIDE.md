@@ -17,9 +17,10 @@ By Almost Dark Studio: https://almostdarkstudio.com
   sized to the photo and with its own grain in each colour layer;
   CineStill 800T is tuned against real scans, with the red-orange halation around lights; 50D has a gentler one.
   **Almost Dark**, in Cinema, is the studio's own low-light look: deep blacks, rich lamplight, clean lights.
-- Shoot inside the app. A quick review shows each photo in its look, and the conversion runs in
+- Shoot inside the app. The conversion runs in
   the background (about 20-40 s per photo at JPEG size M on an a7R II, CineStill 800T the longest). When it is done,
-  "Developed" and the film's name show for a moment.
+  "Developed" and the film's name show for a moment. A quick review of each photo in its look is in Controls (off by
+  default).
 - **Film mode** (MENU > Film mode): load a roll of one film, 24 or 36 frames, and shoot it like film. The film, grain,
   base style and size are fixed for the roll, there is no review, and PLAY is off. When the roll is finished (or you
   rewind it), it is developed and the whole roll comes back at once.
@@ -59,7 +60,7 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 | OK | Show / hide help | Convert this photo (converted photos: show / hide help) |
 | Trash | **Controls**: the list below, with Move focus point first | All photos: before / after. Converted photos: delete (asks first; only the converted copy, never the original) |
 | PLAY | Your converted photos, newest first (Fn: all photos). Not in Film mode | Back to shooting (or half-press) |
-| MENU | Menu: look, grain, base style, JPEG size, quick review, **Film mode**, **Controls**, **Favourites**, photos, about, **Exit application** | Same |
+| MENU | Menu: look, grain, base style, JPEG size, **Film mode**, **Controls**, **Favourites**, photos, about, **Exit application** | Same |
 
 **Controls** (Trash while shooting, or MENU > Controls):
 - **Move focus point**: the arrows move it, OK or half-press keeps it, Trash goes back to the earlier focus area.
@@ -67,6 +68,7 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
 - **Focus**: AF-S / AF-A / AF-C / DMF / MF, those your camera has (the AF/MF-AEL button does not work in the app). Your
   own choice is put back when you leave. Lock-on AF and Eye AF are not available.
 - **ISO**, **Dials** (which one is shutter speed) and **Wheel** (looks or ISO; with ISO, looks stay on Up / Down).
+- **Quick review**: Off (the default), 2 s or 4 s: each photo shown in its look just after you take it.
 - **What buttons do**.
 
 **Favourites** (MENU > Favourites): Left / Right for the group, Up / Down for the look, OK to mark or unmark it. Once

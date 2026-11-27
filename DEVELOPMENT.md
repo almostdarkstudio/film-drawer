@@ -564,6 +564,9 @@ clumps), the halos were too even across lamps of different brightness and a litt
   p99 4.7 -> 13; the constant 0.012 gives 5.6.) Skin: base from 0.92 x red (was 0.96), a little more shoulder: face
   p90 237 -> 230, at 245 or above 0.7% -> 0.3%; white unchanged. Pale blobs a little brighter (182 -> 198). The faint
   rings left at the top are out-of-focus highlight discs in the source.
+- Quick review after a shot: off by default (it added little) and moved from the menu into MENU > Controls (still Off /
+  2 s / 4 s). Saved under a new key ("review2"): the app saved "review" on every pause, so nearly everyone had the old
+  default 2 s stored, and keeping it would have left the review on.
 - Aerochrome (luts/aerochrome.py; asset written directly by the script, as before), from an outside review that read it as
   Aerochrome but "a hue rotation rather than a channel remap". It already was the remap (IR -> R, red -> G, green -> B);
   the tells came from the IR estimate:

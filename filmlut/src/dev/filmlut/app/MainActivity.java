@@ -33,7 +33,7 @@ import java.util.Set;
  *
  * SHOOT (default): live view; half-press focuses, shutter takes the picture as the camera
  *   normally would; each new JPEG is queued and converted with the current look in the
- *   background, and a quick review of the look on it is shown. Wheel / up-down: change look
+ *   background (a quick review of the look on it, if turned on in Controls). Wheel / up-down: change look
  *   (a card shows the last shot in that look). Left-right: jump between look groups.
  *   OK: help. PLAY: converted photos. MENU: menu (Exit application there; unfinished conversions resume next time).
  * BROWSE: photo with a preview of the look (or the saved result, if already converted).
@@ -94,10 +94,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private static final int PREVIEW_MAX_W = 640, PREVIEW_MAX_H = 480;
     private static final int THUMB_W = 240, THUMB_H = 160;
     private static final int CARD_MS = 2500, HELP_MS = 4000, NOTE_MS = 3000;
-    /** Quick review after a shot (menu): off, 2 s, 4 s. */
+    /** Quick review after a shot (MENU > Controls): off, 2 s, 4 s. 0.59: off by default (it added little), and moved
+     *  from the menu into Controls. Saved as "review2", so everyone starts from Off once (the app saved "review" on
+     *  every pause, so nearly everyone had the old default 2 s stored). */
     private static final String[] REVIEW_NAMES = {"Off", "2 s", "4 s"};
     private static final int[] REVIEW_VALUES = {0, 2000, 4000};
-    private int reviewIndex = 1;
+    private int reviewIndex = 0;
 
     private final Handler ui = new Handler();
     private Focus focus;                          // focus area: boxes, choice, moving the spot
@@ -180,7 +182,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         dialIndex = prefs.getInt("dials", 0) == 1 ? 1 : 0;       // 0.38-0.42 also had 2: the same as 0 now
         wheelIndex = prefs.getInt("wheel", 0) == 1 ? 1 : 0;
         grainIndex = Math.max(0, Math.min(GRAIN_NAMES.length - 1, prefs.getInt("grain", 0)));
-        reviewIndex = Math.max(0, Math.min(REVIEW_NAMES.length - 1, prefs.getInt("review", 1)));
+        reviewIndex = Math.max(0, Math.min(REVIEW_NAMES.length - 1, prefs.getInt("review2", 0)));
         if (Native.LOAD_ERROR != null) {
             centre.setText("Native library failed to load:\n" + Native.LOAD_ERROR);
             return;
@@ -241,7 +243,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         if (deleteFile != null) closeDelete();
         Diag.dumpTrace("left the app (pause)");
         closeCamera();
-        if (prefs != null) prefs.edit().putString("lookId", looks == null ? null : look().id).putBoolean("lookFav", looks != null && look().isFavourite()).remove("look").putInt("base", baseIndex).putInt("grain", grainIndex).putInt("review", reviewIndex)
+        if (prefs != null) prefs.edit().putString("lookId", looks == null ? null : look().id).putBoolean("lookFav", looks != null && look().isFavourite()).remove("look").putInt("base", baseIndex).putInt("grain", grainIndex).remove("review").putInt("review2", reviewIndex)
                 .putInt("dials", dialIndex).putInt("wheel", wheelIndex).commit();
         if (prefs != null && !sizeAuto) prefs.edit().putInt("size", sizeIndex).commit();
     }
@@ -1991,7 +1993,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             M_DIALS = 8, M_WHEEL = 9, M_REVIEW = 10, M_CONVERTED = 11, M_HELP = 12, M_ABOUT = 13, M_EXIT = 14, M_CONTROLS = 15,
             M_FAV = 16, M_FILM = 17, M_ROLL = 18, M_REWIND = 19, M_FILMON = 20, M_FILMLOOK = 21;
     /** The menu, and the Controls and Film mode menus inside it. */
-    private static final int[] MENU_MAIN = {M_LOOK, M_GRAIN, M_BASE, M_SIZE, M_REVIEW, M_FILM, M_CONTROLS, M_FAV, M_CONVERTED, M_ABOUT, M_EXIT};
+    private static final int[] MENU_MAIN = {M_LOOK, M_GRAIN, M_BASE, M_SIZE, M_FILM, M_CONTROLS, M_FAV, M_CONVERTED, M_ABOUT, M_EXIT};
     private int[] mainRows() {
         if (roll == null || !roll.on()) return MENU_MAIN;
         int[] r = new int[MENU_MAIN.length - 1];                  // Film mode: no All photos until it is off
@@ -2005,7 +2007,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         return filmOn() && roll.frames() > 0 ? new int[]{M_FILMON, M_FILMLOOK, M_ROLL, M_REWIND} : new int[]{M_FILMON, M_FILMLOOK, M_ROLL};
     }
 
-    private static final int[] MENU_CONTROLS = {M_POINT, M_AREA, M_FOCUS, M_ISO, M_DIALS, M_WHEEL, M_HELP};
+    private static final int[] MENU_CONTROLS = {M_POINT, M_AREA, M_FOCUS, M_ISO, M_DIALS, M_WHEEL, M_REVIEW, M_HELP};
     private int[] menuRows = MENU_MAIN;
     private int menuSub;                          // 0 the menu, 1 Controls, 2 Film mode
     private int menuMainSel;                      // row to come back to from Controls / Film mode
