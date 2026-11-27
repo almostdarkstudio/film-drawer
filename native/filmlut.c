@@ -199,12 +199,13 @@ static int exif_adobe(unsigned char *a, size_t n, int mark_srgb)
     return adobe;
 }
 
-int filmlut_is_adobe(const char *path)
+/* The photo's first APP1 segment (EXIF), malloc'd, or NULL. */
+static unsigned char *app1_load(const char *path, size_t *n)
 {
-    unsigned char hdr[4], *seg;
-    int res = 0, i;
+    unsigned char hdr[4], *seg = NULL;
+    int i;
     FILE *f = fopen(path, "rb");
-    if (!f) return 0;
+    if (!f) return NULL;
     if (fread(hdr, 1, 2, f) == 2 && hdr[0] == 0xFF && hdr[1] == 0xD8) {
         for (i = 0; i < 8; i++) {                     /* EXIF is one of the first segments */
             unsigned int len;
@@ -212,15 +213,54 @@ int filmlut_is_adobe(const char *path)
             len = hdr[2] << 8 | hdr[3];
             if (len < 2) break;
             if (hdr[1] != 0xE1) { if (fseek(f, (long)len - 2, SEEK_CUR)) break; continue; }
-            if ((seg = (unsigned char *)malloc(len)) != NULL) {
-                if (fread(seg, 1, len - 2, f) == len - 2) res = exif_adobe(seg, len - 2, 0);
-                free(seg);
-            }
+            if ((seg = (unsigned char *)malloc(len)) != NULL && fread(seg, 1, len - 2, f) != len - 2) { free(seg); seg = NULL; }
+            if (seg) *n = len - 2;
             break;
         }
     }
     fclose(f);
+    return seg;
+}
+
+int filmlut_is_adobe(const char *path)
+{
+    size_t n;
+    int res = 0;
+    unsigned char *seg = app1_load(path, &n);
+    if (seg) { res = exif_adobe(seg, n, 0); free(seg); }
     return res;
+}
+
+/* Scene brightness from the exposure (EV at ISO 100): log2(N^2 / t) - log2(ISO / 100). 1 if found. */
+static int photo_ev(const char *path, float *ev)
+{
+    size_t n;
+    unsigned char *a = app1_load(path, &n), *t, *e, *et, *fn, *is;
+    int le, ok = 0;
+    if (!a) return 0;
+    if (n >= 14 && !memcmp(a, "Exif\0\0", 6)) {
+        t = a + 6; n -= 6;
+        le = t[0] == 'I';
+        if ((t[0] == 'I' && t[1] == 'I') || (t[0] == 'M' && t[1] == 'M')) {
+            if ((e = exif_entry(t, n, ex32(t + 4, le), 0x8769, le)) != NULL) {
+                unsigned long sub = ex32(e + 8, le), o1, o2;
+                et = exif_entry(t, n, sub, 0x829A, le);       /* ExposureTime, RATIONAL */
+                fn = exif_entry(t, n, sub, 0x829D, le);       /* FNumber, RATIONAL */
+                is = exif_entry(t, n, sub, 0x8827, le);       /* ISO, SHORT */
+                if (et && fn && is && (o1 = ex32(et + 8, le)) + 8 <= n && (o2 = ex32(fn + 8, le)) + 8 <= n) {
+                    double tn = ex32(t + o1, le), td = ex32(t + o1 + 4, le), fnn = ex32(t + o2, le), fd = ex32(t + o2 + 4, le);
+                    double iso = ex16(is + 8, le);
+                    if (tn > 0 && td > 0 && fnn > 0 && fd > 0 && iso > 0) {
+                        double N = fnn / fd, sec = tn / td;
+                        *ev = (float)((log(N * N / sec) - log(iso / 100.0)) / log(2.0));
+                        ok = 1;
+                    }
+                }
+            }
+        }
+    }
+    free(a);
+    return ok;
 }
 
 static void markers_to_srgb(jpeg_saved_marker_ptr m)
@@ -603,6 +643,10 @@ static void on_message_halo(j_common_ptr c) { (void)c; }
 #define HOT_Q 0.12f         /* ... light per map pixel of white-hot core: ~10 pixels of core for a nearly full ring */
 #define HOT_RING 0.90f      /* ... its strength at full */
 #define HOT_KEEP 0.85f      /* ... and how much of its halo a lit surrounding cannot take away */
+#define HOT_EV_FULL 8.0f    /* ... both only for real light sources: in full up to this scene EV (ISO 100), */
+#define HOT_EV_NONE 11.0f   /* ... none from here (daylight: a clipped white is sunlit cloth, not a lamp) */
+#define DAY_WIDE 0.25f      /* in daylight: what is left of the wide glow, */
+#define DAY_DISC 0.20f      /* ... and of the disc (the tight rim stays) */
 #define DISC_SPREAD 215.0f  /* blur radius per pass = width / this */
 #define DISC_DARK 0.32f     /* surroundings (without the sources, 0..1) up to here: a full disc */
 #define DISC_BRIGHT 0.62f   /* ... from here on: almost none. Bright cloth, a sunlit table are not lamps */
@@ -690,6 +734,7 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
          * uniformly bright area (a lit wall, sky) gets nothing, and dark surroundings get the
          * red-orange halo, as light scattered back from the film base would. */
         size_t n = (size_t)H->w * H->h, i;
+        float ev, hot_w = 1.0f;
         float *tight = (float *)malloc(n * sizeof(float));
         float *wide = (float *)malloc(n * sizeof(float));
         float *area = (float *)malloc(n * sizeof(float));
@@ -698,6 +743,16 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
         float *hot = (float *)malloc(n * sizeof(float));
         tmp = (float *)malloc((size_t)(H->w > H->h ? H->w : H->h) * sizeof(float));
         if (!tmp || !wide || !tight || !area || !disc || !rest || !hot) { free(tmp); free(wide); free(tight); free(area); free(disc); free(rest); free(hot); free(m); free(km); free(lm); return 0; }
+        /* 0.59: the JPEG cannot tell a lamp (hundreds of times paper white) from sunlit white cloth (just at white):
+         * the exposure can. hot_w: 1 up to EV 8 (night streets here are EV 5-6), 0 from EV 11 (the garden, EV 12-14).
+         * No EXIF: 1. It gates the wide ring of white-hot sources, and in daylight leaves only a thin rim: the wide
+         * glow and the disc shrink (DAY_*). CineStill 50D in the garden had orange-brown glows on black trousers
+         * next to white piping and sunlit toys (outside review: "a thin red-orange rim on the hottest sunlit edges").
+         * At night (hot_w 1) every product below is by exactly 1: byte-identical. */
+        if (photo_ev(path, &ev)) {
+            hot_w = (HOT_EV_NONE - ev) / (HOT_EV_NONE - HOT_EV_FULL);
+            hot_w = hot_w < 0 ? 0 : hot_w > 1 ? 1 : hot_w;
+        }
         memcpy(area, m, n * sizeof(float));
         memcpy(tight, m, n * sizeof(float));
         memcpy(wide, m, n * sizeof(float));
@@ -721,7 +776,7 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
             box_blur(hot, tmp, H->w, H->h, rh);
             for (i = 0; i < n; i++) {
                 float d1 = 1.0f - (float)exp(-q * disc[i]);
-                hot[i] = 1.0f - (float)exp(-HOT_Q * sc * sc * 6.2832f * var * hot[i]);
+                hot[i] = hot_w * (1.0f - (float)exp(-HOT_Q * sc * sc * 6.2832f * var * hot[i]));
                 disc[i] = 1.0f - (1.0f - d1) * (1.0f - HOT_RING * hot[i]);
             }
         }
@@ -738,7 +793,7 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
             float a = tight[i] - m[i], b = wide[i] - m[i], g;
             a = a < 0 ? 0 : a;
             b = b < 0 ? 0 : b;
-            g = 3.0f * a + 3.2f * b;            /* more weight on the wide, diffuse fringe */
+            g = 3.0f * a + 3.2f * b * (hot_w + (1.0f - hot_w) * DAY_WIDE);   /* more weight on the wide, diffuse fringe */
             g = g > 1 ? 1 : g;
             /* 0.30: large blown areas (a lit wall) glow less than lamps, or dark objects in front of
              * them turn red all over: area = share of near-clipped pixels in a wide neighbourhood. */
@@ -748,7 +803,7 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
                 /* Windows and lit walls (large areas) are not much over white: they get far less of a disc. */
                 float big = (area[i] - 0.10f) / 0.35f, d;
                 big = big < 0 ? 0 : big > 1 ? 1 : big;
-                d = disc[i] * (1.0f - m[i]) * (1.0f - 0.75f * big * (2 - big));
+                d = disc[i] * (1.0f - m[i]) * (1.0f - 0.75f * big * (2 - big)) * (hot_w + (1.0f - hot_w) * DAY_DISC);
                 big = (lm[i] / rest[i] - DISC_DARK) / (DISC_BRIGHT - DISC_DARK);
                 big = big < 0 ? 0 : big > 1 ? 1 : big;
                 big = 1.0f - 0.85f * big * big * (3 - 2 * big);
