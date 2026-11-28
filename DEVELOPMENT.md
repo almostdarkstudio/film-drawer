@@ -771,3 +771,12 @@ house frame (DSC02166) was the one that worked.
 - Film is the default: saved as "wbMode2" (default 1), so everyone starts on Film once (0.62-0.64's "wbMode" is dropped).
   Only the 11 looks with a balance change, only on the a7R II; the 800T night look holds on average (R-B +3 -> +1).
 - README garage example re-rendered with Film: auto had chosen 3150 K, the film is 3200 K: |diff| 1.7 levels.
+
+## 0.66: E100 holds its shadows
+- Outside review of the 0.64/0.65 sheets: white balance finished on all three stocks; E100's daylight frames still too
+  contrasty (hedge and wall shadows almost pure black, hard patio highlights, deep saturated skies). E100 is punchy but
+  holds more shadow detail.
+- Two steps on the test set (current / B / C): B (slide 0.13, floor 5, blue 0.88) was hard to see at full size; C taken
+  (the user: "don't have to correct too hard"): slide 0.20 -> 0.08, an even floor of 9 (p4), blue_sat 0.80. Grey
+  31 -> 24 (was 15), 63 -> 46 (39), 127 and 255 unchanged; a sky blue (89,140,217) -> (79,142,213) (was 61,147,236).
+- Only `e100.lut` changes.

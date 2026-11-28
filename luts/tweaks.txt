@@ -84,4 +84,8 @@ superia1600   green_hue=8  floor_r=1  floor_g=0  floor_b=-4  floor_p=3
 # The lamp-lit curtain in DSC02292 (Film white balance) now ends cream-white, (250,237,145) sat 0.42 -> (250,245,215)
 # 0.15; the orange mids (brightest channel 220-240) unchanged. Saturated colours only (0.15-0.40): ungated, a pale
 # golden-hour sky lost its cream (24-38% of bright daylight frames moved); gated, 1-2% (a crisp's yellow highlight).
-e100   slide=0.20  slide_pivot=0.48  toe_r=4  toe_g=3  toe_b=0  toe_p=3  warm_sat=0.78  red_pure=1.08  white_roll=0.7
+# 0.66 (outside review of the test set: daylight shadows "fall almost to pure black", skies "deep, saturated blue"; E100
+# is punchy but holds more shadow detail): a gentler slide curve (0.20 -> 0.08), a small even floor (9, as a scan keeps)
+# and sky blue x0.80. Grey 31 -> 24 (was 15), 63 -> 46 (39); mid-grey and white unchanged. A milder step (0.13, floor 5,
+# blue 0.88) was hard to see at full size.
+e100   slide=0.08  slide_pivot=0.48  toe_r=4  toe_g=3  toe_b=0  toe_p=3  warm_sat=0.78  blue_sat=0.80  floor_r=9  floor_g=9  floor_b=9  floor_p=4  red_pure=1.08  white_roll=0.7
