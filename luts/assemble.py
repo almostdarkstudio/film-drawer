@@ -327,7 +327,29 @@ def apply_tweaks(cube, t):
     fk = {k: v for k, v in t.items() if k in FLOOR_KEYS}
     if fk:
         cube = floor(cube, **fk)
+    bk = {k: v for k, v in t.items() if k in BAND_KEYS}
+    if bk:
+        cube = band(cube, **bk)
     return cube
+
+
+BAND_KEYS = ("band_r", "band_g", "band_b", "band_at")
+
+
+def band(cube, band_r=0.0, band_g=0.0, band_b=0.0, band_at=0.25):
+    """A tint in the lower mids only: adds band_* levels at band_at of the look's own luminance range (black to white),
+    nothing at black, fading out above (u e^(1-u), u = x / band_at, times a ramp to zero at white). Applied after the
+    floor (0.61, Fuji 400H: its teal floor tinted night shadows rather than leaving them dark; outside review: "scale
+    the green-cyan shift by luminance so it's strongest in the lower midtones and fades towards true black")."""
+    c = cube.astype(np.float32)
+    w3 = np.array([0.2126, 0.7152, 0.0722], np.float32)
+    L = c @ w3
+    blk, wht = float(c[0, 0, 0] @ w3), float(c[-1, -1, -1] @ w3)
+    x = np.clip((L - blk) / max(wht - blk, 1), 0, 1)
+    u = x / band_at
+    w = u * np.exp(1 - u) * np.clip((1 - x) / (1 - band_at), 0, 1)
+    out = c + np.array([band_r, band_g, band_b], np.float32) * w[..., None]
+    return np.clip(np.rint(out), 0, 255).astype(np.uint8)
 
 
 def main(luts, dest):

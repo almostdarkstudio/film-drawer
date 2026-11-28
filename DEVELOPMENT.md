@@ -648,3 +648,17 @@ house frame (DSC02166) was the one that worked.
   most of that speckle is the camera's own ISO noise. Kept at 50.
 - Byte-identical to the approved prototype on 7 frames (800T and 50D, night and day); Infrared and Aerochrome unchanged;
   parallel == serial pixels; preview, cancel and bad-file tests pass. PC timing 800T 463 -> 505 ms (pow per map cell).
+
+## 0.61: Fuji 400H shadows (test set, outside review)
+- The test set (`samples/testset`, 34 of the user's frames by situation, `luts/testset.py`) compared 0.58 and 0.60 for
+  every reworked look. Only 400H moved a lot (about +25 levels everywhere: the 0.59 rework). An outside review of that
+  sheet kept 0.60's skies (paler, cyan rather than lavender), skin, greens and high-key, but found night shadows tinted
+  teal rather than dark (car park, stairs, house, restaurant; the dusk tower) and tungsten skin grey-sallow.
+- Cause: the 0.59 teal floor (+21 green, +20 blue at black, p 2). Now `band` (new in assemble.py, after the floor): a
+  tint in the lower mids only, none at black, peaking at a quarter of the look's luminance range, gone at white;
+  400H's mint goes there (green 7, blue 6), with a near-neutral charcoal floor (12/14/14, p 3: black (8,26,23) ->
+  (17,19,17)) and warm_sat 0.90 -> 1.0.
+- Five versions: B and C (weaker floors) fixed the teal, C was the reviewer's pick but crushed the stairs' shadows (400H
+  shadows go milky, not inky); D and E lift the black. E taken after a full-size check: green tint in the darkest 30%
+  of the night frames 0.60 ~15 -> E 1.8-4.2 (D 1.6-4.1), shadow spread unchanged (E 1.1-6.1, D 1.2-6.4), darkest 1%
+  ~4 levels above D. Only `fuji400h.lut` changes; daylight frames essentially unchanged.

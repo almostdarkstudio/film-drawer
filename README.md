@@ -42,13 +42,18 @@ halation was rebuilt (0.60) and several looks have changed: see the [releases](.
   where they are.
   (Up to 0.34 the folder was `FILMLUT`. The app still shows what is in it, and never moves it.)
 
-## Example
+## Examples
 | Camera JPEG | CineStill 800T |
 |---|---|
 | ![Garage shutter at night, camera JPEG](docs/examples/garage-camera.jpg) | ![The same photo in CineStill 800T](docs/examples/garage-cinestill-800t.jpg) |
 
-*Sony a7R II, with the app's own engine and settings for the look: colour, grain and the red halation around the
-lights. Made with 0.60 and resized for this page, no other editing. Photo: Almost Dark Studio.*
+| Camera JPEG | Tri-X 400 |
+|---|---|
+| ![Headland and beach, camera JPEG](docs/examples/coast-camera.jpg) | ![The same photo in Tri-X 400](docs/examples/coast-tri-x-400.jpg) |
+
+*Sony a7R II, with the app's own engine and default settings for each look: colour or black and white tones, grain,
+and for CineStill the red halation around the lights. Made with 0.60 and resized for this page, no other editing.
+Photos: Almost Dark Studio.*
 
 ## Screenshots
 | | |
@@ -59,7 +64,7 @@ lights. Made with 0.60 and resized for this page, no other editing. Photo: Almos
 | ![Favourites](docs/screenshots/7-favourites.jpg)<br>MENU > Favourites: mark the looks you use | ![Controls](docs/screenshots/8-controls.jpg)<br>Controls: press Trash while shooting |
 | ![Film mode](docs/screenshots/9-film-mode.jpg)<br>MENU > Film mode: a roll of CineStill 800T, 14 of 36 frames | |
 
-*Drawn for 0.60 from the app's layout with its own film engine; the camera has no screenshot function, and its fonts may differ a little.*
+*Drawn for 0.61 from the app's layout with its own film engine; the camera has no screenshot function, and its fonts may differ a little.*
 
 ## Download
 Get `FilmDrawer-<version>.apk` and `SHA256SUMS.txt` from the [Releases](../../releases) page.
