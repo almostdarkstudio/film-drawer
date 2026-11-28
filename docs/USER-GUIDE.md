@@ -70,6 +70,13 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
   own choice is put back when you leave. Lock-on AF and Eye AF are not available.
 - **ISO**, **Dials** (which one is shutter speed) and **Wheel** (looks or ISO; with ISO, looks stay on Up / Down).
 - **Quick review**: Off (the default), 2 s or 4 s: each photo shown in its look just after you take it.
+- **White balance** (new, still being tested): **Camera** (the default: your camera's own white balance), **Film** or
+  **Film (full)**. With Film, while you shoot, the camera is set to a fixed balance like real film has, so a daylight
+  film goes amber under lamps and 800T goes blue at dusk and in daylight. Film (full) is the film's own balance: 3200 K
+  for the tungsten films (CineStill 800T, Vision3 500T, Almost Dark), 5500 K for CineStill 50D, Vision3 250D and the
+  slide films. Film goes about two thirds of the way (3450 K, 5300 K), as a lab scan of the film usually looked. The
+  other looks keep the camera's white balance (labs colour-correct negative scans). Only for photos taken in the app;
+  your own white balance is put back when you leave.
 - **What buttons do**.
 
 **Favourites** (MENU > Favourites): Left / Right for the group, Up / Down for the look, OK to mark or unmark it. Once
@@ -123,8 +130,8 @@ camera was switched off. Please check your settings the first time. Choose
 - Lock-on (tracking) AF, Eye AF, the Zone and expanded focus areas, and the camera's own custom buttons and dial settings
   do not work in the app.
 - RAW files already on the card without a JPEG cannot be converted.
-- The looks work on the camera's JPEG, after its own white balance. CineStill 800T therefore goes less blue in daylight
-  than real film.
+- The looks work on the camera's JPEG, after its white balance. With Controls > White balance: Camera (the default), CineStill
+  800T therefore goes less blue in daylight than real film.
 - Previews (on the camera and in the photo file) do not show the grain; the photo itself does.
 - If your camera keeps contrast, saturation and sharpness separately for each Creative Style, your own values for Standard
   and Neutral may be left at the app's (not confirmed). If you have changed those two styles, please check them.

@@ -471,6 +471,7 @@ clumps), the halos were too even across lamps of different brightness and a litt
   about a quarter of 0.58's; area lifted more than 8 levels 1.8-8.8% -> 0.2-2.5%. Night byte-identical.
 - Idea, not done: real film has a fixed balance (a daylight stock goes cool in shade, warm under tungsten); the app keeps
   the camera's auto white balance. A per-look fixed white balance while shooting would be closer to film.
+  (0.62: done, opt-in: Controls > White balance: Film; see below.)
 - Portra 400 against 37 openly licensed Portra 400 scans (Wikimedia Commons, 24 photographers, 2048 px; one digital
   "Portra filter" imitation left out) and an outside review, which named it Portra 400 blind. On the 10 garden photos:
   - Shadows: deeper and slightly green (darkest 2% L 1.1, a -1.4) where the scans are lifted and warm (2.7, a +1.6,
@@ -662,3 +663,53 @@ house frame (DSC02166) was the one that worked.
   shadows go milky, not inky); D and E lift the black. E taken after a full-size check: green tint in the darkest 30%
   of the night frames 0.60 ~15 -> E 1.8-4.2 (D 1.6-4.1), shadow spread unchanged (E 1.1-6.1, D 1.2-6.4), darkest 1%
   ~4 levels above D. Only `fuji400h.lut` changes; daylight frames essentially unchanged.
+
+## 0.62: Ektachrome E100 as slide film (test set, outside reviews)
+- E100 had never been tuned (the EmulsionPresets bake at 55%; too few real scans to match). On the test set it read as
+  "camera with more contrast and bluer skies": a print-film amount of contrast (+8), skin warmer than the camera's.
+- New tweaks in assemble.py: `slide` (a per-channel reversal S-curve between the look's black and white, steepest at
+  `slide_pivot` just below mid so shadows fall off sooner; hard toe and shoulder) and `red_pure` (pure reds and
+  crimsons only, angle 55-122, skin at 125-140 untouched). E100: slide 0.20, pivot 0.48, a slightly cool toe (4/3/0,
+  p 3), reds x1.08, blue as before. Greys: input 32 -> 13-18 (was 19), 223 -> 238 (was 235); black and white unchanged.
+- On the way: slide 0.3-0.5 with blue x1.10-1.15 and reds x1.15-1.25 (A, B) went to "Velvia ... electric blue", skin
+  clipping and crushing, tungsten scenes dark and red. At full size the reviewer chose the gentlest of three as "the
+  safest single profile across every lighting group"; this is that colour with a slightly firmer curve.
+- Not in the look: under tungsten E100 should go amber (it is daylight balanced), but the camera's auto white balance has
+  already neutralised those scenes. A per-look fixed white balance while shooting is still only an idea (see above).
+- Then, from real frames shot with White balance: Film (DSC02292, a domestic lamp at 5300 K): "saturated warm grading
+  rather than slide film under tungsten". Greys were neutral per channel; the look raised chroma in every hue by ~25%,
+  which multiplies a lamp's cast. Oranges and yellows only back to the camera's (warm_sat 0.78, run before red_pure):
+  skin chroma 39 -> 48 -> 38, amber 67 -> 84 -> 66, yellow 80 -> 99 -> 77; reds 105 and sky 77 kept.
+- Only `e100.lut` changes.
+
+## 0.62: White balance: Film (opt-in)
+- Real film has a fixed balance (a daylight stock goes amber under tungsten, 800T blue in daylight); the app kept the
+  camera's auto white balance, which has already neutralised such scenes before the look is applied (outside review of
+  E100: "tungsten frames barely change"). Parked since 0.54 as an idea.
+- MENU > Controls > White balance: Camera (default) / Film / Film (full). It sets `whitebalance=color-temp` and
+  `color-temperture-white-balance` (Sony's spelling; 2500-9900 K on the a7R II and a7, PARAMS.TXT) to the look's kelvin
+  while shooting: `wb=<full>:<film>` in app-looks.txt, the 8th field of looks.txt (0 = the camera's). Full: 3200 K for
+  800T, 500T, Almost Dark; 5500 K for 50D, 250D, Kodachrome, E100, Ektachrome VS, Provia, Astia, Velvia. Negatives keep
+  auto (lab scans are colour-corrected, which auto resembles), and instant, B&W and creative looks.
+- Film (the middle step) is centred on the tuning: the looks were tuned on photos where auto had chosen ~3900 K (800T's
+  night streets) and ~4900 K (daylight), read from the 34 test-set RAWs (`luts/wbsim.py`). About 65% of the way from
+  there to the film's own (3450 K, 5300 K) keeps the tuned look close on average while each scene moves with its own
+  light; an outside review suggested 60-70% "as Frontier / Noritsu scans partly corrected the cast". Those kelvin are on
+  the estimated scale (camera colour matrix, CCT) until a RAW shot with the setting ties it to the camera's own.
+- Simulation (wbsim.py): each RAW decoded with the as-shot multipliers and with those for the target kelvin; the 3x3
+  between the two (linear sRGB) applied to the camera JPEG. Auto chose: daylight 4550-5275 K, indoor bulbs 2700-2925 K,
+  night lights 2625-4250 K, dusk 5075-6950 K. 800T night at full 3200 K: house R-B +15 -> -2, stairs 0 -> -19 (reviewer:
+  "the cool-ambient, warm-practicals split ... exactly what tungsten film does", stairs "at the strong end"); at 3900 K
+  +12 and -5. E100 food at 5500 K went red-orange in the simulation (the shift is applied after the camera's saturation
+  there; on the camera it comes first): to be checked on a real frame.
+- Like sharpness: the user's own mode and temperature are saved first (UserSettings group G_WB, prefs userWb /
+  userWbTemp) and put back on close, on open after an abrupt exit, and when the look has no balance or the option is
+  turned off. Not changed if it cannot be read first, or the camera has no color-temp mode. Applied with the look's
+  sharpness (after the 400 ms settle), on the base settings, and before the shutter if a look change is pending.
+- On the a7R II (0.62 debug, DEBUG.TXT): TRACE.TXT "white balance 5300 K: camera has color-temp 5300" on every look
+  change; after MENU > Exit the camera's own white balance was back to Auto. Calibration (`samples/wb-cal`): 800T at
+  Film 3450 K read 3275 K from its RAW (DSC02290/91), E100 at 5300 K read 5165 K (DSC02292): the estimate runs ~150 K
+  below the camera's scale, so the tuning photos' auto values were ~4050 K (night) and ~5050 K (daylight) on it, and
+  65% of the way gives 3500 K / 5350 K: within 50 K of 3450 / 5300, kept. E100 under a domestic lamp on the camera came
+  out amber-gold with believable skin, not the simulation's red-orange (the camera balances before its own saturation).
+- Opt-in for now. Film may become the default once the full sheets are reviewed (and the a7 is checked).

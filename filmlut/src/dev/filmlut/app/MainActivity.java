@@ -100,6 +100,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private static final String[] REVIEW_NAMES = {"Off", "2 s", "4 s"};
     private static final int[] REVIEW_VALUES = {0, 2000, 4000};
     private int reviewIndex = 0;
+    /** White balance (MENU > Controls): Camera (its own auto, the default); Film: a fixed balance part of the way to the
+     *  film's own, as a lab scan of it looked (800T 3450 K, E100 5300 K); Film (full): the film's own (3200 K, 5500 K).
+     *  looks.txt; looks without one keep the camera's. 0.62, opt-in: every look was tuned on auto-white-balance photos;
+     *  a fixed balance is what real film does in light it is not made for. */
+    private static final String[] WB_NAMES = {"Camera", "Film", "Film (full)"};
+    private int wbMode;
+    private static final String WB_TEMP_KEY = "color-temperture-white-balance";   // Sony's spelling (PARAMS.TXT)
 
     private final Handler ui = new Handler();
     private Focus focus;                          // focus area: boxes, choice, moving the spot
@@ -183,6 +190,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         wheelIndex = prefs.getInt("wheel", 0) == 1 ? 1 : 0;
         grainIndex = Math.max(0, Math.min(GRAIN_NAMES.length - 1, prefs.getInt("grain", 0)));
         reviewIndex = Math.max(0, Math.min(REVIEW_NAMES.length - 1, prefs.getInt("review2", 0)));
+        wbMode = Math.max(0, Math.min(WB_NAMES.length - 1, prefs.getInt("wbMode", 0)));
         if (Native.LOAD_ERROR != null) {
             centre.setText("Native library failed to load:\n" + Native.LOAD_ERROR);
             return;
@@ -244,7 +252,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         Diag.dumpTrace("left the app (pause)");
         closeCamera();
         if (prefs != null) prefs.edit().putString("lookId", looks == null ? null : look().id).putBoolean("lookFav", looks != null && look().isFavourite()).remove("look").putInt("base", baseIndex).putInt("grain", grainIndex).remove("review").putInt("review2", reviewIndex)
-                .putInt("dials", dialIndex).putInt("wheel", wheelIndex).commit();
+                .putInt("dials", dialIndex).putInt("wheel", wheelIndex).putInt("wbMode", wbMode).commit();
         if (prefs != null && !sizeAuto) prefs.edit().putInt("size", sizeIndex).commit();
     }
 
@@ -681,7 +689,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             afStarted = false;
             openedAt = System.currentTimeMillis();
             if (Diag.verbose()) dumpCameraParameters();   // FILMDRAW/DEBUG.TXT on the card turns it on
-            restoreUser("open", UserSettings.G_FOCUS, UserSettings.G_AF, UserSettings.G_SHARPNESS, UserSettings.G_STYLE, UserSettings.G_SIZE, UserSettings.G_DRO);   // left over from an abrupt exit
+            restoreUser("open", UserSettings.G_FOCUS, UserSettings.G_AF, UserSettings.G_SHARPNESS, UserSettings.G_WB, UserSettings.G_STYLE, UserSettings.G_SIZE, UserSettings.G_DRO);   // left over from an abrupt exit
             opening = camera.getNormalCamera().getParameters();
             applyStorageFormat();                          // before the size: there must be a JPEG
             applyModeDial(false);                          // turned while browsing, say
@@ -995,6 +1003,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 else if (k.equals(UserSettings.DRO)) m.setDROMode(s);
                 else if (k.equals(UserSettings.DRO_LEVEL)) m.setDROLevel(Integer.parseInt(s));
                 else if (k.equals(UserSettings.FORMAT)) m.setPictureStorageFormat(s);
+                else if (k.equals(UserSettings.WB)) p.setWhiteBalance(s);
+                else if (k.equals(UserSettings.WB_TEMP)) p.set(WB_TEMP_KEY, s);
             }
             camera.getNormalCamera().setParameters(p);
         }
@@ -1014,6 +1024,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         try { v.put(UserSettings.DRO, m.getDROMode()); } catch (Throwable ignored) {}
         try { v.put(UserSettings.DRO_LEVEL, "" + m.getDROLevel()); } catch (Throwable ignored) {}
         try { v.put(UserSettings.FORMAT, m.getPictureStorageFormat()); } catch (Throwable ignored) {}
+        try { v.put(UserSettings.WB, p.getWhiteBalance()); } catch (Throwable ignored) {}
+        try { v.put(UserSettings.WB_TEMP, p.get(WB_TEMP_KEY)); } catch (Throwable ignored) {}
         return v;
     }
 
@@ -1040,7 +1052,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         endMoveSpot();
         focus.close();
         // The quality on its own, last: with RAW the camera may not report a JPEG size to check.
-        restoreUser("close", UserSettings.G_FOCUS, UserSettings.G_AF, UserSettings.G_SHARPNESS, UserSettings.G_STYLE, UserSettings.G_SIZE, UserSettings.G_DRO);
+        restoreUser("close", UserSettings.G_FOCUS, UserSettings.G_AF, UserSettings.G_SHARPNESS, UserSettings.G_WB, UserSettings.G_STYLE, UserSettings.G_SIZE, UserSettings.G_DRO);
         restoreUser("close", UserSettings.G_FORMAT);
         try {
             camera.release();
@@ -1098,6 +1110,45 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             flash("Could not set shooting settings:\n" + t, 4000);
         }
         if (style) applyLookSharpness();
+        applyLookWb();
+    }
+
+    /**
+     * White balance: Film (Controls) sets the look's own balance in kelvin while shooting, so a daylight film goes amber
+     * under lamps and 800T blue in daylight, as real film does. The user's own white balance is saved first and put back
+     * by restoreUser() (on close, on open after an abrupt exit, and here when the look has none or the option is off).
+     * Never changes it if it cannot be read (so saved) first, or the camera has no colour-temperature mode.
+     */
+    /** The kelvin to shoot this look at, or 0 for the camera's own white balance. */
+    private int lookWb() {
+        return wbMode == 0 || looks == null ? 0 : wbMode == 1 ? look().wbFilm : look().wb;
+    }
+
+    private void applyLookWb() {
+        if (camera == null || looks == null) return;
+        int k = lookWb();
+        try {
+            if (k <= 0) {
+                if (user.saved(UserSettings.G_WB)) restoreUser("white balance", UserSettings.G_WB);
+                return;
+            }
+            android.hardware.Camera.Parameters now = params();
+            List modes = now.getSupportedWhiteBalance();
+            if (modes != null && !modes.contains("color-temp")) { Diag.trace("white balance: no color-temp mode"); return; }
+            Map<String, String> mine = settings(now);
+            if (mine.get(UserSettings.WB) == null) return;
+            user.saveWb(mine);
+            android.hardware.Camera.Parameters p = camera.createEmptyParameters();
+            p.setWhiteBalance("color-temp");
+            p.set(WB_TEMP_KEY, k);
+            camera.getNormalCamera().setParameters(p);
+            if (Diag.verbose()) {
+                android.hardware.Camera.Parameters got = params();
+                Diag.trace("white balance " + k + " K: camera has " + got.getWhiteBalance() + " " + got.get(WB_TEMP_KEY));
+            }
+        } catch (Throwable t) {
+            Diag.trace("white balance not set: " + t);
+        }
     }
 
     /**
@@ -1123,7 +1174,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     private boolean sharpPending;
     private final Runnable applySharpnessLater = new Runnable() {
-        public void run() { sharpPending = false; if (!browsing) applyLookSharpness(); }
+        public void run() { sharpPending = false; if (!browsing) { applyLookSharpness(); applyLookWb(); } }
     };
 
     // ---------------------------------------------------------------- RAW only -> RAW+JPEG
@@ -1992,7 +2043,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     private static final int M_LOOK = 0, M_GRAIN = 1, M_BASE = 2, M_SIZE = 3, M_FOCUS = 4, M_AREA = 5, M_POINT = 6, M_ISO = 7,
             M_DIALS = 8, M_WHEEL = 9, M_REVIEW = 10, M_CONVERTED = 11, M_HELP = 12, M_ABOUT = 13, M_EXIT = 14, M_CONTROLS = 15,
-            M_FAV = 16, M_FILM = 17, M_ROLL = 18, M_REWIND = 19, M_FILMON = 20, M_FILMLOOK = 21;
+            M_FAV = 16, M_FILM = 17, M_ROLL = 18, M_REWIND = 19, M_FILMON = 20, M_FILMLOOK = 21, M_WB = 22;
     /** The menu, and the Controls and Film mode menus inside it. */
     private static final int[] MENU_MAIN = {M_LOOK, M_GRAIN, M_BASE, M_SIZE, M_FILM, M_CONTROLS, M_FAV, M_CONVERTED, M_ABOUT, M_EXIT};
     private int[] mainRows() {
@@ -2008,7 +2059,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         return filmOn() && roll.frames() > 0 ? new int[]{M_FILMON, M_FILMLOOK, M_ROLL, M_REWIND} : new int[]{M_FILMON, M_FILMLOOK, M_ROLL};
     }
 
-    private static final int[] MENU_CONTROLS = {M_POINT, M_AREA, M_FOCUS, M_ISO, M_DIALS, M_WHEEL, M_REVIEW, M_HELP};
+    private static final int[] MENU_CONTROLS = {M_POINT, M_AREA, M_FOCUS, M_ISO, M_DIALS, M_WHEEL, M_REVIEW, M_WB, M_HELP};
     private int[] menuRows = MENU_MAIN;
     private int menuSub;                          // 0 the menu, 1 Controls, 2 Film mode
     private int menuMainSel;                      // row to come back to from Controls / Film mode
@@ -2086,6 +2137,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_DIALS: return "Dials";
             case M_WHEEL: return "Wheel";
             case M_REVIEW: return "Quick review";
+            case M_WB: return "White balance";
             case M_CONVERTED: return !browsing || showConverted ? "All photos" : "Converted photos";
             case M_CONTROLS: return "Controls";
             case M_FAV: return "Favourites";
@@ -2113,6 +2165,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_DIALS: return DIAL_NAMES[dialIndex];
             case M_WHEEL: return WHEEL_NAMES[wheelIndex];
             case M_REVIEW: return REVIEW_NAMES[reviewIndex];
+            case M_WB: return wbMode == 0 ? "Camera" : WB_NAMES[wbMode] + (lookWb() > 0 ? ", " + lookWb() + " K" : ", auto for this look");
             default: return null;
         }
     }
@@ -2476,6 +2529,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 break;
             case M_REVIEW:
                 reviewIndex = ((reviewIndex + dir) % REVIEW_NAMES.length + REVIEW_NAMES.length) % REVIEW_NAMES.length;
+                break;
+            case M_WB:
+                wbMode = ((wbMode + dir) % WB_NAMES.length + WB_NAMES.length) % WB_NAMES.length;
+                if (!browsing) applyLookWb();
                 break;
             default:
                 return false;

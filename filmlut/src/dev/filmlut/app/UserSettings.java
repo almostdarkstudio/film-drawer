@@ -22,13 +22,14 @@ final class UserSettings {
     }
 
     static final String FOCUS = "focus mode", SHARPNESS = "sharpness", MODE = "Creative Style", CONTRAST = "contrast",
-            SATURATION = "saturation", SIZE = "JPEG size", DRO = "DRO", DRO_LEVEL = "DRO level", FORMAT = "quality", AF = "AF mode";
+            SATURATION = "saturation", SIZE = "JPEG size", DRO = "DRO", DRO_LEVEL = "DRO level", FORMAT = "quality", AF = "AF mode",
+            WB = "white balance", WB_TEMP = "colour temperature";
 
     /** Groups, saved and restored as one. */
-    static final int G_FOCUS = 0, G_SHARPNESS = 1, G_STYLE = 2, G_SIZE = 3, G_DRO = 4, G_FORMAT = 5, G_AF = 6;
+    static final int G_FOCUS = 0, G_SHARPNESS = 1, G_STYLE = 2, G_SIZE = 3, G_DRO = 4, G_FORMAT = 5, G_AF = 6, G_WB = 7;
 
     /** What is sent to the camera together, in this order. The quality is last: the JPEG size needs a JPEG. */
-    private static final int[][] SENT = {{G_FOCUS}, {G_AF}, {G_SHARPNESS}, {G_STYLE, G_SIZE, G_DRO}, {G_FORMAT}};
+    private static final int[][] SENT = {{G_FOCUS}, {G_AF}, {G_SHARPNESS}, {G_WB}, {G_STYLE, G_SIZE, G_DRO}, {G_FORMAT}};
 
     private static final int MAX_FAILS = 6;
 
@@ -57,6 +58,11 @@ final class UserSettings {
                 put(v, SATURATION, "" + prefs.getInt("userSaturation", 0));
                 break;
             case G_SIZE: if (any && prefs.getBoolean("userSizeSaved", false)) put(v, SIZE, prefs.getString("userImageSize", null)); break;
+            case G_WB:
+                if (!prefs.contains("userWb")) break;
+                put(v, WB, prefs.getString("userWb", null));
+                put(v, WB_TEMP, prefs.getString("userWbTemp", null));
+                break;
             case G_DRO:
                 if (!any || !prefs.getBoolean("userDroSaved", false)) break;
                 String dro = prefs.getString("userDroMode", null);
@@ -93,6 +99,14 @@ final class UserSettings {
         e.commit();
     }
 
+    /** The same for the white balance (mode and colour temperature), before the app sets a film's own. */
+    void saveWb(Map<String, String> now) {
+        if (saved(G_WB) || now.get(WB) == null) return;
+        SharedPreferences.Editor e = prefs.edit().putString("userWb", now.get(WB));
+        if (now.get(WB_TEMP) != null) e.putString("userWbTemp", now.get(WB_TEMP));
+        e.commit();
+    }
+
     private static int num(String s) {
         try { return s == null ? 0 : Integer.parseInt(s.trim()); } catch (NumberFormatException e) { return 0; }
     }
@@ -110,6 +124,7 @@ final class UserSettings {
                 case G_AF: e.remove("userAfMode"); break;
                 case G_SHARPNESS: e.remove("userSharpness"); break;
                 case G_FORMAT: e.remove("userStorageFmt"); break;
+                case G_WB: e.remove("userWb").remove("userWbTemp"); break;
                 default:
                     e.putBoolean(g == G_STYLE ? "userStyleSaved" : g == G_SIZE ? "userSizeSaved" : "userDroSaved", false);
                     e.putBoolean("userSaved", left);

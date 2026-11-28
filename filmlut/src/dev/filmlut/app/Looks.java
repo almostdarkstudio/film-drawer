@@ -9,7 +9,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
-/** The film looks bundled in assets/luts (looks.txt: id|TAG|Name|grain|halation|group). */
+/** The film looks bundled in assets/luts (looks.txt: id|TAG|Name|grain|halation|group|sharpness|white balance K). */
 public final class Looks {
     public static final class Look {
         public final String id, tag, name;
@@ -18,6 +18,8 @@ public final class Looks {
         public final String group;       // menu group, e.g. "Kodak negative" (left/right jump)
         public final String groupShort;  // e.g. "Kodak", for the group strip on the look card
         public int sharpness;            // camera sharpness -3..3 while shooting this look (0 = Standard)
+        public int wb;                   // the film's own balance in kelvin (Controls > White balance: Film (full)); 0 = camera's
+        public int wbFilm;               // ... part of the way there, as a lab scan (White balance: Film)
         private byte[] lut;
         private Look original;           // in Favourites: the look in its own group
 
@@ -27,6 +29,8 @@ public final class Looks {
         private Look asFavourite() {
             Look f = new Look(id, tag, name, grain, halation, FAVOURITES, "Fav");
             f.sharpness = sharpness;
+            f.wb = wb;
+            f.wbFilm = wbFilm;
             f.original = this;
             return f;
         }
@@ -85,11 +89,27 @@ public final class Looks {
                 if (p.length > 6) {
                     try { lk.sharpness = Math.max(-3, Math.min(3, Integer.parseInt(p[6].trim()))); } catch (NumberFormatException ignored) {}
                 }
+                if (p.length > 7) {                              // "<full>:<film>" kelvin, or one value for both
+                    String[] k = p[7].trim().split(":");
+                    lk.wb = kelvin(k[0]);
+                    lk.wbFilm = k.length > 1 ? kelvin(k[1]) : lk.wb;
+                    if (lk.wb == 0 || lk.wbFilm == 0) lk.wb = lk.wbFilm = 0;
+                }
                 all.add(lk);
             }
         }
         r.close();
         if (all.isEmpty()) throw new Exception("no looks in assets/luts/looks.txt");
+    }
+
+    /** A colour temperature within the camera's range (2500-9900 K, PARAMS.TXT), else 0 (= the camera's own). */
+    private static int kelvin(String s) {
+        try {
+            int k = Integer.parseInt(s.trim());
+            return k >= 2500 && k <= 9900 ? k : 0;
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     /** The look with this 3-letter file tag (e.g. "P40"), or null. */

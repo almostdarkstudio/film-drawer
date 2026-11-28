@@ -302,6 +302,8 @@ def apply_tweaks(cube, t):
         cube = keep_hue(cube, t["keep_hue"])
     if hs:
         cube = hue_sat_tweak(cube, **hs)
+    if "slide" in t:
+        cube = slide(cube, t["slide"], t.get("slide_pivot", 0.5))
     if tk:
         cube = toe(cube, **tk)
     if "mid" in t:
@@ -330,7 +332,36 @@ def apply_tweaks(cube, t):
     bk = {k: v for k, v in t.items() if k in BAND_KEYS}
     if bk:
         cube = band(cube, **bk)
+    if "red_pure" in t:
+        cube = red_pure(cube, t["red_pure"])
     return cube
+
+
+def slide(cube, amount, pivot=0.5):
+    """A reversal-film (slide) S-curve per channel between the look's own black and white: y = x + amount * (S(x) - x),
+    S a smoothstep bent so its steepest point sits at `pivot` (below 0.5: the shadows fall off sooner). Steeper mids, a
+    harder toe and shoulder, black and white fixed. 0.62, Ektachrome E100 (outside review: "reads as camera with more
+    contrast ... the tonal curve isn't slide film yet"); amount 0.3-0.5 read as Velvia, so it is kept small."""
+    c = cube.astype(np.float32)
+    blk, wht = c[0, 0, 0], c[-1, -1, -1]
+    x = np.clip((c - blk) / np.maximum(wht - blk, 1), 0, 1)
+    u = x ** (np.log(0.5) / np.log(pivot))
+    y = x + amount * (u * u * (3 - 2 * u) - x)
+    return np.clip(np.rint(blk + y * (wht - blk)), 0, 255).astype(np.uint8)
+
+
+def red_pure(cube, red):
+    """Chroma of pure reds and crimsons only (YCbCr angle ~55-122; skin and orange at 125-140 untouched), luma kept.
+    0.62, E100: Ektachrome's rich reds (brick, awnings) without warming skin or whites."""
+    c = cube.astype(np.float32) / 255
+    y = c @ np.array([0.299, 0.587, 0.114], np.float32)
+    cb, cr = (c[..., 2] - y) * 0.564, (c[..., 0] - y) * 0.713
+    ang = np.degrees(np.arctan2(cr, cb)) % 360
+    near = np.clip(np.hypot(cb, cr) * 10, 0, 1)
+    k = 1 + (red - 1) * np.clip((ang - 55) / 20, 0, 1) * np.clip((122 - ang) / 8, 0, 1) * near
+    cb, cr = cb * k, cr * k
+    o = np.stack([y + cr / 0.713, y - (0.299 * (cr / 0.713) + 0.114 * (cb / 0.564)) / 0.587, y + cb / 0.564], -1)
+    return np.clip(np.rint(o * 255), 0, 255).astype(np.uint8)
 
 
 BAND_KEYS = ("band_r", "band_g", "band_b", "band_at")
@@ -357,7 +388,7 @@ def main(luts, dest):
     sources = [(table(luts / "looks.txt"), luts / "out", "rt"), (table(luts / "emulsion-trial.txt"), luts / "out-emulsion", "ep"),
                (table(luts / "candidates-rt.txt"), luts / "out-cand", "rt"),
                (table(luts / "original.txt"), luts / "out-original", "own")]   # our own looks (MIT, like the app)
-    order, grain, strength, halation, group, sharp = [], {}, {}, {}, {}, {}
+    order, grain, strength, halation, group, sharp, wb = [], {}, {}, {}, {}, {}, {}
     cur_group = ""
     for l in (luts / "app-looks.txt").read_text(encoding="utf-8").splitlines():
         if l.startswith("## "):
@@ -366,7 +397,10 @@ def main(luts, dest):
             cur_group = full + ";" + (short.strip() or full.split()[0])   # "Full name;Short" in looks.txt
         elif l.strip() and not l.lstrip().startswith("#"):
             group[l.split()[0]] = cur_group
-            parts = l.split()
+            # named options (0.62): wb=<full>:<film>, kelvin for Controls > White balance: Film (full) and Film
+            opts = dict(p.split("=", 1) for p in l.split() if "=" in p)
+            wb[l.split()[0]] = opts.get("wb", "0")            # "<full>:<film>" kelvin
+            parts = [p for p in l.split() if "=" not in p]
             order.append(parts[0])
             grain[parts[0]] = max(0, min(100, int(parts[1]))) if len(parts) > 1 else 0
             strength[parts[0]] = max(0, min(100, int(parts[2]))) if len(parts) > 2 else 100
@@ -404,8 +438,8 @@ def main(luts, dest):
             cube = np.frombuffer(raw[5:], np.uint8).reshape(n, n, n, 3)
             raw = raw[:5] + apply_tweaks(cube, tweaks[lid]).tobytes()
         (dest / f"{lid}.lut").write_bytes(raw)
-        # looks.txt: id|TAG|Name|grain|halation|group|sharpness (camera sharpness -3..3 while shooting)
-        lines.append(f"{lid}|{tag}|{name}|{grain[lid]}|{halation[lid]}|{group[lid]}|{sharp[lid]}")
+        # looks.txt: id|TAG|Name|grain|halation|group|sharpness (camera sharpness -3..3 while shooting)|white balance K (0: camera)
+        lines.append(f"{lid}|{tag}|{name}|{grain[lid]}|{halation[lid]}|{group[lid]}|{sharp[lid]}|{wb[lid]}")
         used.add(kind)
         if kind == "ep":
             ep_names.append(name)

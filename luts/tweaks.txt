@@ -72,3 +72,12 @@ superia1600   green_hue=8  floor_r=1  floor_g=0  floor_b=-4  floor_p=3
 # skin went sallow (outside review of 0.60 on the test set): a near-neutral charcoal floor (12/14/14, black ~(17,19,17)),
 # the mint moved into the lower mids (band: none at black), skin warmth back (warm_sat 1.0). Picked over denser C/D at
 # full size: green tint in night shadows ~15 -> 2-4, shadow detail kept. Daylight, skies and greens unchanged.
+# 0.62: Ektachrome E100 had no tweaks (the preset at 55%): "camera with more contrast and bluer skies", not slide film
+# (outside review on the test set). A reversal S-curve (slide, steepest just below mid so shadows fall off sooner),
+# dense slightly cool blacks (toe), richer pure reds (red_pure; skin untouched). Stronger curves (0.3-0.5) with more
+# blue read as Velvia ("electric blue", skin clipping); the reviewer's pick at full size was the gentlest, so: its colour
+# (blue as before, reds x1.08) with a slightly firmer curve. Tungsten stays warm: that is the camera's auto white balance.
+# Then (review of real frames at Film white balance): under a lamp it went "saturated warm grading rather than slide
+# film": the look raised saturation in every hue by ~25%. Oranges and yellows only back to the camera's (warm_sat 0.78;
+# skin 39 -> 48 -> 38, yellow 80 -> 99 -> 77); reds, blues, greens and the neutral greys unchanged.
+e100   slide=0.20  slide_pivot=0.48  toe_r=4  toe_g=3  toe_b=0  toe_p=3  warm_sat=0.78  red_pure=1.08

@@ -28,7 +28,8 @@ halation was rebuilt (0.60) and several looks have changed: see the [releases](.
   **Almost Dark**, in Cinema, is the studio's own low-light look: deep blacks, rich lamplight, clean lights.
 - Shoot inside the app. The conversion runs in
   the background (about 20-40 s per photo at JPEG size M on an a7R II, CineStill 800T the longest). When it is done,
-  "Developed" and the film's name show for a moment. A quick review of each photo in its look is in Controls (off by
+  "Developed" and the film's name show for a moment. A quick review of each photo in its look, and the film's own white
+  balance (new: a daylight film goes amber under lamps, 800T blue at dusk), are in Controls (both off by
   default).
 - **Film mode** (MENU > Film mode): load a roll of one film, 24 or 36 frames, and shoot it like film. The film, grain,
   base style and size are fixed for the roll, there is no review, and PLAY is off. When the roll is finished (or you
@@ -69,7 +70,7 @@ no other editing. Photos: Almost Dark Studio.*
 | ![Favourites](docs/screenshots/7-favourites.jpg)<br>MENU > Favourites: mark the looks you use | ![Controls](docs/screenshots/8-controls.jpg)<br>Controls: press Trash while shooting |
 | ![Film mode](docs/screenshots/9-film-mode.jpg)<br>MENU > Film mode: a roll of CineStill 800T, 14 of 36 frames | |
 
-*Drawn for 0.61 from the app's layout with its own film engine; the camera has no screenshot function, and its fonts may differ a little.*
+*Drawn for 0.62 from the app's layout with its own film engine; the camera has no screenshot function, and its fonts may differ a little.*
 
 ## Download
 Get `FilmDrawer-<version>.apk` and `SHA256SUMS.txt` from the [Releases](../../releases) page.
@@ -178,8 +179,8 @@ camera was switched off. Please check your settings the first time. Choose
 - Lock-on (tracking) AF, Eye AF, the Zone and expanded focus areas, and the camera's own custom buttons and dial settings
   do not work in the app.
 - RAW files already on the card without a JPEG cannot be converted.
-- The looks work on the camera's JPEG, after its own white balance. CineStill 800T therefore goes less blue in daylight
-  than real film.
+- The looks work on the camera's JPEG, after its white balance. With Controls > White balance: Camera (the default), CineStill
+  800T therefore goes less blue in daylight than real film.
 - Previews (on the camera and in the photo file) do not show the grain; the photo itself does.
 - If your camera keeps contrast, saturation and sharpness separately for each Creative Style, your own values for Standard
   and Neutral may be left at the app's (not confirmed). If you have changed those two styles, please check them.
