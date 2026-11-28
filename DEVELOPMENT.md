@@ -743,3 +743,21 @@ house frame (DSC02166) was the one that worked.
   And just after opening it ignored the app's 5300 K ("camera has auto 3600" at 2 s, taken 11 s later at a look change):
   applyLookWb now reads back and retries every 0.75 s, up to 8 times (then a report).
   Confirmed with RAWs DSC02303-08 (samples/wb-cal): auto chose 2950-4225 K while the camera reported 3600 K throughout.
+
+## 0.64: White balance: Film from the JPEG's own record (lab scan)
+- The camera does not report its auto white balance to the app (TRACE: stored 3600 K while auto chose 2950-4225 K),
+  and estimating the cast from the photo (luts/wbest.py: grey pixels on the black-body locus, an exposure prior) was
+  only ~39 mired median against the truth. But every a7R II JPEG records it: Sony maker note 0x9408, deciphered (b ->
+  i where i^3 mod 249 = b, as ExifTool), uint16 R, G, B at offset 698 = the RAW's as-shot multipliers (34 / 34 test
+  frames, exact). So the camera's auto white balance is the lab scanner.
+- `FilmBalance.java` (pure Java, PC-tested via luts/FilmBalanceTest.java): reads those levels (a7R II only, checked
+  plausible; else the camera's balance is kept), finds what auto chose on the locus through the camera's XYZ matrix
+  (DNG ColorMatrix2, the same 150 K scale offset), and the final balance in mired: film K + share x (auto - film).
+  The 3x3 (linear sRGB) between the two is folded into a per-photo copy of the look's LUT: ~3 ms on the PC, so no extra
+  native work. Conversions (JobQueue, mode saved with the job) and previews (lutFor) use it; LOG.TXT notes auto and final K.
+- looks: `wb=<K>:<lab %>`: 800T, 500T, Almost Dark 3200:65; 50D, 250D 5500:65; slides 5500:15 (an outside review:
+  slides were matched, not corrected). Film = that share, Film (full) = 0.
+- Against the RAW-built lab target (luts/wbsim.py at per-frame kelvin), 800T: warmth within ~2 in every situation
+  (daylight skin target +10, app +8; sky -100 / -103; night +1 / +1), mean |difference| 1.4-2.9 levels, dusk 6.
+- The camera's white balance is no longer set (0.62-0.63 code removed; a value saved then is still put back once).
+  Works on photos taken outside the app too, if they were shot on Auto.

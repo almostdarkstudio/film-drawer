@@ -5,11 +5,11 @@ gold200|G20|Gold 200|35|0|Kodak negative;Kodak|0|0
 ultramax|UMX|UltraMax 400|45|0|Kodak negative;Kodak|0|0
 colorplus|CP2|ColorPlus 200|40|0|Kodak negative;Kodak|0|0
 ektar100|EKT|Ektar 100|15|0|Kodak negative;Kodak|0|0
-almostdark|ALD|Almost Dark|35|0|Cinema;Cine|0|3200:3500
-vision500t|V5T|Vision3 500T|35|0|Cinema;Cine|0|3200:3500
-vision250d|V25|Vision3 250D|30|0|Cinema;Cine|0|5500:5300
-cs800t|C8T|CineStill 800T|50|80|Cinema;Cine|-1|3200:3500
-cs50d|C5D|CineStill 50D|20|50|Cinema;Cine|-2|5500:5300
+almostdark|ALD|Almost Dark|35|0|Cinema;Cine|0|3200:65
+vision500t|V5T|Vision3 500T|35|0|Cinema;Cine|0|3200:65
+vision250d|V25|Vision3 250D|30|0|Cinema;Cine|0|5500:65
+cs800t|C8T|CineStill 800T|50|80|Cinema;Cine|-1|3200:65
+cs50d|C5D|CineStill 50D|20|50|Cinema;Cine|-2|5500:65
 k2383|K23|Kodak 2383 Print|30|0|Cinema;Cine|0|0
 eterna|ETR|Fujifilm Eterna|30|0|Cinema;Cine|0|0
 fuji400h|F4H|Fuji 400H|35|0|Fuji & Agfa negative;Fuji|0|0
@@ -21,12 +21,12 @@ fujic200|C20|Fujicolor C200|35|0|Fuji & Agfa negative;Fuji|0|0
 vista200|AGV|Agfa Vista 200|35|0|Fuji & Agfa negative;Fuji|0|0
 classicchrome|CCH|Classic Chrome|20|0|Fuji simulations;Sims|0|0
 classicneg|CNG|Classic Negative|30|0|Fuji simulations;Sims|0|0
-kchrome64|K64|Kodachrome 64|20|0|Slide;Slide|0|5500:5300
-e100|E10|Ektachrome E100|15|0|Slide;Slide|0|5500:5300
-ekta100vs|EVS|Ektachrome 100VS|20|0|Slide;Slide|0|5500:5300
-provia100f|PRV|Provia 100F|20|0|Slide;Slide|0|5500:5300
-astia100f|AST|Astia 100F|20|0|Slide;Slide|0|5500:5300
-velvia50|V50|Velvia 50|15|0|Slide;Slide|0|5500:5300
+kchrome64|K64|Kodachrome 64|20|0|Slide;Slide|0|5500:15
+e100|E10|Ektachrome E100|15|0|Slide;Slide|0|5500:15
+ekta100vs|EVS|Ektachrome 100VS|20|0|Slide;Slide|0|5500:15
+provia100f|PRV|Provia 100F|20|0|Slide;Slide|0|5500:15
+astia100f|AST|Astia 100F|20|0|Slide;Slide|0|5500:15
+velvia50|V50|Velvia 50|15|0|Slide;Slide|0|5500:15
 pola669|669|Polaroid 669|35|0|Instant;Instant|0|0
 sx70|SX7|Polaroid SX-70|35|0|Instant;Instant|0|0
 fp100c|FPC|Fuji FP-100C|30|0|Instant;Instant|0|0

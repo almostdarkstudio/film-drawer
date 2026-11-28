@@ -18,8 +18,8 @@ public final class Looks {
         public final String group;       // menu group, e.g. "Kodak negative" (left/right jump)
         public final String groupShort;  // e.g. "Kodak", for the group strip on the look card
         public int sharpness;            // camera sharpness -3..3 while shooting this look (0 = Standard)
-        public int wb;                   // the film's own balance in kelvin (Controls > White balance: Film (full)); 0 = camera's
-        public int wbFilm;               // ... part of the way there, as a lab scan (White balance: Film)
+        public int wb;                   // the film's own balance in kelvin (Controls > White balance: Film); 0 = camera's
+        public int wbShare;              // % of each frame's cast a lab scan took out (Film; Film (full) keeps it all)
         private byte[] lut;
         private Look original;           // in Favourites: the look in its own group
 
@@ -30,7 +30,7 @@ public final class Looks {
             Look f = new Look(id, tag, name, grain, halation, FAVOURITES, "Fav");
             f.sharpness = sharpness;
             f.wb = wb;
-            f.wbFilm = wbFilm;
+            f.wbShare = wbShare;
             f.original = this;
             return f;
         }
@@ -89,11 +89,10 @@ public final class Looks {
                 if (p.length > 6) {
                     try { lk.sharpness = Math.max(-3, Math.min(3, Integer.parseInt(p[6].trim()))); } catch (NumberFormatException ignored) {}
                 }
-                if (p.length > 7) {                              // "<full>:<film>" kelvin, or one value for both
+                if (p.length > 7) {                              // "<kelvin>:<lab share %>"
                     String[] k = p[7].trim().split(":");
                     lk.wb = kelvin(k[0]);
-                    lk.wbFilm = k.length > 1 ? kelvin(k[1]) : lk.wb;
-                    if (lk.wb == 0 || lk.wbFilm == 0) lk.wb = lk.wbFilm = 0;
+                    try { lk.wbShare = k.length > 1 ? Math.max(0, Math.min(100, Integer.parseInt(k[1].trim()))) : 65; } catch (NumberFormatException e) { lk.wbShare = 65; }
                 }
                 all.add(lk);
             }

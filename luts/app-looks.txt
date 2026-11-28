@@ -13,12 +13,11 @@
 # Metropolis (85%), Aerochrome (our own, aerochrome.py), Pan F Plus 50.
 # Strengths from the look review on skin/sky/sunset/night test photos (2026-11-23): Portra, Superia,
 # the Kodak slide films, Astia and Polaroid were the right character but overdone.
-# wb=<full>:<film> (0.62), kelvin, set on the camera while shooting by Controls > White balance (opt-in; every look
-# was tuned on the camera's auto white balance). Film (full): the film's own balance, tungsten 3200 K, daylight cine
-# and slide 5500 K. Film: about 65% of the way there from what auto chose on the photos these looks were tuned on
-# (night streets ~4050 K, daylight ~5050 K on the camera's scale, read from the RAWs and calibrated with frames shot
-# at 3450 / 5300 K), as a lab scanner partly corrected the cast. Negatives (lab scans are colour-corrected), instant,
-# B&W and creative looks keep the camera's.
+# wb=<kelvin>:<lab %> (0.64) for Controls > White balance (opt-in; every look was tuned on the camera's auto white
+# balance). The film's own balance: tungsten 3200 K, daylight cine and slide 5500 K. Applied at conversion: the JPEG
+# records what auto chose (FilmBalance.java); Film (full) puts back all of the film's cast, Film puts back what a lab
+# scan left: negatives and cine 65% corrected out, slides 15% (labs matched slides rather than correcting them).
+# Colour negatives otherwise (lab scans are colour-corrected), instant, B&W and creative looks keep the camera's.
 ## Kodak negative | Kodak
 portra400   35   65
 portra160   20   60
@@ -28,11 +27,11 @@ ultramax    45
 colorplus   40
 ektar100    15
 ## Cinema | Cine
-almostdark  35  wb=3200:3500
-vision500t  35  wb=3200:3500
-vision250d  30  wb=5500:5300
-cs800t      50   100  80   -1  wb=3200:3500
-cs50d       20   100  50   -2  wb=5500:5300
+almostdark  35  wb=3200:65
+vision500t  35  wb=3200:65
+vision250d  30  wb=5500:65
+cs800t      50   100  80   -1  wb=3200:65
+cs50d       20   100  50   -2  wb=5500:65
 k2383       30   80
 eterna      30
 ## Fuji & Agfa negative | Fuji
@@ -47,12 +46,12 @@ vista200    35
 classicchrome 20
 classicneg  30
 ## Slide | Slide
-kchrome64   20   75  wb=5500:5300
-e100        15   55  wb=5500:5300
-ekta100vs   20   80  wb=5500:5300
-provia100f  20  wb=5500:5300
-astia100f   20   70  wb=5500:5300
-velvia50    15  wb=5500:5300
+kchrome64   20   75  wb=5500:15
+e100        15   55  wb=5500:15
+ekta100vs   20   80  wb=5500:15
+provia100f  20  wb=5500:15
+astia100f   20   70  wb=5500:15
+velvia50    15  wb=5500:15
 ## Instant | Instant
 pola669     35   75
 sx70        35

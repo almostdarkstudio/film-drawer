@@ -29,7 +29,10 @@ public final class JobQueue {
         public final File in, out;
         public final Looks.Look look;
         public final int grain;          // 0..100, resolved when the job was queued
+        public int wbMode;               // White balance when queued: 0 camera, 1 Film (lab scan), 2 Film (full)
         int restores;                    // times resumed after the app was closed (crash-loop guard)
+
+        Job wb(int mode) { wbMode = mode; return this; }
 
         public Job(File in, File out, Looks.Look look, int grain) {
             this.in = in;
@@ -75,13 +78,13 @@ public final class JobQueue {
         queue.add(job);
     }
 
-    /** One line per unfinished job: input path, look id, grain, output path, restores (tab-separated). */
+    /** One line per unfinished job: input path, look id, grain, output path, restores, white balance mode (tab-separated). */
     private void save() {
         StringBuilder sb = new StringBuilder();
         for (Job j : outstanding) {
             sb.append(j.in.getAbsolutePath()).append('\t').append(j.look.id).append('\t')
               .append(j.grain).append('\t').append(j.out.getAbsolutePath()).append('\t')
-              .append(j.restores).append('\n');
+              .append(j.restores).append('\t').append(j.wbMode).append('\n');
         }
         // apply(): written in the background, in order (never blocks a thread holding this lock).
         try { prefs.edit().putString(KEY, sb.toString()).apply(); } catch (Throwable ignored) {}
@@ -108,6 +111,7 @@ public final class JobQueue {
             if (r >= 3) continue;        // resumed 3 times without finishing: give up on it
             Job j = new Job(in, o, lk, g);
             j.restores = r + 1;
+            try { j.wbMode = p.length > 5 ? Math.max(0, Math.min(2, Integer.parseInt(p[5].trim()))) : 0; } catch (NumberFormatException ignored) {}
             out.add(j);
         }
         prefs.edit().remove(KEY).commit();
@@ -177,7 +181,7 @@ public final class JobQueue {
             current = job;
             String err = null;
             long t0 = System.currentTimeMillis(), size = 0;
-            String retried = "";
+            String retried = "", wbNote = null;
             // 0.58: once (on the a7R II) a conversion into a new folder reported OK but left an empty file. The result is
             // checked: an empty or tiny file is deleted and converted once more; if it is still bad, the job fails.
             for (int attempt = 0; attempt < 2; attempt++) {
@@ -187,7 +191,14 @@ public final class JobQueue {
                     else {
                         Native.setGrain(job.grain);
                         Native.setHalation(job.look.halation);
-                        err = Native.apply(job.in.getAbsolutePath(), job.out.getAbsolutePath(), looks.lut(job.look), 95);
+                        byte[] lut = looks.lut(job.look);
+                        if (job.wbMode > 0 && job.look.wb > 0) {
+                            // White balance: Film (0.64): the film's cast put back from what auto chose (FilmBalance)
+                            FilmBalance.Result fb = FilmBalance.apply(lut, job.in, job.look.wb, job.wbMode == 1 ? job.look.wbShare / 100.0 : 0);
+                            if (fb.lut != null) lut = fb.lut;
+                            wbNote = fb.note;
+                        }
+                        err = Native.apply(job.in.getAbsolutePath(), job.out.getAbsolutePath(), lut, 95);
                     }
                 } catch (Throwable t) {
                     err = t.toString();
@@ -206,7 +217,7 @@ public final class JobQueue {
             log(job.in.getName() + "  " + job.look.tag + " grain " + job.grain
                     + (job.look.halation > 0 ? " halation " + job.look.halation : "") + "  " + ms + " ms  "
                     + (err == null ? "OK -> " + job.out.getParentFile().getName() + "/" + job.out.getName() + " " + size / 1024 + " KB" : "FAILED: " + err)
-                    + retried + "  (queued after: " + (pending - 1) + ")\n    " + st);
+                    + retried + "  (queued after: " + (pending - 1) + ")" + (wbNote != null ? "\n    " + wbNote : "") + "\n    " + st);
             synchronized (this) {
                 current = null;
                 if (err == null) done++; else failed++;

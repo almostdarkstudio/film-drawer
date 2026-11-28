@@ -100,10 +100,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private static final String[] REVIEW_NAMES = {"Off", "2 s", "4 s"};
     private static final int[] REVIEW_VALUES = {0, 2000, 4000};
     private int reviewIndex = 0;
-    /** White balance (MENU > Controls): Camera (its own auto, the default); Film: a fixed balance part of the way to the
-     *  film's own, as a lab scan of it looked (800T 3500 K, E100 5300 K); Film (full): the film's own (3200 K, 5500 K).
-     *  looks.txt; looks without one keep the camera's. 0.62, opt-in: every look was tuned on auto-white-balance photos;
-     *  a fixed balance is what real film does in light it is not made for. */
+    /** White balance (MENU > Controls): Camera (as shot, the default); Film: the film's own balance (looks.txt: 800T 3200 K,
+     *  E100 5500 K) with what a lab scan corrected out (negatives 65%, slides 15%); Film (full): all of the film's cast.
+     *  Applied at conversion from what the camera's auto white balance chose (FilmBalance, 0.64); looks without a balance
+     *  keep the camera's. Opt-in: every look was tuned on auto-white-balance photos. */
     private static final String[] WB_NAMES = {"Camera", "Film", "Film (full)"};
     private int wbMode;
     private static final String WB_TEMP_KEY = "color-temperture-white-balance";   // Sony's spelling (PARAMS.TXT)
@@ -1050,8 +1050,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         ui.removeCallbacks(openWaiting);
         ui.removeCallbacks(checkLive);
         ui.removeCallbacks(reopenCheck);
-        ui.removeCallbacks(retryWb);
-        wbRetries = 0;
         liveStarted = false;
         if (camera == null) return;
         if (aeLocked) setAeLock(false);                    // never leave exposure locked
@@ -1120,51 +1118,21 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     }
 
     /**
-     * White balance: Film (Controls) sets the look's own balance in kelvin while shooting, so a daylight film goes amber
-     * under lamps and 800T blue in daylight, as real film does. The user's own white balance is saved first and put back
-     * by restoreUser() (on close, on open after an abrupt exit, and here when the look has none or the option is off).
-     * Never changes it if it cannot be read (so saved) first, or the camera has no colour-temperature mode.
+     * White balance: Film (Controls) is applied at conversion since 0.64 (FilmBalance: the JPEG records what auto chose,
+     * the film's cast is put back from that), so the camera's own white balance is never changed now. 0.62-0.63 set it
+     * while shooting: a value saved then and not yet put back is restored here.
      */
-    /** The kelvin to shoot this look at, or 0 for the camera's own white balance. */
-    private int lookWb() {
-        return wbMode == 0 || looks == null ? 0 : wbMode == 1 ? look().wbFilm : look().wb;
-    }
-
     private void applyLookWb() {
-        if (camera == null || looks == null) return;
-        int k = lookWb();
-        try {
-            if (k <= 0) {
-                if (user.saved(UserSettings.G_WB)) restoreUser("white balance", UserSettings.G_WB);
-                return;
-            }
-            android.hardware.Camera.Parameters now = params();
-            List modes = now.getSupportedWhiteBalance();
-            if (modes != null && !modes.contains("color-temp")) { Diag.trace("white balance: no color-temp mode"); return; }
-            Map<String, String> mine = settings(now);
-            if (mine.get(UserSettings.WB) == null) return;
-            user.saveWb(mine);
-            android.hardware.Camera.Parameters p = camera.createEmptyParameters();
-            p.setWhiteBalance("color-temp");
-            p.set(WB_TEMP_KEY, k);
-            camera.getNormalCamera().setParameters(p);
-            // 0.63: right after the camera opens it can ignore this (TRACE: "5300 K: camera has auto 3600" at 2 s, taken
-            // at the next look change 11 s later), so photos in the first seconds would be on the user's balance. Check,
-            // and try again a few times until it takes.
-            android.hardware.Camera.Parameters got = params();
-            boolean ok = "color-temp".equals(got.getWhiteBalance()) && String.valueOf(k).equals(got.get(WB_TEMP_KEY));
-            if (Diag.verbose()) Diag.trace("white balance " + k + " K: camera has " + got.getWhiteBalance() + " " + got.get(WB_TEMP_KEY));
-            ui.removeCallbacks(retryWb);
-            if (ok) wbRetries = 0;
-            else if (wbRetries++ < 8) ui.postDelayed(retryWb, 750);
-            else { wbRetries = 0; Diag.report("White balance " + k + " K not taken by the camera"); }
-        } catch (Throwable t) {
-            Diag.trace("white balance not set: " + t);
-        }
+        if (camera == null || user == null) return;
+        if (user.saved(UserSettings.G_WB)) restoreUser("white balance", UserSettings.G_WB);
     }
 
-    private int wbRetries;
-    private final Runnable retryWb = new Runnable() { public void run() { if (!browsing) applyLookWb(); } };
+    /** The film balance a conversion of this look gets now: "" when none. */
+    private String wbValue(Looks.Look lk) {
+        if (wbMode == 0) return "Camera";
+        if (lk.wb <= 0) return WB_NAMES[wbMode] + ", camera's for this look";
+        return WB_NAMES[wbMode] + ", " + lk.wb + " K" + (wbMode == 1 ? " + lab scan" : "");
+    }
 
     /**
      * Camera sharpness for the current look (looks.txt; e.g. CineStill 800T -3: film is softer than
@@ -1638,7 +1606,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 boolean film = roll != null && roll.on();
                 File out = film ? Photos.rollOutput(f, shot.look.tag, roll.nextFolder()) : Photos.outputFor(f, shot.look.tag);
                 if (film) Photos.hideNow(out);                     // hidden before it can be listed
-                jobs.add(new JobQueue.Job(f, out, shot.look, shot.grain));
+                jobs.add(new JobQueue.Job(f, out, shot.look, shot.grain).wb(wbMode));
                 lastShot = f;
                 if (film) {
                     // Film mode: a frame on the roll, no review. The last one sends the roll to the lab.
@@ -1866,13 +1834,30 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private boolean adobeIs;
     private byte[] adobeBytes;
 
-    /** The look's LUT for this photo: Adobe RGB photos need their own (as the conversion does). */
+    private String fbKey;                      // the film balance LUT for the last photo + look + mode (preview thread)
+    private byte[] fbBytes;
+
+    /**
+     * The look's LUT for this photo, as the conversion will use it: with White balance: Film, the film's cast put back
+     * for this photo (FilmBalance); Adobe RGB photos need their own (as the conversion does).
+     */
     private byte[] lutFor(File photo, Looks.Look lk) throws Exception {
         String path = photo.getAbsolutePath();
         if (!path.equals(adobePath)) { adobeIs = Native.isAdobe(path); adobePath = path; }
         byte[] lut = looks.lut(lk);
+        String key = null;
+        if (wbMode > 0 && lk.wb > 0) {
+            key = path + "|" + lk.id + "|" + wbMode;
+            if (!key.equals(fbKey)) {
+                FilmBalance.Result fb = FilmBalance.apply(lut, photo, lk.wb, wbMode == 1 ? lk.wbShare / 100.0 : 0);
+                fbBytes = fb.lut;
+                fbKey = key;
+            }
+            if (fbBytes != null) lut = fbBytes; else key = null;
+        }
         if (!adobeIs) return lut;
-        if (!lk.id.equals(adobeLook)) { adobeBytes = Native.adobeLut(lut); adobeLook = lk.id; }
+        String ak = key != null ? key : lk.id;
+        if (!ak.equals(adobeLook)) { adobeBytes = Native.adobeLut(lut); adobeLook = ak; }
         return adobeBytes != null ? adobeBytes : lut;
     }
 
@@ -2100,7 +2085,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             return;
         }
         exitArmedUntil = 0;
-        jobs.add(new JobQueue.Job(p, out, look(), grainFor(look())));
+        jobs.add(new JobQueue.Job(p, out, look(), grainFor(look())).wb(wbMode));
         setNote("Queued " + p.getName() + SEP + look().name);
     }
 
@@ -2230,7 +2215,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             case M_DIALS: return DIAL_NAMES[dialIndex];
             case M_WHEEL: return WHEEL_NAMES[wheelIndex];
             case M_REVIEW: return REVIEW_NAMES[reviewIndex];
-            case M_WB: return wbMode == 0 ? "Camera" : WB_NAMES[wbMode] + (lookWb() > 0 ? ", " + lookWb() + " K" : ", auto for this look");
+            case M_WB: return wbValue(look());
             default: return null;
         }
     }
@@ -2597,7 +2582,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
                 break;
             case M_WB:
                 wbMode = ((wbMode + dir) % WB_NAMES.length + WB_NAMES.length) % WB_NAMES.length;
-                if (!browsing) applyLookWb();
+                if (browsing) requestPreview(false);          // the preview shows the film balance too
                 break;
             default:
                 return false;

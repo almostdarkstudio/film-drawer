@@ -70,13 +70,15 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
   own choice is put back when you leave. Lock-on AF and Eye AF are not available.
 - **ISO**, **Dials** (which one is shutter speed) and **Wheel** (looks or ISO; with ISO, looks stay on Up / Down).
 - **Quick review**: Off (the default), 2 s or 4 s: each photo shown in its look just after you take it.
-- **White balance** (new, still being tested): **Camera** (the default: your camera's own white balance), **Film** or
-  **Film (full)**. With Film, while you shoot, the camera is set to a fixed balance like real film has, so a daylight
-  film goes amber under lamps and 800T goes blue at dusk and in daylight. Film (full) is the film's own balance: 3200 K
-  for the tungsten films (CineStill 800T, Vision3 500T, Almost Dark), 5500 K for CineStill 50D, Vision3 250D and the
-  slide films. Film goes about two thirds of the way (3500 K, 5300 K), as a lab scan of the film usually looked. The
-  other looks keep the camera's white balance (labs colour-correct negative scans). Only for photos taken in the app;
-  your own white balance is put back when you leave.
+- **White balance** (new): **Camera** (the default: the photo as your camera balanced it), **Film** or **Film (full)**.
+  Real film has a fixed balance: 3200 K for the tungsten films (CineStill 800T, Vision3 500T, Almost Dark), 5500 K for
+  CineStill 50D, Vision3 250D and the slide films. A daylight film goes amber under lamps, 800T goes blue at dusk and
+  in daylight. **Film (full)** gives the whole cast, as on the film itself. **Film** gives what a lab scan of it looked
+  like: labs took most of the cast out of negatives (two thirds here), and little out of slides. It is worked out when
+  converting, from the white balance your camera chose for each photo (with the camera on Auto white balance), so it
+  also works for photos taken before you opened the app. The camera's own setting is never changed. Sony a7R II only
+  for now (other cameras keep their own white balance); the other looks keep the camera's (labs colour-correct
+  negative scans).
 - **What buttons do**.
 
 **Favourites** (MENU > Favourites): Left / Right for the group, Up / Down for the look, OK to mark or unmark it. Once
