@@ -51,9 +51,13 @@ halation was rebuilt (0.60) and several looks have changed: see the [releases](.
 |---|---|
 | ![Headland and beach, camera JPEG](docs/examples/coast-camera.jpg) | ![The same photo in Tri-X 400](docs/examples/coast-tri-x-400.jpg) |
 
+| Camera JPEG | Fuji 400H |
+|---|---|
+| ![Field by the sea with a tractor, camera JPEG](docs/examples/field-camera.jpg) | ![The same photo in Fuji 400H](docs/examples/field-fuji-400h.jpg) |
+
 *Sony a7R II, with the app's own engine and default settings for each look: colour or black and white tones, grain,
-and for CineStill the red halation around the lights. Made with 0.60 and resized for this page, no other editing.
-Photos: Almost Dark Studio.*
+and for CineStill the red halation around the lights. Made with 0.60 (Fuji 400H with 0.61) and resized for this page,
+no other editing. Photos: Almost Dark Studio.*
 
 ## Screenshots
 | | |
