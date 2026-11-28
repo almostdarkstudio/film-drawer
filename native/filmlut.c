@@ -660,27 +660,43 @@ typedef struct { struct jpeg_error_mgr pub; jmp_buf jump; } halo_err;
 static void on_error_halo(j_common_ptr c) { longjmp(((halo_err *)c->err)->jump, 1); }
 static void on_message_halo(j_common_ptr c) { (void)c; }
 
-/* 0.52: discs, from real CineStill 800T scans. Film sees a lamp hundreds of times brighter than paper white, but the JPEG
- * clips it, so blurring the mask spread a small lamp so thin that it vanished. Here the light of a source counts by its
- * size and saturates (1 - exp): even a small lamp in the dark gets a full red-orange disc, about 1% of the width. */
-#define DISC_Q 0.35f        /* light of one map pixel of source, at 646 map pixels across */
-#define DISC_COLOURED 0.42f /* sources not clipped in all channels (coloured lights) count less (0.58: 0.45) */
-#define HOT_SPREAD 85.0f    /* the wide ring of the brightest sources: blur radius per pass = width / this */
-#define HOT_Q 0.12f         /* ... light per map pixel of white-hot core: ~10 pixels of core for a nearly full ring */
-#define HOT_RING 0.90f      /* ... its strength at full */
-#define HOT_KEEP 0.85f      /* ... and how much of its halo a lit surrounding cannot take away */
-#define HOT_EV_FULL 8.0f    /* ... both only for real light sources: in full up to this scene EV (ISO 100), */
-#define HOT_EV_NONE 11.0f   /* ... none from here (daylight: a clipped white is sunlit cloth, not a lamp) */
-#define DAY_WIDE 0.25f      /* in daylight: what is left of the wide glow, */
-#define DAY_DISC 0.20f      /* ... and of the disc (the tight rim stays) */
-#define DISC_SPREAD 215.0f  /* blur radius per pass = width / this */
-#define DISC_DARK 0.32f     /* surroundings (without the sources, 0..1) up to here: a full disc */
-#define DISC_BRIGHT 0.62f   /* ... from here on: almost none. Bright cloth, a sunlit table are not lamps */
-#define WIDE_GLOW 0.60f     /* what is left of the earlier, wide glow */
+/* 0.60: halation as one model, after two outside reviews of 0.59's 800T (25 night frames): the 0.23-0.59 halation was a
+ * stack of fixes (outward-only glow, discs for small lamps, damping by area and by bright surroundings, a fade on bright
+ * pixels, a wide ring for white-hot lamps), and it followed edges and contrast rather than light: flat red discs round
+ * street lamps, a floodlight with no red, a tube glowing at one end, orange-lit shirt stripes glowing like neon while
+ * the windows behind did not.
+ * Now: the source is luminance near white (HAL_LO..HAL_HI, max-pooled to 1/8 so small lamps survive); all-channel
+ * clipped cores (white-hot) count 1 + HAL_HOT times. Its light is spread by three blurs, tight / mid / wide, each
+ * growing with the light it gathers as (light)^HAL_P, so a bigger source glows more but less than in proportion (a
+ * big window glows without flooding the frame), and the sum saturates softly (1 - exp). Brightest and amber next to
+ * the source, red further out, no edge. halo_row then screens it on, except inside blown areas (tubes and lamps stay
+ * white), and also pulls what it covers towards the glow colour (HAL_COL; less on pixels already bright, HAL_COLB),
+ * since over a bright bloom a screen alone only goes pinkish-white.
+ * Daylight (EXIF exposure, as 0.59): the glow falls to HAL_DAY of itself and the wide part further (DAY_WIDE), steeply
+ * from EV 8 to 11, so sunlit whites and overcast skies get only a trace. */
+#define HOT_EV_FULL 8.0f    /* scene EV (ISO 100) up to which halation is in full (night streets here are EV 5-6, */
+#define HOT_EV_NONE 11.0f   /* ... lit interiors up to 8); from here it is daylight */
+#define DAY_WIDE 0.25f      /* in daylight: what is left of the wide part, */
+#define HAL_DAY 0.10f       /* ... and of the whole glow */
+#define HAL_LO 0.75f        /* luminance where a pixel starts to count as a source (yellow flame ~0.8), */
+#define HAL_HI 0.95f        /* ... and counts fully; orange-lit cloth (~0.7) does not */
+#define HAL_HOT 2.0f        /* white-hot cores (clipped in all channels) count 1 + this times */
+#define HAL_R1 300.0f       /* blur radii per pass = map width / these: tight, */
+#define HAL_R2 100.0f       /* ... mid, */
+#define HAL_R3 35.0f        /* ... wide */
+#define HAL_C1 0.52f        /* glow per (source light)^HAL_P: tight, */
+#define HAL_C2 0.20f        /* ... mid, */
+#define HAL_C3 0.045f       /* ... wide */
+#define HAL_P 0.4f          /* growth with the source's light: 1 = in proportion */
+#define HAL_CORE_LO 205.0f  /* output luminance where the glow starts to fade out (inside blown areas), */
+#define HAL_CORE_HI 240.0f  /* ... and is gone */
+#define HAL_COL 0.33f       /* how far the glow pulls what it covers towards its colour, */
+#define HAL_COLB 0.5f       /* ... less by this much on pixels already at white */
 
-/* Pre-pass: 1/8-scale decode -> highlight mask -> blur. Returns 1 if built (H->g set).
- * Any failure just means no halation for this photo. */
-/* use_preview: build the map from the embedded preview instead (fast; for screen previews only). */
+static float smooth01(float lo, float hi, float v);
+
+/* Pre-pass: 1/8-scale decode -> source map -> glow. Returns 1 if built (H->g set). Any failure just means no halation.
+ * use_preview: build it from the embedded preview instead (fast; for screen previews only). */
 static int halo_build(const char *path, halo_t *H, int strength, int use_preview)
 {
     struct jpeg_decompress_struct d;
@@ -689,16 +705,15 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
     JSAMPARRAY row;
     float *volatile m = NULL;
     float *volatile km = NULL;
-    float *volatile lm = NULL;               /* brightness of the surroundings */
-    float *tmp;
-    int x, y, r;
+    float *tmp, *t, *w, *mid;
+    int x, y;
     memset(H, 0, sizeof *H);
     if (!strength || !(f = fopen(path, "rb"))) return 0;
     jpeg_std_error(&e.pub);
     e.pub.error_exit = on_error_halo;
     e.pub.output_message = on_message_halo;
     d.err = &e.pub;
-    if (setjmp(e.jump)) { jpeg_destroy_decompress(&d); fclose(f); free(m); free(km); free(lm); return 0; }
+    if (setjmp(e.jump)) { jpeg_destroy_decompress(&d); fclose(f); free(m); free(km); return 0; }
     {
         long off = use_preview ? mpf_preview_offset(f) : 0;
         if (fseek(f, off, SEEK_SET)) off = -1;
@@ -720,32 +735,20 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
     H->h = (int)(d.output_height + 1) / 2;
     m = (float *)calloc((size_t)H->w * H->h, sizeof(float));
     km = (float *)calloc((size_t)H->w * H->h, sizeof(float));
-    lm = (float *)calloc((size_t)H->w * H->h, sizeof(float));
-    if (!m || !km || !lm) longjmp(e.jump, 1);
+    if (!m || !km) longjmp(e.jump, 1);
     row = (*d.mem->alloc_sarray)((j_common_ptr)&d, JPOOL_IMAGE, d.output_width * 3, 1);
     for (y = 0; d.output_scanline < d.output_height; y++) {
         const JSAMPLE *p;
-        float *cell = m + (size_t)(y / 2) * H->w;
-        float *kcell = km + (size_t)(y / 2) * H->w;
-        float *lcell = lm + (size_t)(y / 2) * H->w;
+        float *cell = m + (size_t)(y / 2) * H->w, *kcell = km + (size_t)(y / 2) * H->w;
         jpeg_read_scanlines(&d, row, 1);
         p = row[0];
         for (x = 0; x < (int)d.output_width; x++, p += 3) {
-            /* Only real light sources / near-clipped highlights glow. Use the brightest channel
-             * (lamps and fire are yellow, so luma understates them); ramp from 0.86 to 0.99. */
-            int mx = p[0] > p[1] ? p[0] : p[1];
+            float L = (0.2126f * p[0] + 0.7152f * p[1] + 0.0722f * p[2]) / 255.0f, v;
             int mn = p[0] < p[1] ? p[0] : p[1];
-            float v, t;
-            mx = mx > p[2] ? mx : p[2];
             mn = mn < p[2] ? mn : p[2];
-            v = mx / 255.0f;
-            lcell[x / 2] += 0.25f * v;
-            t = (v - 0.86f) / 0.13f;
-            t = t < 0 ? 0 : t > 1 ? 1 : t;
-            t = t * t * (3 - 2 * t);
-            if (t > cell[x / 2]) cell[x / 2] = t;
-            /* Core map: clipped in ALL channels (white-hot lamps), 0.94 -> 0.99 on the darkest
-             * channel, so a bright yellow sunset sky (blue well below clip) does not count. */
+            v = smooth01(HAL_LO, HAL_HI, L);
+            if (v > cell[x / 2]) cell[x / 2] = v;
+            /* white-hot: clipped in ALL channels, 0.94 -> 0.99 on the darkest one */
             v = (mn / 255.0f - 0.94f) / 0.05f;
             v = v < 0 ? 0 : v > 1 ? 1 : v;
             if (v > kcell[x / 2]) kcell[x / 2] = v;
@@ -755,111 +758,52 @@ static int halo_build(const char *path, halo_t *H, int strength, int use_preview
     jpeg_destroy_decompress(&d);
     fclose(f);
     {
-        /* Two-scale glow (a tight, intense halo plus a faint wide spread) that only spreads
-         * OUTWARD from light sources: blurred minus the source itself, so the inside of a
-         * uniformly bright area (a lit wall, sky) gets nothing, and dark surroundings get the
-         * red-orange halo, as light scattered back from the film base would. */
         size_t n = (size_t)H->w * H->h, i;
-        float ev, hot_w = 1.0f;
-        float *tight = (float *)malloc(n * sizeof(float));
-        float *wide = (float *)malloc(n * sizeof(float));
-        float *area = (float *)malloc(n * sizeof(float));
-        float *disc = (float *)malloc(n * sizeof(float));
-        float *rest = (float *)malloc(n * sizeof(float));
-        float *hot = (float *)malloc(n * sizeof(float));
+        float ev, day = 1.0f, A1, A2, A3;
+        int r1 = (int)(H->w / HAL_R1 + 0.5f), r2 = (int)(H->w / HAL_R2 + 0.5f), r3 = (int)(H->w / HAL_R3 + 0.5f), r;
+        if (r1 < 1) r1 = 1;
+        if (r2 < 2) r2 = 2;
+        if (r3 < 3) r3 = 3;
+        t = (float *)malloc(n * sizeof(float));
+        w = (float *)malloc(n * sizeof(float));
+        mid = (float *)malloc(n * sizeof(float));
         tmp = (float *)malloc((size_t)(H->w > H->h ? H->w : H->h) * sizeof(float));
-        if (!tmp || !wide || !tight || !area || !disc || !rest || !hot) { free(tmp); free(wide); free(tight); free(area); free(disc); free(rest); free(hot); free(m); free(km); free(lm); return 0; }
-        /* 0.59: the JPEG cannot tell a lamp (hundreds of times paper white) from sunlit white cloth (just at white):
-         * the exposure can. hot_w: 1 up to EV 8 (night streets here are EV 5-6), 0 from EV 11 (the garden, EV 12-14).
-         * No EXIF: 1. It gates the wide ring of white-hot sources, and in daylight leaves only a thin rim: the wide
-         * glow and the disc shrink (DAY_*). CineStill 50D in the garden had orange-brown glows on black trousers
-         * next to white piping and sunlit toys (outside review: "a thin red-orange rim on the hottest sunlit edges").
-         * At night (hot_w 1) every product below is by exactly 1: byte-identical. */
-        if (photo_ev(path, &ev)) {
-            hot_w = (HOT_EV_NONE - ev) / (HOT_EV_NONE - HOT_EV_FULL);
-            hot_w = hot_w < 0 ? 0 : hot_w > 1 ? 1 : hot_w;
+        if (!t || !w || !mid || !tmp) { free(t); free(w); free(mid); free(tmp); free(m); free(km); return 0; }
+        if (photo_ev(path, &ev)) {             /* no EXIF: night */
+            day = (HOT_EV_NONE - ev) / (HOT_EV_NONE - HOT_EV_FULL);
+            day = day < 0 ? 0 : day > 1 ? 1 : day;
+            day *= day;                        /* steep: overcast daylight (EV 9-10) is daylight too */
         }
-        memcpy(area, m, n * sizeof(float));
-        memcpy(tight, m, n * sizeof(float));
-        memcpy(wide, m, n * sizeof(float));
-        r = H->w / 400; if (r < 1) r = 1;      /* tight: ~0.25% of width per pass */
-        box_blur(tight, tmp, H->w, H->h, r);
-        for (i = 0; i < n; i++) disc[i] = km[i] > DISC_COLOURED * m[i] ? km[i] : DISC_COLOURED * m[i];
-        memcpy(hot, km, n * sizeof(float));
-        box_blur(km, tmp, H->w, H->h, r);      /* white-hot cores, softened the same way */
-        {
-            int rd = (int)(H->w / DISC_SPREAD + 0.5f), rh = (int)(H->w / HOT_SPREAD + 0.5f);
-            float var, q, sc = 646.0f / H->w;   /* the same for the conversion's map and the preview's smaller one */
-            if (rd < 1) rd = 1;
-            if (rh < 2) rh = 2;
-            var = 3.0f * ((2 * rd + 1) * (2 * rd + 1) - 1) / 12.0f;
-            q = DISC_Q * sc * sc * 6.2832f * var;
-            box_blur(disc, tmp, H->w, H->h, rd);
-            /* 0.59: the ring grows with the source. A white-hot core counts again over a wider radius and needs
-             * much more light to fill it, so the nearest headlights and street lights get a wide ring and a small
-             * or coloured lamp keeps just its disc. Before, every lamp got about the same one. */
-            var = 3.0f * ((2 * rh + 1) * (2 * rh + 1) - 1) / 12.0f;
-            box_blur(hot, tmp, H->w, H->h, rh);
-            for (i = 0; i < n; i++) {
-                float d1 = 1.0f - (float)exp(-q * disc[i]);
-                hot[i] = hot_w * (1.0f - (float)exp(-HOT_Q * sc * sc * 6.2832f * var * hot[i]));
-                disc[i] = 1.0f - (1.0f - d1) * (1.0f - HOT_RING * hot[i]);
-            }
-        }
-        /* The surroundings, sources left out: blurred brightness over blurred share of non-source. */
-        for (i = 0; i < n; i++) { rest[i] = 1.0f - m[i] + 0.01f; lm[i] *= rest[i]; }
-        r = H->w / 60; if (r < 2) r = 2;
-        box_blur(lm, tmp, H->w, H->h, r);
-        box_blur(rest, tmp, H->w, H->h, r);
-        r = H->w / 70; if (r < 2) r = 2;       /* wide: ~1.4% of width per pass (0.13: 0.9%) */
-        box_blur(wide, tmp, H->w, H->h, r);
-        r = H->w / 24; if (r < 3) r = 3;       /* area: ~4% of width per pass */
-        box_blur(area, tmp, H->w, H->h, r);
+        /* area of each blur (3-pass box ~ Gaussian, 2 pi sigma^2): blurred value x area = light gathered */
+        A1 = 6.2832f * 3.0f * ((2 * r1 + 1) * (2 * r1 + 1) - 1) / 12.0f;
+        A2 = 6.2832f * 3.0f * ((2 * r2 + 1) * (2 * r2 + 1) - 1) / 12.0f;
+        A3 = 6.2832f * 3.0f * ((2 * r3 + 1) * (2 * r3 + 1) - 1) / 12.0f;
+        for (i = 0; i < n; i++) mid[i] = m[i] * (1.0f + HAL_HOT * day * km[i]);
+        memcpy(t, mid, n * sizeof(float));
+        memcpy(w, mid, n * sizeof(float));
+        box_blur(t, tmp, H->w, H->h, r1);
+        box_blur(mid, tmp, H->w, H->h, r2);
+        box_blur(w, tmp, H->w, H->h, r3);
         for (i = 0; i < n; i++) {
-            float a = tight[i] - m[i], b = wide[i] - m[i], g;
-            a = a < 0 ? 0 : a;
-            b = b < 0 ? 0 : b;
-            g = 3.0f * a + 3.2f * b * (hot_w + (1.0f - hot_w) * DAY_WIDE);   /* more weight on the wide, diffuse fringe */
-            g = g > 1 ? 1 : g;
-            /* 0.30: large blown areas (a lit wall) glow less than lamps, or dark objects in front of
-             * them turn red all over: area = share of near-clipped pixels in a wide neighbourhood. */
-            b = (area[i] - 0.12f) / 0.35f;
-            b = b < 0 ? 0 : b > 1 ? 1 : b;
-            {
-                /* Windows and lit walls (large areas) are not much over white: they get far less of a disc. */
-                float big = (area[i] - 0.10f) / 0.35f, d;
-                big = big < 0 ? 0 : big > 1 ? 1 : big;
-                d = disc[i] * (1.0f - m[i]) * (1.0f - 0.75f * big * (2 - big)) * (hot_w + (1.0f - hot_w) * DAY_DISC);
-                big = (lm[i] / rest[i] - DISC_DARK) / (DISC_BRIGHT - DISC_DARK);
-                big = big < 0 ? 0 : big > 1 ? 1 : big;
-                big = 1.0f - 0.85f * big * big * (3 - 2 * big);
-                /* 0.59: ... except around a compact white-hot source (the wide ring needs ~10 map pixels of core; a
-                 * large bright area is held back by the area test above). A headlight lights the road and the car in
-                 * front of it, so the nearest headlights, the brightest points in a night street, got the least
-                 * ring (0.22-0.55 of it, tail lights 0.8-1). */
-                big += (1.0f - big) * HOT_KEEP * hot[i];
-                d *= big;
-                g *= big;
-                g *= WIDE_GLOW * (1.0f - 0.65f * b * b * (3 - 2 * b));
-                m[i] = 1.0f - (1.0f - g) * (1.0f - d);
-            }
-            wide[i] = wide[i] > 1 ? 1 : wide[i];      /* cores: the source, widely softened */
-            /* 0.29: white-hot cores (km) get lifted back to white in halo_row. The 800T LUT maps
-             * white to ~224 grey and the glow brightened the surroundings above that, so lamp
-             * centres read as grey discs. */
-            km[i] = km[i] > 1 ? 1 : km[i];
+            /* (blurs can leave tiny negatives: pow of those is NaN) */
+            float g1 = HAL_C1 * (float)pow(t[i] > 0 ? A1 * t[i] : 0.0f, HAL_P);
+            float g2 = HAL_C2 * (float)pow(mid[i] > 0 ? A2 * mid[i] : 0.0f, HAL_P);
+            float g3 = HAL_C3 * (float)pow(w[i] > 0 ? A3 * w[i] : 0.0f, HAL_P) * (day + (1.0f - day) * DAY_WIDE);
+            float G = (g1 + g2 + g3) * (day + (1.0f - day) * HAL_DAY), g = 1.0f - (float)exp(-G);
+            t[i] = G > 0 ? (g1 + 0.5f * g2) / G : 0;     /* colour: amber where the tight light dominates */
+            w[i] = g * (1.0f - m[i]);                   /* not on the source cells themselves */
         }
+        free(mid);
+        /* 0.29: white-hot cores (km) get lifted back to white in halo_row: the 800T LUT maps white to ~224 grey */
+        r = H->w / 400; if (r < 1) r = 1;
+        box_blur(km, tmp, H->w, H->h, r);
+        for (i = 0; i < n; i++) km[i] = km[i] > 1 ? 1 : km[i];
         free(tmp);
-        free(tight);
-        free(area);
-        free(disc);
-        free(rest);
-        free(hot);
-        free(lm);
-        H->c = wide;
+        free(m);
+        H->g = w;
+        H->c = t;
         H->k = km;
     }
-    H->g = m;
     H->s = strength / 100.0f;
     return 1;
 }
@@ -1091,12 +1035,10 @@ static void halo_row(const halo_t *H, unsigned char *px, unsigned int width, uns
             tb = 0.03f + 0.12f * c;
         }
         {
-            /* 0.30: the glow fades out on already bright pixels (film's shoulder): looks that cap white
-             * below 255 otherwise got peach contours around lit walls. */
-            int mx = px[0] > px[1] ? px[0] : px[1];
-            float u;
-            mx = mx > px[2] ? mx : px[2];
-            u = (mx - 150) / 100.0f;
+            /* 0.60: no glow inside blown areas: tubes and lamps stay white, only the halo round them is coloured.
+             * (0.30-0.59 faded it on every pixel from 150 up: no red over a lamp's own bloom, a tube glowing on its
+             * dark side only.) */
+            float L = 0.2126f * px[0] + 0.7152f * px[1] + 0.0722f * px[2], u = (L - HAL_CORE_LO) / (HAL_CORE_HI - HAL_CORE_LO);
             u = u < 0 ? 0 : u > 1 ? 1 : u;
             a *= 1.0f - u * u * (3 - 2 * u);
         }
@@ -1104,6 +1046,17 @@ static void halo_row(const halo_t *H, unsigned char *px, unsigned int width, uns
             float tk = k == 0 ? tint[0] : k == 1 ? tg : tb;
             float c = 255.0f - (255.0f - px[k]) * (1.0f - a * tk);
             px[k] = (unsigned char)(c > 255.0f ? 255 : (int)(c + 0.5f));
+        }
+        {
+            /* 0.60: the glow also turns what it covers towards its own colour, at the same brightness (less where it
+             * is already bright, so lit brick keeps its colour): over a floodlight's bright bloom a screen alone only
+             * went pinkish-white. */
+            float L = 0.2126f * px[0] + 0.7152f * px[1] + 0.0722f * px[2], tl = 0.2126f + 0.7152f * tg + 0.0722f * tb;
+            float f = a * HAL_COL * (1.0f - HAL_COLB * L / 255.0f);
+            for (k = 0; k < 3; k++) {
+                float tk = k == 0 ? tint[0] : k == 1 ? tg : tb, v = L * tk / tl, c = px[k] + f * (v - px[k]);
+                px[k] = (unsigned char)(c < 0 ? 0 : c > 255.0f ? 255 : (int)(c + 0.5f));
+            }
         }
     }
 }

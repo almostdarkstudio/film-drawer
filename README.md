@@ -17,8 +17,8 @@ By Almost Dark Studio: https://almostdarkstudio.com
 > [tell us](../../issues/new/choose). Use at your own risk.
 
 **Read about it:** [The Phoblographer tried Film Drawer on an original a7](https://www.thephoblographer.com/2026/11/25/sony-a7-cinestill-800t-hack-film-drawer/)
-(25 November 2026, versions up to 0.52). Since then the grain is more visible and, since 0.55, works
-differently, and several looks have changed: see the [releases](../../releases).
+(25 November 2026, versions up to 0.52). Since then the grain works differently (0.55, and again in 0.59), the
+halation was rebuilt (0.60) and several looks have changed: see the [releases](../../releases).
 
 ## What it does
 - 41 looks in 8 groups: Kodak negative, Cinema, Fuji & Agfa negative, Fuji simulations, Slide,
@@ -48,7 +48,7 @@ differently, and several looks have changed: see the [releases](../../releases).
 | ![Garage shutter at night, camera JPEG](docs/examples/garage-camera.jpg) | ![The same photo in CineStill 800T](docs/examples/garage-cinestill-800t.jpg) |
 
 *Sony a7R II, with the app's own engine and settings for the look: colour, grain and the red halation around the
-lights. Made with 0.55 and resized for this page, no other editing. Photo: Almost Dark Studio.*
+lights. Made with 0.60 and resized for this page, no other editing. Photo: Almost Dark Studio.*
 
 ## Screenshots
 | | |
@@ -59,7 +59,7 @@ lights. Made with 0.55 and resized for this page, no other editing. Photo: Almos
 | ![Favourites](docs/screenshots/7-favourites.jpg)<br>MENU > Favourites: mark the looks you use | ![Controls](docs/screenshots/8-controls.jpg)<br>Controls: press Trash while shooting |
 | ![Film mode](docs/screenshots/9-film-mode.jpg)<br>MENU > Film mode: a roll of CineStill 800T, 14 of 36 frames | |
 
-*Drawn for 0.55 from the app's layout with its own film engine; the camera has no screenshot function, and its fonts may differ a little.*
+*Drawn for 0.60 from the app's layout with its own film engine; the camera has no screenshot function, and its fonts may differ a little.*
 
 ## Download
 Get `FilmDrawer-<version>.apk` and `SHA256SUMS.txt` from the [Releases](../../releases) page.

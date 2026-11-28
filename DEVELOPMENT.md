@@ -620,3 +620,31 @@ infrared.lut) now has ir_weight: full in the mids, 0.45 at 0.68, 0.15 at 0.82, 0
 The glass "glowing like a light source" holds yellow juice, which the look turns white (as IR film does). A tighter glow
 (wide radius halved, weight 0.9 -> 0.6) changed little round it and would weaken the foliage glow: kept as it was.
 Not yet checked on the earlier garden frames (not on this PC).
+
+## 0.60: halation as one model (800T and 50D)
+Two outside reviews of 0.59's 800T on 25 night frames (`samples/run-800t-set`, DSC02166-02178 and 12 others): colour and
+grain right, but the halation "looks like an effect laid on top": flat red discs with an edge and a dark gap round
+street lamps, all the same size; the brightest source (a floodlight, DSC02174) with no red; a tube glowing at one end
+(DSC02173); orange-lit shirt stripes and a hand glowing like neon while the windows behind did not (DSC01831). The
+house frame (DSC02166) was the one that worked.
+- Cause: halation had become a stack of fixes since 0.23 (outward-only glow, discs, area and surroundings damping, a fade
+  on every pixel from 150 up, a wide ring for white-hot lamps). It followed edges and contrast, not light: sources were
+  picked by the brightest channel (orange stripes counted), the fade removed the red over a lamp's own bloom, and the
+  surroundings test held back the brightest lamps.
+- Now (halo_build, halo_row): source = luminance 0.75-0.95 (max-pooled to 1/8); all-channel clipped cores count 3x.
+  Three blurs (map width / 300, / 100, / 35), each growing as (light gathered)^0.4 (C 0.52 / 0.20 / 0.045), summed,
+  1 - exp. Colour amber where the tight part dominates, red further out (tint as 0.59). halo_row: no glow inside blown
+  areas (output luminance 205-240, tubes stay white), a screen, and a pull of 0.33 towards the glow colour at the same
+  brightness (half that at white): a screen alone over a floodlight's bright bloom went pinkish-white.
+- Tried on the way: linear growth (the church windows flooded the top half red); saturating each blur (flat discs
+  again); a stronger colour pull 0.5 (the garage brick looked lit by an orange lamp: "pull it back by a third"); the
+  colour pull fully off on bright pixels (the floodlight lost its rim).
+- Daylight (50D, 15 frames from the card, `samples/run-50d-day`, EV 9.6-14): the first version added ten times 0.59's red
+  (sunlit whites and sky are near-white sources too). The whole glow now falls to 0.10 by day and the wide part further,
+  steeply from EV 8 to 11 (day^2). Red added (mean / 99th percentile): 0.59 0.1-0.5 / 3-10, 0.60 -1.1-0.6 / 1.5-2.5 on
+  the sunlit frames; the overcast garden DSC02105 (EV 9.6) 2.6 / 17.5 (0.59 0.3 / 7.5), a faint warmth on a white cushion.
+  Night (EV <= 8) is unaffected by the daylight gate.
+- Grain colour (GR_CHROMA 50 -> 25) tried for the campfire's purple wall ("coloured speckle"): at 100% hardly different;
+  most of that speckle is the camera's own ISO noise. Kept at 50.
+- Byte-identical to the approved prototype on 7 frames (800T and 50D, night and day); Infrared and Aerochrome unchanged;
+  parallel == serial pixels; preview, cancel and bad-file tests pass. PC timing 800T 463 -> 505 ms (pow per map cell).
