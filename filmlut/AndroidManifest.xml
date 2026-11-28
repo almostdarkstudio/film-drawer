@@ -1,9 +1,9 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Film Drawer for the a7R II: shoot with a film look, converted in the background; or browse and convert. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="dev.filmlut.app"
-    android:versionCode="58"
-    android:versionName="0.62">
+    android:versionCode="59"
+    android:versionName="0.63">
 
     <uses-sdk android:minSdkVersion="10" android:targetSdkVersion="10" />
 

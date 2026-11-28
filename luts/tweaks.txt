@@ -80,4 +80,8 @@ superia1600   green_hue=8  floor_r=1  floor_g=0  floor_b=-4  floor_p=3
 # Then (review of real frames at Film white balance): under a lamp it went "saturated warm grading rather than slide
 # film": the look raised saturation in every hue by ~25%. Oranges and yellows only back to the camera's (warm_sat 0.78;
 # skin 39 -> 48 -> 38, yellow 80 -> 99 -> 77); reds, blues, greens and the neutral greys unchanged.
-e100   slide=0.20  slide_pivot=0.48  toe_r=4  toe_g=3  toe_b=0  toe_p=3  warm_sat=0.78  red_pure=1.08
+# 0.63: slide film's top end goes towards clear base (outside review): white_roll 0.7 from output luminance 200 to 240.
+# The lamp-lit curtain in DSC02292 (Film white balance) now ends cream-white, (250,237,145) sat 0.42 -> (250,245,215)
+# 0.15; the orange mids (brightest channel 220-240) unchanged. Saturated colours only (0.15-0.40): ungated, a pale
+# golden-hour sky lost its cream (24-38% of bright daylight frames moved); gated, 1-2% (a crisp's yellow highlight).
+e100   slide=0.20  slide_pivot=0.48  toe_r=4  toe_g=3  toe_b=0  toe_p=3  warm_sat=0.78  red_pure=1.08  white_roll=0.7

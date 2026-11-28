@@ -70,7 +70,7 @@ no other editing. Photos: Almost Dark Studio.*
 | ![Favourites](docs/screenshots/7-favourites.jpg)<br>MENU > Favourites: mark the looks you use | ![Controls](docs/screenshots/8-controls.jpg)<br>Controls: press Trash while shooting |
 | ![Film mode](docs/screenshots/9-film-mode.jpg)<br>MENU > Film mode: a roll of CineStill 800T, 14 of 36 frames | |
 
-*Drawn for 0.62 from the app's layout with its own film engine; the camera has no screenshot function, and its fonts may differ a little.*
+*Drawn for 0.63 from the app's layout with its own film engine; the camera has no screenshot function, and its fonts may differ a little.*
 
 ## Download
 Get `FilmDrawer-<version>.apk` and `SHA256SUMS.txt` from the [Releases](../../releases) page.

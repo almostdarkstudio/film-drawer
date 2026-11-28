@@ -713,3 +713,33 @@ house frame (DSC02166) was the one that worked.
   65% of the way gives 3500 K / 5350 K: within 50 K of 3450 / 5300, kept. E100 under a domestic lamp on the camera came
   out amber-gold with believable skin, not the simulation's red-orange (the camera balances before its own saturation).
 - Opt-in for now. Film may become the default once the full sheets are reviewed (and the a7 is checked).
+
+## 0.63: E100's top end, and a white balance diagnostic
+- E100 (outside review, after the white balance question was settled: a 2700 K bulb against 5300 K is the light, not
+  the look): "on a slide, overexposed areas go towards clear film base ... the deep orange should sit in the midtones
+  and then desaturate towards white at the very top". It already rolled off (saturation 0.89 -> 0.42 up the brightest
+  channel in DSC02292) but ended cream-yellow (250,237,145). New tweak `white_roll` (assemble.py): above output
+  luminance 200, each colour moves towards neutral at its own brightest channel, up to 0.7 at 240 (smoothstep). Now
+  (250,245,213), saturation 0.15; the orange mids (brightest channel 220-240) unchanged. Only saturated colours roll
+  off (saturation 0.15 -> 0.40): ungated it also took the cream out of a golden-hour sky (DSC00788, 38% of pixels
+  moved > 3 levels, (244,241,228) -> (244,243,236)); gated, 1-2% of bright daylight frames move (a crisp's yellow
+  highlight goes paler). Only `e100.lut` changes.
+- Diagnostic for the lab-scan idea (debug only, DEBUG.TXT): each shutter press logs the camera's white-balance
+  parameters to TRACE.TXT at the press and 1.5 s after, to learn whether the camera reports the temperature its auto
+  white balance chose. If it does, White balance: Film can shoot at the film's balance and correct each frame by a share
+  of that (65% for negative and cine stocks, ~15% for slides, which labs matched rather than corrected); if not, the
+  cast is estimated from the photo (`luts/scancorr.py`: plain grey-world reads blue skies as a cast, needs better).
+  Target for either: per-frame kelvin 65% (in mired) from the film's balance to the frame's auto value, simulated from
+  the RAWs (`white-balance-*-camera-full-lab.jpg`): 800T daylight skin R-B +26 / -22 full / +10 lab, dusk -32 / -135 /
+  -70, night unchanged.
+- Battery level, bottom right while shooting (the user: the app is full screen, so the camera's own icon is hidden):
+  Android's sticky ACTION_BATTERY_CHANGED (level / scale), read every 30 s with the exposure text; amber at 15% and below;
+  hidden if the camera reports no level. With DEBUG.TXT each new reading goes to TRACE.TXT. Works on the a7R II
+  (64% -> 62% over 90 s of live view).
+- The camera keeps colour temperature in 100 K steps (TRACE: 3450 K set, 3400 K reported): the tungsten Film value is now
+  3500 K, the calibrated 65% value.
+- Camera check (TRACE, White balance: Camera, Auto): the camera reports whitebalance=auto with the stored manual value
+  (3600 K) at the shutter and after, not what auto chose: the lab-scan correction has to estimate the cast from the photo.
+  And just after opening it ignored the app's 5300 K ("camera has auto 3600" at 2 s, taken 11 s later at a look change):
+  applyLookWb now reads back and retries every 0.75 s, up to 8 times (then a report).
+  Confirmed with RAWs DSC02303-08 (samples/wb-cal): auto chose 2950-4225 K while the camera reported 3600 K throughout.

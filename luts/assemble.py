@@ -334,7 +334,26 @@ def apply_tweaks(cube, t):
         cube = band(cube, **bk)
     if "red_pure" in t:
         cube = red_pure(cube, t["red_pure"])
+    if "white_roll" in t:
+        cube = white_roll(cube, t["white_roll"], t.get("white_from", 200), t.get("white_to", 240))
     return cube
+
+
+def white_roll(cube, amount, lo=200.0, hi=240.0):
+    """Slide film's top end: overexposed areas go towards clear base, near-white on a lightbox. Above output luminance
+    `lo` each colour moves towards neutral at its own brightest channel, by up to `amount` at `hi` (smoothstep), so a
+    lamp-lit curtain rolls off from orange to cream-white instead of staying saturated yellow to the clip. Skies and skin
+    sit well below `lo`. Only saturated colours (saturation 0.15 -> 0.40, smoothstep): a pale cream sunset sky keeps its
+    warmth. 0.63, E100 (outside review: "the deep orange should ... desaturate towards white at the very top, not stay
+    saturated yellow all the way to clipping")."""
+    c = cube.astype(np.float32)
+    L = c @ np.array([0.2126, 0.7152, 0.0722], np.float32)
+    u = np.clip((L - lo) / (hi - lo), 0, 1)
+    mx = c.max(-1, keepdims=True)
+    s = np.clip(((mx[..., 0] - c.min(-1)) / np.maximum(mx[..., 0], 1) - 0.15) / 0.25, 0, 1)
+    k = amount * u * u * (3 - 2 * u) * s * s * (3 - 2 * s)
+    out = c + k[..., None] * (mx - c)
+    return np.clip(np.rint(out), 0, 255).astype(np.uint8)
 
 
 def slide(cube, amount, pivot=0.5):

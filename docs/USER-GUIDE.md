@@ -74,7 +74,7 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
   **Film (full)**. With Film, while you shoot, the camera is set to a fixed balance like real film has, so a daylight
   film goes amber under lamps and 800T goes blue at dusk and in daylight. Film (full) is the film's own balance: 3200 K
   for the tungsten films (CineStill 800T, Vision3 500T, Almost Dark), 5500 K for CineStill 50D, Vision3 250D and the
-  slide films. Film goes about two thirds of the way (3450 K, 5300 K), as a lab scan of the film usually looked. The
+  slide films. Film goes about two thirds of the way (3500 K, 5300 K), as a lab scan of the film usually looked. The
   other looks keep the camera's white balance (labs colour-correct negative scans). Only for photos taken in the app;
   your own white balance is put back when you leave.
 - **What buttons do**.
@@ -95,6 +95,9 @@ photo, as a motor drive does. The camera's own playback still shows its original
 **Deleting a converted photo** (PLAY, then Trash): the app asks first, with Cancel chosen. Up, then OK, deletes it. Trash
 again, MENU, PLAY or a half-press cancels. Only the converted copy is deleted, and the app warns you if the original is
 no longer on the card. The app never deletes originals: use the camera's own playback for those.
+
+While shooting, the bottom bar shows the exposure on the left and the battery level on the right (amber at 15% and
+below), since the app covers the camera's own display.
 
 The camera's mode dial sets the exposure mode as usual (P/A/S/M). Everything on Fn, C1 and C2 is also in the menu, for
 bodies without those buttons. To leave the app: MENU > Exit application (photos still

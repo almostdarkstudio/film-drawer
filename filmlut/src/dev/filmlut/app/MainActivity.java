@@ -101,7 +101,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private static final int[] REVIEW_VALUES = {0, 2000, 4000};
     private int reviewIndex = 0;
     /** White balance (MENU > Controls): Camera (its own auto, the default); Film: a fixed balance part of the way to the
-     *  film's own, as a lab scan of it looked (800T 3450 K, E100 5300 K); Film (full): the film's own (3200 K, 5500 K).
+     *  film's own, as a lab scan of it looked (800T 3500 K, E100 5300 K); Film (full): the film's own (3200 K, 5500 K).
      *  looks.txt; looks without one keep the camera's. 0.62, opt-in: every look was tuned on auto-white-balance photos;
      *  a fixed balance is what real film does in light it is not made for. */
     private static final String[] WB_NAMES = {"Camera", "Film", "Film (full)"};
@@ -315,6 +315,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         centre.setGravity(Gravity.CENTER);
         centre.setVisibility(View.GONE);
         exposure = label(Gravity.BOTTOM | Gravity.LEFT, 17);
+        battery = label(Gravity.BOTTOM | Gravity.RIGHT, 17);
+        battery.setSingleLine(true);
+        battery.setVisibility(View.GONE);
 
         // Look picker card (shoot mode): the last shot through the newly chosen look.
         card = new android.widget.LinearLayout(this);
@@ -353,6 +356,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         card.setVisibility(View.GONE);
 
         root.addView(exposure);
+        root.addView(battery);
         root.addView(topLeft);
         root.addView(topRight);
         root.addView(bottom);
@@ -1046,6 +1050,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         ui.removeCallbacks(openWaiting);
         ui.removeCallbacks(checkLive);
         ui.removeCallbacks(reopenCheck);
+        ui.removeCallbacks(retryWb);
+        wbRetries = 0;
         liveStarted = false;
         if (camera == null) return;
         if (aeLocked) setAeLock(false);                    // never leave exposure locked
@@ -1142,14 +1148,23 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
             p.setWhiteBalance("color-temp");
             p.set(WB_TEMP_KEY, k);
             camera.getNormalCamera().setParameters(p);
-            if (Diag.verbose()) {
-                android.hardware.Camera.Parameters got = params();
-                Diag.trace("white balance " + k + " K: camera has " + got.getWhiteBalance() + " " + got.get(WB_TEMP_KEY));
-            }
+            // 0.63: right after the camera opens it can ignore this (TRACE: "5300 K: camera has auto 3600" at 2 s, taken
+            // at the next look change 11 s later), so photos in the first seconds would be on the user's balance. Check,
+            // and try again a few times until it takes.
+            android.hardware.Camera.Parameters got = params();
+            boolean ok = "color-temp".equals(got.getWhiteBalance()) && String.valueOf(k).equals(got.get(WB_TEMP_KEY));
+            if (Diag.verbose()) Diag.trace("white balance " + k + " K: camera has " + got.getWhiteBalance() + " " + got.get(WB_TEMP_KEY));
+            ui.removeCallbacks(retryWb);
+            if (ok) wbRetries = 0;
+            else if (wbRetries++ < 8) ui.postDelayed(retryWb, 750);
+            else { wbRetries = 0; Diag.report("White balance " + k + " K not taken by the camera"); }
         } catch (Throwable t) {
             Diag.trace("white balance not set: " + t);
         }
     }
+
+    private int wbRetries;
+    private final Runnable retryWb = new Runnable() { public void run() { if (!browsing) applyLookWb(); } };
 
     /**
      * Camera sharpness for the current look (looks.txt; e.g. CineStill 800T -3: film is softer than
@@ -1301,9 +1316,39 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
 
     private String sceneMode = "";
 
+    /**
+     * Battery, bottom right while shooting (0.63: the app is full screen, so the camera's own icon is hidden). Android's
+     * sticky battery broadcast, read every 30 s; amber at 15% and below; hidden if the camera does not report a level.
+     */
+    private TextView battery;
+    private long batteryAt;
+    private int batteryPct = -1;
+
+    private void updateBattery() {
+        long now = System.currentTimeMillis();
+        if (batteryPct < 0 || now - batteryAt > 30000) {
+            batteryAt = now;
+            try {
+                Intent b = registerReceiver(null, new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+                int level = b == null ? -1 : b.getIntExtra("level", -1), scale = b == null ? -1 : b.getIntExtra("scale", -1);
+                int pct = level >= 0 && scale > 0 ? Math.round(100f * level / scale) : -1;
+                if (pct != batteryPct && Diag.verbose()) Diag.trace("battery " + level + "/" + scale);
+                batteryPct = pct;
+            } catch (Throwable t) {
+                batteryPct = -1;
+                Diag.trace("battery: " + t);
+            }
+        }
+        if (batteryPct < 0) { battery.setVisibility(View.GONE); return; }
+        battery.setText(batteryPct + "%");
+        battery.setTextColor(batteryPct <= 15 ? ACCENT : Color.WHITE);
+        battery.setVisibility(View.VISIBLE);
+    }
+
     /** f-stop / shutter / ISO / EV read from the camera's parameters (cheap, twice a second). */
     private void updateExposureText() {
-        if (browsing || reviewing || camera == null) { exposure.setVisibility(View.GONE); return; }
+        if (browsing || reviewing || camera == null) { exposure.setVisibility(View.GONE); battery.setVisibility(View.GONE); return; }
+        updateBattery();
         try {
             android.hardware.Camera.Parameters p = camera.getNormalCamera().getParameters();
             sceneMode = p.get("scene-mode") == null ? "" : p.get("scene-mode");
@@ -1511,9 +1556,29 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         liveStarted = false;
     }
 
+    /**
+     * Diagnostics (DEBUG.TXT): the camera's white-balance parameters at the shutter and 1.5 s after, to TRACE.TXT. 0.63
+     * question: with Auto, does the camera report the colour temperature it chose (so White balance: Film could correct
+     * each frame as a lab scan did, knowing the light)? Read-only.
+     */
+    private void traceWb(String when) {
+        if (!Diag.verbose() || camera == null) return;
+        try {
+            StringBuilder sb = new StringBuilder("wb " + when + ":");
+            for (String kv : camera.getNormalCamera().getParameters().flatten().split(";"))
+                if (kv.matches("(?i)[^=]*(white|temp|wb|awb|light-source|illuminant)[^=]*=.*")) sb.append(' ').append(kv);
+            Diag.trace(sb.toString());
+        } catch (Throwable t) {
+            Diag.trace("wb " + when + ": " + t);
+        }
+    }
+
+    private final Runnable traceWbLater = new Runnable() { public void run() { traceWb("after"); } };
+
     private void shutterPressed() {
         if (camera == null || liveTries > 0) return;
         if (sharpPending) { ui.removeCallbacks(applySharpnessLater); applySharpnessLater.run(); }   // look just changed
+        if (Diag.verbose()) { traceWb("shutter"); ui.removeCallbacks(traceWbLater); ui.postDelayed(traceWbLater, 1500); }
         try {
             if (rawOnly) {                                  // no JPEG will come: never queue a look for it
                 camera.getNormalCamera().takePicture(null, null, null);

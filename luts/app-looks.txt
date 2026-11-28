@@ -28,10 +28,10 @@ ultramax    45
 colorplus   40
 ektar100    15
 ## Cinema | Cine
-almostdark  35  wb=3200:3450
-vision500t  35  wb=3200:3450
+almostdark  35  wb=3200:3500
+vision500t  35  wb=3200:3500
 vision250d  30  wb=5500:5300
-cs800t      50   100  80   -1  wb=3200:3450
+cs800t      50   100  80   -1  wb=3200:3500
 cs50d       20   100  50   -2  wb=5500:5300
 k2383       30   80
 eterna      30
