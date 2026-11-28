@@ -70,7 +70,7 @@ Check the download first: `SHA256SUMS.txt` lists the APK's checksum.
   own choice is put back when you leave. Lock-on AF and Eye AF are not available.
 - **ISO**, **Dials** (which one is shutter speed) and **Wheel** (looks or ISO; with ISO, looks stay on Up / Down).
 - **Quick review**: Off (the default), 2 s or 4 s: each photo shown in its look just after you take it.
-- **White balance** (new): **Camera** (the default: the photo as your camera balanced it), **Film** or **Film (full)**.
+- **White balance**: **Film** (the default since 0.65), **Film (full)** or **Camera** (the photo as your camera balanced it).
   Real film has a fixed balance: 3200 K for the tungsten films (CineStill 800T, Vision3 500T, Almost Dark), 5500 K for
   CineStill 50D, Vision3 250D and the slide films. A daylight film goes amber under lamps, 800T goes blue at dusk and
   in daylight. **Film (full)** gives the whole cast, as on the film itself. **Film** gives what a lab scan of it looked
@@ -135,8 +135,9 @@ camera was switched off. Please check your settings the first time. Choose
 - Lock-on (tracking) AF, Eye AF, the Zone and expanded focus areas, and the camera's own custom buttons and dial settings
   do not work in the app.
 - RAW files already on the card without a JPEG cannot be converted.
-- The looks work on the camera's JPEG, after its white balance. With Controls > White balance: Camera (the default), CineStill
-  800T therefore goes less blue in daylight than real film.
+- The film balance (Controls > White balance: Film) reads the white balance the camera records in each photo, known for the
+  a7R II only: on other cameras the looks use the photo as the camera balanced it (so CineStill 800T goes less blue in
+  daylight than real film). It works from what Auto chose; with a manual white balance it works from that setting.
 - Previews (on the camera and in the photo file) do not show the grain; the photo itself does.
 - If your camera keeps contrast, saturation and sharpness separately for each Creative Style, your own values for Standard
   and Neutral may be left at the app's (not confirmed). If you have changed those two styles, please check them.

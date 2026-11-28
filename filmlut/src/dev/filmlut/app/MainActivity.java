@@ -100,7 +100,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
     private static final String[] REVIEW_NAMES = {"Off", "2 s", "4 s"};
     private static final int[] REVIEW_VALUES = {0, 2000, 4000};
     private int reviewIndex = 0;
-    /** White balance (MENU > Controls): Camera (as shot, the default); Film: the film's own balance (looks.txt: 800T 3200 K,
+    /** White balance (MENU > Controls): Camera (as shot); Film (the default since 0.65): the film's own balance (looks.txt: 800T 3200 K,
      *  E100 5500 K) with what a lab scan corrected out (negatives 65%, slides 15%); Film (full): all of the film's cast.
      *  Applied at conversion from what the camera's auto white balance chose (FilmBalance, 0.64); looks without a balance
      *  keep the camera's. Opt-in: every look was tuned on auto-white-balance photos. */
@@ -190,7 +190,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         wheelIndex = prefs.getInt("wheel", 0) == 1 ? 1 : 0;
         grainIndex = Math.max(0, Math.min(GRAIN_NAMES.length - 1, prefs.getInt("grain", 0)));
         reviewIndex = Math.max(0, Math.min(REVIEW_NAMES.length - 1, prefs.getInt("review2", 0)));
-        wbMode = Math.max(0, Math.min(WB_NAMES.length - 1, prefs.getInt("wbMode", 0)));
+        // 0.65: Film is the default (closest to film; outside review of 0.64). Saved as "wbMode2", so everyone starts on Film
+        // once (0.62-0.64 saved "wbMode", default Camera).
+        wbMode = Math.max(0, Math.min(WB_NAMES.length - 1, prefs.getInt("wbMode2", 1)));
         if (Native.LOAD_ERROR != null) {
             centre.setText("Native library failed to load:\n" + Native.LOAD_ERROR);
             return;
@@ -252,7 +254,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Jo
         Diag.dumpTrace("left the app (pause)");
         closeCamera();
         if (prefs != null) prefs.edit().putString("lookId", looks == null ? null : look().id).putBoolean("lookFav", looks != null && look().isFavourite()).remove("look").putInt("base", baseIndex).putInt("grain", grainIndex).remove("review").putInt("review2", reviewIndex)
-                .putInt("dials", dialIndex).putInt("wheel", wheelIndex).putInt("wbMode", wbMode).commit();
+                .putInt("dials", dialIndex).putInt("wheel", wheelIndex).remove("wbMode").putInt("wbMode2", wbMode).commit();
         if (prefs != null && !sizeAuto) prefs.edit().putInt("size", sizeIndex).commit();
     }
 

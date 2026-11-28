@@ -28,9 +28,10 @@ halation was rebuilt (0.60) and several looks have changed: see the [releases](.
   **Almost Dark**, in Cinema, is the studio's own low-light look: deep blacks, rich lamplight, clean lights.
 - Shoot inside the app. The conversion runs in
   the background (about 20-40 s per photo at JPEG size M on an a7R II, CineStill 800T the longest). When it is done,
-  "Developed" and the film's name show for a moment. A quick review of each photo in its look, and the film's own white
-  balance (new: a daylight film goes amber under lamps, 800T blue at dusk), are in Controls (both off by
-  default).
+  "Developed" and the film's name show for a moment. A quick review of each photo in its look is in Controls (off by default).
+- **The film's own white balance** (Sony a7R II): each look of a film with a fixed balance shows it as a lab scan of that
+  film looked, so a daylight film goes amber under lamps and CineStill 800T cool in daylight and blue at dusk. Worked
+  out for each photo from the white balance your camera chose (Controls > White balance: Film, Film (full) or Camera).
 - **Film mode** (MENU > Film mode): load a roll of one film, 24 or 36 frames, and shoot it like film. The film, grain,
   base style and size are fixed for the roll, there is no review, and PLAY is off. When the roll is finished (or you
   rewind it), it is developed and the whole roll comes back at once. You choose the film before you shoot, not after,
@@ -58,8 +59,8 @@ halation was rebuilt (0.60) and several looks have changed: see the [releases](.
 | ![Field by the sea with a tractor, camera JPEG](docs/examples/field-camera.jpg) | ![The same photo in Fuji 400H](docs/examples/field-fuji-400h.jpg) |
 
 *Sony a7R II, with the app's own engine and default settings for each look: colour or black and white tones, grain,
-and for CineStill the red halation around the lights. Made with 0.60 (Fuji 400H with 0.61) and resized for this page,
-no other editing. Photos: Almost Dark Studio.*
+and for CineStill the red halation around the lights and the film's white balance. CineStill 800T made with 0.65, Tri-X
+with 0.60, Fuji 400H with 0.61; resized for this page, no other editing. Photos: Almost Dark Studio.*
 
 ## Screenshots
 | | |
@@ -70,7 +71,7 @@ no other editing. Photos: Almost Dark Studio.*
 | ![Favourites](docs/screenshots/7-favourites.jpg)<br>MENU > Favourites: mark the looks you use | ![Controls](docs/screenshots/8-controls.jpg)<br>Controls: press Trash while shooting |
 | ![Film mode](docs/screenshots/9-film-mode.jpg)<br>MENU > Film mode: a roll of CineStill 800T, 14 of 36 frames | |
 
-*Drawn for 0.64 from the app's layout with its own film engine; the camera has no screenshot function, and its fonts may differ a little.*
+*Drawn for 0.65 from the app's layout with its own film engine; the camera has no screenshot function, and its fonts may differ a little.*
 
 ## Download
 Get `FilmDrawer-<version>.apk` and `SHA256SUMS.txt` from the [Releases](../../releases) page.
@@ -179,8 +180,9 @@ camera was switched off. Please check your settings the first time. Choose
 - Lock-on (tracking) AF, Eye AF, the Zone and expanded focus areas, and the camera's own custom buttons and dial settings
   do not work in the app.
 - RAW files already on the card without a JPEG cannot be converted.
-- The looks work on the camera's JPEG, after its white balance. With Controls > White balance: Camera (the default), CineStill
-  800T therefore goes less blue in daylight than real film.
+- The film balance (Controls > White balance: Film) reads the white balance the camera records in each photo, known for the
+  a7R II only: on other cameras the looks use the photo as the camera balanced it (so CineStill 800T goes less blue in
+  daylight than real film). It works from what Auto chose; with a manual white balance it works from that setting.
 - Previews (on the camera and in the photo file) do not show the grain; the photo itself does.
 - If your camera keeps contrast, saturation and sharpness separately for each Creative Style, your own values for Standard
   and Neutral may be left at the app's (not confirmed). If you have changed those two styles, please check them.

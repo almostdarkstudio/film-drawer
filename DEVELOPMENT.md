@@ -761,3 +761,13 @@ house frame (DSC02166) was the one that worked.
   (daylight skin target +10, app +8; sky -100 / -103; night +1 / +1), mean |difference| 1.4-2.9 levels, dusk 6.
 - The camera's white balance is no longer set (0.62-0.63 code removed; a value saved then is still put back once).
   Works on photos taken outside the app too, if they were shot on Auto.
+
+## 0.65: White balance: Film is the default
+- Outside review of the 0.64 sheets (Camera / Film / Film (full), 34 frames, 800T, E100, 50D): "the three columns now do
+  distinct, sensible things, and the defaults are in the right place"; 50D "right", 800T's lab-scan daylight "looks
+  like a real scan of 800T used outdoors", full "a striking look ... worth keeping as an option"; E100 at full size
+  (DSC02292): the curtain rolls off to (250,245,212), saturation 0.15, folds kept. The user: "as close to film as we
+  can get it".
+- Film is the default: saved as "wbMode2" (default 1), so everyone starts on Film once (0.62-0.64's "wbMode" is dropped).
+  Only the 11 looks with a balance change, only on the a7R II; the 800T night look holds on average (R-B +3 -> +1).
+- README garage example re-rendered with Film: auto had chosen 3150 K, the film is 3200 K: |diff| 1.7 levels.
