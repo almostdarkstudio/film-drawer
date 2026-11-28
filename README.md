@@ -32,7 +32,8 @@ halation was rebuilt (0.60) and several looks have changed: see the [releases](.
   default).
 - **Film mode** (MENU > Film mode): load a roll of one film, 24 or 36 frames, and shoot it like film. The film, grain,
   base style and size are fixed for the roll, there is no review, and PLAY is off. When the roll is finished (or you
-  rewind it), it is developed and the whole roll comes back at once.
+  rewind it), it is developed and the whole roll comes back at once. You choose the film before you shoot, not after,
+  and with nothing to check on the back you stay with what is in front of you.
 - Mark your **favourites** (MENU > Favourites) and they become the first group.
 - Browse any photo on the card, preview a look, and convert it. Or view your converted photos
   (the camera's own playback cannot show them) and delete the ones you don't want: PLAY.
